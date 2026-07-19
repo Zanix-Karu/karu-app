@@ -1,0 +1,17 @@
+{
+  "name": "karu-app",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Karu — verified car-rental marketplace for Cameroon (application monorepo)",
+  "scripts": {
+    "dev": "pnpm --parallel --filter \"./apps/*\" dev",
+    "dev:api": "pnpm --filter @karu/api start:dev",
+    "dev:web": "pnpm --filter @karu/web dev",
+    "build": "pnpm --filter \"./apps/*\" build",
+    "db:reset": "supabase db reset",
+    "db:push": "supabase db push"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
