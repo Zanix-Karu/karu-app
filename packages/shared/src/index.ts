@@ -23,7 +23,9 @@ export type BookingStatus =
   | 'in_progress'
   | 'completed';
 
-export type PaymentProvider = 'mtn_momo' | 'orange_money';
+// 'card' = UK card service (Stripe/Wise) for the MVP deposit;
+// 'manual' = recorded by the team outside any provider.
+export type PaymentProvider = 'mtn_momo' | 'orange_money' | 'card' | 'manual';
 export type PaymentStatus = 'pending' | 'held' | 'released' | 'refunded' | 'failed';
 
 export type ReviewTarget = 'customer' | 'vendor';
@@ -103,6 +105,10 @@ export interface Booking {
   status: BookingStatus;
   daily_rate_xaf: number;
   total_xaf: number;
+  /** Deposit actually charged (10–15% of total); null until payment phase. */
+  deposit_xaf: number | null;
+  /** Human-readable reference, e.g. KARU-20260719-0042. */
+  reference: string | null;
   currency: string;
   customer_note: string | null;
   vendor_note: string | null;
