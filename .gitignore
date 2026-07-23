@@ -11,3 +11,4 @@ coverage/
 .vite/
 supabase/.branches/
 supabase/.temp/
+*.tsbuildinfo
