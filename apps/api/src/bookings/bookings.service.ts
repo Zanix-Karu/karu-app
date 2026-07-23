@@ -158,6 +158,11 @@ export class BookingsService {
     return updated;
   }
 
+  /** A single booking, only if the caller is a party to it (or admin). */
+  async getForUser(bookingId: string, userId: string, role: UserRole): Promise<Booking> {
+    return this.getOwned(bookingId, userId, role);
+  }
+
   // --- helpers --------------------------------------------------------------
 
   private async getOwned(bookingId: string, userId: string, role: UserRole): Promise<Booking> {
