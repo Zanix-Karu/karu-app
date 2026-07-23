@@ -38,3 +38,16 @@ export class BrowseVehiclesQuery {
   @IsOptional() @IsIn(CITIES) city?: City;
   @IsOptional() @IsIn(CATEGORIES) category?: VehicleCategory;
 }
+
+export class UploadPhotoDto {
+  @IsString()
+  @MaxLength(120)
+  file_name!: string;
+}
+
+export class AttachPhotoDto {
+  /** Storage path returned by the upload endpoint. */
+  @IsString()
+  @MaxLength(300)
+  path!: string;
+}

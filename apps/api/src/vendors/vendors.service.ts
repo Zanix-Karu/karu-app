@@ -1,11 +1,16 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { Vendor } from '@karu/shared';
+import { randomUUID } from 'node:crypto';
+import type { DocumentType, Vendor } from '@karu/shared';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CreateVendorDto } from './dto';
+
+/** Private bucket for verification documents — access via signed URLs only. */
+const DOCUMENTS_BUCKET = 'vendor-documents';
 
 @Injectable()
 export class VendorsService {
@@ -43,6 +48,40 @@ export class VendorsService {
       .maybeSingle();
     if (error || !data) throw new NotFoundException('No vendor for this account');
     return data as Vendor;
+  }
+
+  /**
+   * Start a verification-document upload. Issues a one-time signed upload URL
+   * for the private bucket and upserts the vendor_documents row back to
+   * 'pending' (re-uploading a rejected document restarts its review). The
+   * file itself goes browser → storage directly; it never streams through
+   * the API.
+   */
+  async createDocumentUpload(profileId: string, type: DocumentType) {
+    const vendor = await this.getByProfile(profileId);
+    const path = `${vendor.id}/${type}-${randomUUID()}`;
+
+    const { data: upload, error: storageError } = await this.supabase.db.storage
+      .from(DOCUMENTS_BUCKET)
+      .createSignedUploadUrl(path);
+    if (storageError || !upload) {
+      throw new BadRequestException(storageError?.message ?? 'Could not create upload URL');
+    }
+
+    const { data, error } = await this.supabase.db
+      .from('vendor_documents')
+      .upsert(
+        { vendor_id: vendor.id, type, file_path: path, status: 'pending' },
+        { onConflict: 'vendor_id,type' },
+      )
+      .select('*')
+      .single();
+    if (error || !data) throw new BadRequestException(error?.message ?? 'Could not record document');
+
+    return {
+      document: data,
+      upload: { path: upload.path, token: upload.token, signedUrl: upload.signedUrl },
+    };
   }
 
   /** Public directory of verified vendors. */
