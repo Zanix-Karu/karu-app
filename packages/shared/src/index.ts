@@ -4,6 +4,11 @@
  * mirror the Postgres enums one-to-one.
  */
 
+// Generated 1:1 mirror of the live Postgres schema — use for typing the
+// Supabase client (createClient<Database>). Hand-written entity shapes below
+// remain the API's public contract.
+export type { Database, Json, Tables, TablesInsert, TablesUpdate } from './database.types';
+
 export type UserRole = 'customer' | 'vendor' | 'admin';
 export type City = 'douala' | 'yaounde' | 'other';
 
