@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './ds/tokens.css';
 
 /* Karu design tokens — lifted from the approved mockups' design system:
    gold/yellow CTAs on warm ink, cream surfaces, Georgia serif display type. */

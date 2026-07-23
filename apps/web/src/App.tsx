@@ -36,7 +36,13 @@ function Header() {
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
         <Link
           to="/search"
-          className="font-display text-2xl font-bold tracking-widest text-karu-yellow"
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontWeight: 700,
+            fontSize: 26,
+            letterSpacing: '0.3em',
+            color: 'var(--gold-400)',
+          }}
         >
           KARU
         </Link>
