@@ -1,9 +1,12 @@
+import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsDateString,
   IsIn,
   IsInt,
   IsOptional,
   IsString,
+  Max,
   Min,
   MaxLength,
 } from 'class-validator';
@@ -37,6 +40,30 @@ export class CreateVehicleDto {
 export class BrowseVehiclesQuery {
   @IsOptional() @IsIn(CITIES) city?: City;
   @IsOptional() @IsIn(CATEGORIES) category?: VehicleCategory;
+  @IsOptional() @IsIn(TRANSMISSIONS) transmission?: Transmission;
+
+  /** Minimum seat count (passenger count fits if seats >= this). */
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) seats?: number;
+
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) min_price?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) max_price?: number;
+
+  /** Both required together to filter by availability window (inclusive). */
+  @IsOptional() @IsDateString() from?: string;
+  @IsOptional() @IsDateString() to?: string;
+
+  @IsOptional() @IsIn(['price_asc', 'price_desc', 'newest']) sort?:
+    | 'price_asc'
+    | 'price_desc'
+    | 'newest';
+
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(50) limit?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) offset?: number;
+}
+
+export class AvailabilityQuery {
+  @IsDateString() from!: string;
+  @IsDateString() to!: string;
 }
 
 export class UploadPhotoDto {

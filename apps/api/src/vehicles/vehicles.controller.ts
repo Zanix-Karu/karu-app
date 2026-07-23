@@ -2,7 +2,13 @@ import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import type { UserRole } from '@karu/shared';
 import { CurrentUser, Public, Roles } from '../auth/decorators';
 import { VehiclesService } from './vehicles.service';
-import { AttachPhotoDto, BrowseVehiclesQuery, CreateVehicleDto, UploadPhotoDto } from './dto';
+import {
+  AttachPhotoDto,
+  AvailabilityQuery,
+  BrowseVehiclesQuery,
+  CreateVehicleDto,
+  UploadPhotoDto,
+} from './dto';
 
 @Controller('vehicles')
 export class VehiclesController {
@@ -26,6 +32,13 @@ export class VehiclesController {
   @Get(':id')
   getOne(@Param('id') id: string) {
     return this.vehicles.getById(id);
+  }
+
+  /** Is this car free for [from, to]? Public — powers the booking widget. */
+  @Public()
+  @Get(':id/availability')
+  availability(@Param('id') id: string, @Query() query: AvailabilityQuery) {
+    return this.vehicles.availability(id, query.from, query.to);
   }
 
   @Roles('vendor')
