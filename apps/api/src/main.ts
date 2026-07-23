@@ -23,8 +23,9 @@ async function bootstrap() {
     .filter(Boolean);
   app.enableCors({ origin: origins.length ? origins : true, credentials: true });
 
-  const port = config.get<number>('API_PORT') ?? 3000;
-  await app.listen(port);
+  // PORT is what PaaS hosts (Railway/Render/Fly) inject; API_PORT is ours.
+  const port = config.get<number>('PORT') ?? config.get<number>('API_PORT') ?? 3000;
+  await app.listen(port, '0.0.0.0');
   // eslint-disable-next-line no-console
   console.log(`Karu API listening on http://localhost:${port}/api`);
 }
