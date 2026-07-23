@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "karu-web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@karu/web", "dev"],
+      "port": 5173
+    }
+  ]
+}
