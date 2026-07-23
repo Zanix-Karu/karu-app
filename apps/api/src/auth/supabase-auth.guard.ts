@@ -4,29 +4,27 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
-import * as jwt from 'jsonwebtoken';
 import type { UserRole } from '@karu/shared';
 import { SupabaseService } from '../supabase/supabase.service';
 import { IS_PUBLIC_KEY } from './decorators';
+import { TokenVerifierService } from './token-verifier.service';
 import type { AuthUser } from './auth.types';
 
 /**
- * Verifies the Supabase-issued access token on the Authorization header.
- *
- * Supabase signs access tokens with HS256 using the project's JWT secret, so we
- * verify locally (no network round-trip). The token's `sub` is the user id; we
- * then resolve the application role from the `profiles` table. The role is NOT
- * trusted from the token, since a client controls its own user_metadata.
+ * Authenticates requests via the Supabase access token on the Authorization
+ * header (see TokenVerifierService for how tokens are verified). The token's
+ * `sub` is the user id; the application role is then resolved from the
+ * `profiles` table. The role is NOT trusted from the token, since a client
+ * controls its own user_metadata.
  */
 @Injectable()
 export class SupabaseAuthGuard implements CanActivate {
   constructor(
-    private readonly config: ConfigService,
     private readonly reflector: Reflector,
     private readonly supabase: SupabaseService,
+    private readonly verifier: TokenVerifierService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -40,14 +38,7 @@ export class SupabaseAuthGuard implements CanActivate {
     const token = this.extractToken(req);
     if (!token) throw new UnauthorizedException('Missing bearer token');
 
-    let payload: jwt.JwtPayload;
-    try {
-      payload = jwt.verify(token, this.config.getOrThrow<string>('SUPABASE_JWT_SECRET'), {
-        algorithms: ['HS256'],
-      }) as jwt.JwtPayload;
-    } catch {
-      throw new UnauthorizedException('Invalid or expired token');
-    }
+    const payload = await this.verifier.verify(token);
 
     const userId = payload.sub;
     if (!userId) throw new UnauthorizedException('Token missing subject');
