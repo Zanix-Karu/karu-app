@@ -1,9 +1,8 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
+    "module": "nodenext",
     "target": "ES2022",
-    "moduleResolution": "node",
-    "declaration": true,
+    "moduleResolution": "nodenext",
     "removeComments": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
@@ -12,7 +11,10 @@
     "resolveJsonModule": true,
     "sourceMap": true,
     "outDir": "./dist",
-    "baseUrl": "./",
+    // TS7 no longer widens rootDir to cover cross-package imports; the
+    // workspace root keeps @karu/shared inside the program. Emit lands at
+    // dist/apps/api/src/main.js (see start:prod / nest-cli entryFile).
+    "rootDir": "../..",
     "incremental": true,
     "skipLibCheck": true,
     "strict": true,
