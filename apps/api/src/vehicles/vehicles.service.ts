@@ -9,6 +9,7 @@ import type { UserRole, Vehicle } from '@karu/shared';
 import { SupabaseService } from '../supabase/supabase.service';
 import { VendorsService } from '../vendors/vendors.service';
 import { BrowseVehiclesQuery, CreateVehicleDto } from './dto';
+import { assertValidWindow } from './dates';
 
 /** Public bucket — listing photos are served directly by their public URL. */
 const PHOTOS_BUCKET = 'vehicle-photos';
@@ -32,14 +33,97 @@ export class VehiclesService {
     return data as Vehicle;
   }
 
-  /** Public browse: only active vehicles, optionally filtered. */
+  /**
+   * Public browse: active vehicles of verified vendors only, filterable by
+   * city / category / transmission / seats / price, and — when a date window
+   * is given — excluding vehicles that are booked (confirmed/in_progress) or
+   * blocked for any overlapping day.
+   */
   async browse(query: BrowseVehiclesQuery): Promise<Vehicle[]> {
-    let q = this.supabase.db.from('vehicles').select('*').eq('status', 'active');
+    let q = this.supabase.db
+      .from('vehicles')
+      .select('*, vendors!inner(status)')
+      .eq('status', 'active')
+      .eq('vendors.status', 'verified');
+
     if (query.city) q = q.eq('city', query.city);
     if (query.category) q = q.eq('category', query.category);
-    const { data, error } = await q.order('daily_rate_xaf', { ascending: true });
-    if (error) throw new NotFoundException(error.message);
-    return (data ?? []) as Vehicle[];
+    if (query.transmission) q = q.eq('transmission', query.transmission);
+    if (query.seats !== undefined) q = q.gte('seats', query.seats);
+    if (query.min_price !== undefined) q = q.gte('daily_rate_xaf', query.min_price);
+    if (query.max_price !== undefined) q = q.lte('daily_rate_xaf', query.max_price);
+
+    if (query.from || query.to) {
+      if (!query.from || !query.to) {
+        throw new BadRequestException('Provide both from and to to filter by dates');
+      }
+      assertValidWindow(query.from, query.to);
+      const excluded = await this.vehiclesUnavailableBetween(query.from, query.to);
+      if (excluded.length) q = q.not('id', 'in', `(${excluded.join(',')})`);
+    }
+
+    const sort = query.sort ?? 'price_asc';
+    if (sort === 'newest') q = q.order('created_at', { ascending: false });
+    else q = q.order('daily_rate_xaf', { ascending: sort === 'price_asc' });
+
+    const limit = query.limit ?? 20;
+    const offset = query.offset ?? 0;
+    q = q.range(offset, offset + limit - 1);
+
+    const { data, error } = await q;
+    if (error) throw new BadRequestException(error.message);
+    // Strip the joined vendors column used only for the verified filter.
+    return (data ?? []).map(({ vendors: _vendors, ...v }) => v) as Vehicle[];
+  }
+
+  /** Can this vehicle be rented for [from, to]? Lists what's in the way if not. */
+  async availability(vehicleId: string, from: string, to: string) {
+    assertValidWindow(from, to);
+    await this.getById(vehicleId); // 404 for unknown vehicles
+
+    const overlap = <T extends string>(table: T, extra: Record<string, unknown> = {}) => {
+      let q = this.supabase.db
+        .from(table)
+        .select('start_date, end_date')
+        .eq('vehicle_id', vehicleId)
+        .lte('start_date', to)
+        .gte('end_date', from);
+      for (const [col, val] of Object.entries(extra)) {
+        q = q.in(col, val as string[]);
+      }
+      return q;
+    };
+
+    const [bookings, blocks] = await Promise.all([
+      overlap('bookings', { status: ['confirmed', 'in_progress'] }),
+      overlap('vehicle_blocks'),
+    ]);
+    if (bookings.error) throw new BadRequestException(bookings.error.message);
+    if (blocks.error) throw new BadRequestException(blocks.error.message);
+
+    const conflicts = [...(bookings.data ?? []), ...(blocks.data ?? [])];
+    return { available: conflicts.length === 0, conflicts };
+  }
+
+  /** Vehicle ids that hold a booking or a block overlapping [from, to]. */
+  private async vehiclesUnavailableBetween(from: string, to: string): Promise<string[]> {
+    const [booked, blocked] = await Promise.all([
+      this.supabase.db
+        .from('bookings')
+        .select('vehicle_id')
+        .in('status', ['confirmed', 'in_progress'])
+        .lte('start_date', to)
+        .gte('end_date', from),
+      this.supabase.db
+        .from('vehicle_blocks')
+        .select('vehicle_id')
+        .lte('start_date', to)
+        .gte('end_date', from),
+    ]);
+    if (booked.error) throw new BadRequestException(booked.error.message);
+    if (blocked.error) throw new BadRequestException(blocked.error.message);
+    const ids = [...(booked.data ?? []), ...(blocked.data ?? [])].map((r) => r.vehicle_id);
+    return [...new Set(ids)];
   }
 
   async getById(id: string): Promise<Vehicle> {
