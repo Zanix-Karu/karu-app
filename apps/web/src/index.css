@@ -1,1 +1,20 @@
 @import 'tailwindcss';
+
+/* Karu design tokens — lifted from the approved mockups' design system:
+   gold/yellow CTAs on warm ink, cream surfaces, Georgia serif display type. */
+@theme {
+  --color-karu-yellow: #fbd301;
+  --color-karu-ink: #1c1006;
+  --color-karu-gold: #d7b220;
+  --color-karu-amber: #edb337;
+  --color-karu-cream: #f4efe7;
+  --color-karu-terracotta: #c23b2e;
+  --color-karu-brown: #442d1e;
+  --color-karu-mute: #8a7a63;
+
+  --font-display: Georgia, 'Times New Roman', serif;
+}
+
+body {
+  @apply bg-karu-cream text-karu-ink antialiased;
+}

@@ -1,51 +1,138 @@
-import { useEffect, useState } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  BrowserRouter,
+  Link,
+  NavLink,
+  Navigate,
+  Route,
+  Routes,
+  useNavigate,
+} from 'react-router-dom';
+import { AuthProvider, RequireAdmin, RequireAuth, useAuth } from './lib/auth';
+import { AuthScreen } from './screens/AuthScreen';
+import { SearchScreen } from './screens/SearchScreen';
+import { CarDetailScreen } from './screens/CarDetailScreen';
+import { ConfirmationScreen } from './screens/ConfirmationScreen';
+import { BookingsScreen } from './screens/BookingsScreen';
+import { ProfileScreen } from './screens/ProfileScreen';
+import { AdminScreen } from './screens/AdminScreen';
+import { Button } from './ui';
 
-/**
- * Placeholder shell. This is intentionally minimal — the real UI code drops in
- * here. It pings the API health endpoint so you can confirm web → API wiring.
- */
-export default function App() {
-  const [apiStatus, setApiStatus] = useState<'checking' | 'ok' | 'down'>('checking');
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
+});
 
-  useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/api/health`)
-      .then((r) => (r.ok ? setApiStatus('ok') : setApiStatus('down')))
-      .catch(() => setApiStatus('down'));
-  }, []);
+function Header() {
+  const { session, profile, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const nav = ({ isActive }: { isActive: boolean }) =>
+    `rounded-full px-4 py-1.5 text-sm font-semibold transition ${
+      isActive ? 'bg-karu-yellow text-karu-ink' : 'text-karu-cream/80 hover:text-karu-yellow'
+    }`;
 
   return (
-    <main className="min-h-screen bg-neutral-50 text-neutral-900 flex items-center justify-center p-6">
-      <div className="max-w-md w-full rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm">
-        <h1 className="text-2xl font-semibold">Karu</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Verified car-rental marketplace — application scaffold
-        </p>
-
-        <div className="mt-6 flex items-center gap-2 text-sm">
-          <span
-            className={
-              'inline-block h-2.5 w-2.5 rounded-full ' +
-              (apiStatus === 'ok'
-                ? 'bg-green-500'
-                : apiStatus === 'down'
-                  ? 'bg-red-500'
-                  : 'bg-amber-400')
-            }
-          />
-          <span className="text-neutral-600">
-            API:{' '}
-            {apiStatus === 'checking'
-              ? 'checking…'
-              : apiStatus === 'ok'
-                ? 'connected'
-                : 'not reachable (start @karu/api)'}
-          </span>
+    <header className="sticky top-0 z-20 bg-karu-ink">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
+        <Link
+          to="/search"
+          className="font-display text-2xl font-bold tracking-widest text-karu-yellow"
+        >
+          KARU
+        </Link>
+        <nav className="flex items-center gap-1">
+          <NavLink to="/search" className={nav}>
+            Find a car
+          </NavLink>
+          {session && (
+            <NavLink to="/bookings" className={nav}>
+              My bookings
+            </NavLink>
+          )}
+          {profile?.role === 'admin' && (
+            <NavLink to="/admin" className={nav}>
+              Admin
+            </NavLink>
+          )}
+        </nav>
+        <div className="flex items-center gap-2">
+          {session ? (
+            <>
+              <NavLink to="/profile" className={nav}>
+                {profile?.full_name?.split(' ')[0] ?? 'Profile'}
+              </NavLink>
+              <Button
+                variant="ghost"
+                className="text-karu-cream/70 hover:bg-white/10"
+                onClick={async () => {
+                  await signOut();
+                  navigate('/search');
+                }}
+              >
+                Sign out
+              </Button>
+            </>
+          ) : (
+            <Button onClick={() => navigate('/auth')}>Sign in</Button>
+          )}
         </div>
-
-        <p className="mt-6 text-xs text-neutral-400">
-          Drop your UI code into <code className="font-mono">apps/web/src</code>.
-        </p>
       </div>
-    </main>
+    </header>
+  );
+}
+
+export default function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <BrowserRouter>
+          <Header />
+          <main className="mx-auto max-w-6xl px-4 py-8">
+            <Routes>
+              <Route path="/" element={<Navigate to="/search" replace />} />
+              <Route path="/auth" element={<AuthScreen />} />
+              <Route path="/search" element={<SearchScreen />} />
+              <Route path="/cars/:id" element={<CarDetailScreen />} />
+              <Route
+                path="/bookings/:id/confirmed"
+                element={
+                  <RequireAuth>
+                    <ConfirmationScreen />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/bookings"
+                element={
+                  <RequireAuth>
+                    <BookingsScreen />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <RequireAuth>
+                    <ProfileScreen />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/admin"
+                element={
+                  <RequireAdmin>
+                    <AdminScreen />
+                  </RequireAdmin>
+                }
+              />
+              <Route path="*" element={<Navigate to="/search" replace />} />
+            </Routes>
+          </main>
+          <footer className="mx-auto max-w-6xl px-4 pb-8 text-center text-xs text-karu-mute">
+            Karu — verified car rental for Cameroon · Douala & Yaoundé
+          </footer>
+        </BrowserRouter>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }

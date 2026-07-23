@@ -21,6 +21,16 @@ export class BookingsController {
     return this.bookings.listForUser(userId, role);
   }
 
+  /** One booking — visible only to its customer, its vendor, or an admin. */
+  @Get(':id')
+  getOne(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole,
+  ) {
+    return this.bookings.getForUser(id, userId, role);
+  }
+
   /** Advance the booking state machine (vendor confirm/reject, customer cancel, …). */
   @Patch(':id/status')
   transition(
