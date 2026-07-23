@@ -1,13 +1,16 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { canTransitionBooking } from '@karu/shared';
+import { canTransitionBooking, computeDepositXaf } from '@karu/shared';
 import type { Booking, BookingStatus, UserRole } from '@karu/shared';
 import { SupabaseService } from '../supabase/supabase.service';
 import { VehiclesService } from '../vehicles/vehicles.service';
+import { assertValidWindow } from '../vehicles/dates';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateBookingDto } from './dto';
 
 /** Status changes each role is permitted to drive (on top of the state machine). */
@@ -22,17 +25,47 @@ export class BookingsService {
   constructor(
     private readonly supabase: SupabaseService,
     private readonly vehicles: VehiclesService,
+    private readonly notifications: NotificationsService,
   ) {}
 
-  /** A customer requests a vehicle. Price is snapshotted from the vehicle. */
+  /**
+   * A customer requests a vehicle. Price and deposit are computed server-side
+   * from the vehicle's current rate (snapshotted so later edits never change
+   * an existing booking), availability is pre-checked, and a human-readable
+   * reference is minted. Both parties are emailed (best-effort).
+   */
   async create(customerId: string, dto: CreateBookingDto): Promise<Booking> {
+    assertValidWindow(dto.start_date, dto.end_date);
+    const today = new Date().toISOString().slice(0, 10);
+    if (dto.start_date < today) {
+      throw new BadRequestException('start_date cannot be in the past');
+    }
+
     const vehicle = await this.vehicles.getById(dto.vehicle_id);
     if (vehicle.status !== 'active') {
       throw new BadRequestException('Vehicle is not available for booking');
     }
 
+    // Pre-check availability for a friendly 409. The DB exclusion constraint
+    // remains the race-proof backstop at confirmation time.
+    const { available } = await this.vehicles.availability(
+      dto.vehicle_id,
+      dto.start_date,
+      dto.end_date,
+    );
+    if (!available) {
+      throw new ConflictException('Vehicle is already booked or blocked for those dates');
+    }
+
     const days = this.rentalDays(dto.start_date, dto.end_date);
     const total = vehicle.daily_rate_xaf * days;
+
+    const { data: reference, error: refError } = await this.supabase.db.rpc(
+      'next_booking_reference',
+    );
+    if (refError || !reference) {
+      throw new BadRequestException(refError?.message ?? 'Could not allocate reference');
+    }
 
     const { data, error } = await this.supabase.db
       .from('bookings')
@@ -46,12 +79,17 @@ export class BookingsService {
         customer_note: dto.customer_note ?? null,
         daily_rate_xaf: vehicle.daily_rate_xaf,
         total_xaf: total,
+        deposit_xaf: computeDepositXaf(total),
+        reference,
         status: 'requested',
       })
       .select('*')
       .single();
     if (error || !data) throw new BadRequestException(error?.message ?? 'Could not create booking');
-    return data as Booking;
+
+    const booking = data as Booking;
+    await this.notifications.notifyBookingEvent(booking, 'requested');
+    return booking;
   }
 
   /** Bookings visible to the caller: as the customer, or as the vendor's vehicles. */
@@ -104,8 +142,20 @@ export class BookingsService {
       .eq('id', bookingId)
       .select('*')
       .single();
-    if (error || !data) throw new BadRequestException(error?.message ?? 'Transition failed');
-    return data as Booking;
+    if (error || !data) {
+      // 23P01: the bookings_no_overlap exclusion constraint — another booking
+      // for this vehicle was confirmed for overlapping dates since we checked.
+      if (error?.code === '23P01') {
+        throw new ConflictException('Those dates were just taken by another booking');
+      }
+      throw new BadRequestException(error?.message ?? 'Transition failed');
+    }
+
+    const updated = data as Booking;
+    if (next === 'confirmed' || next === 'rejected' || next === 'cancelled') {
+      await this.notifications.notifyBookingEvent(updated, next);
+    }
+    return updated;
   }
 
   // --- helpers --------------------------------------------------------------
