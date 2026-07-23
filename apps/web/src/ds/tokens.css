@@ -1,0 +1,62 @@
+/* Karu design tokens — verbatim from the approved mockups' design system. */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Outfit:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --brown-900: #1c1006;
+  --brown-800: #35200a;
+  --brown-700: #442d1e;
+  --brown-600: #53310f;
+  --brown-500: #7d4a17;
+  --brown-400: #97591c;
+  --brown-300: #b07a3e;
+  --yellow: #fbd301;
+  --yellow-soft: #f6dc53;
+  --gold-600: #a2730c;
+  --gold-500: #d7b220;
+  --gold-400: #edb337;
+  --white: #ffffff;
+  --cream-100: #fffafa;
+  --cream-200: #f4efe7;
+  --sand-300: #d9d9d9;
+  --gray-500: #5b5858;
+  --gray-400: #a3a2a2;
+  --gray-300: #c9c9c9;
+  --ink: #0b0b0b;
+  --success: #2e9e3f;
+  --danger: #f60606;
+
+  --bg-page: var(--brown-800);
+  --bg-gradient: linear-gradient(180deg, var(--brown-800) 0%, var(--brown-400) 100%);
+  --bg-canvas: var(--cream-200);
+  --surface-card: var(--white);
+  --surface-sunken: var(--brown-600);
+  --surface-panel: var(--brown-700);
+  --text-on-dark: var(--white);
+  --text-on-dark-muted: rgba(255, 255, 255, 0.72);
+  --text-primary: var(--ink);
+  --text-secondary: var(--gray-500);
+  --text-placeholder: var(--gray-400);
+  --text-link: var(--gold-600);
+  --brand: var(--yellow);
+  --brand-ink: var(--ink);
+  --action-secondary: var(--gold-600);
+  --border-light: var(--gray-300);
+  --border-on-dark: rgba(255, 255, 255, 0.9);
+  --divider: rgba(0, 0, 0, 0.12);
+  --rating: var(--gold-500);
+
+  --font-display: 'Cormorant Garamond', ui-serif, Georgia, 'Times New Roman', serif;
+  --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  --radius-sm: 5px;
+  --radius-md: 10px;
+  --radius-lg: 15px;
+  --radius-xl: 24px;
+  --radius-2xl: 60px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
+  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 7px 3px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.2);
+}
