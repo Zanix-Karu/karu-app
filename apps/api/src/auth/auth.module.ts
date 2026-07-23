@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { SupabaseAuthGuard } from './supabase-auth.guard';
 import { RolesGuard } from './roles.guard';
+import { TokenVerifierService } from './token-verifier.service';
 
 /**
  * Registers global guards: every route requires a valid Supabase token
@@ -10,6 +11,7 @@ import { RolesGuard } from './roles.guard';
  */
 @Module({
   providers: [
+    TokenVerifierService,
     { provide: APP_GUARD, useClass: SupabaseAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],
