@@ -48,6 +48,18 @@ export function canTransitionBooking(from: BookingStatus, to: BookingStatus): bo
   return BOOKING_TRANSITIONS[from].includes(to);
 }
 
+/**
+ * Deposit charged at booking time (MVP: the rest is settled at pick-up).
+ * 15% — the top of the 10–15% band agreed in the MVP plan, pending the
+ * final payment-provider decision.
+ */
+export const DEPOSIT_RATE = 0.15;
+
+/** Deposit in whole XAF for a given booking total. */
+export function computeDepositXaf(totalXaf: number): number {
+  return Math.ceil(totalXaf * DEPOSIT_RATE);
+}
+
 // ---- Entity shapes (the columns the API returns to clients) ---------------
 
 export interface Profile {
