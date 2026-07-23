@@ -75,6 +75,18 @@ export interface Vendor {
   updated_at: string;
 }
 
+export interface VendorDocument {
+  id: string;
+  vendor_id: string;
+  type: DocumentType;
+  file_path: string;
+  status: DocumentStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
 export interface Vehicle {
   id: string;
   vendor_id: string;

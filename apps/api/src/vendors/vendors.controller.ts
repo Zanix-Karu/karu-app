@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
-import { CurrentUser, Public } from '../auth/decorators';
+import { CurrentUser, Public, Roles } from '../auth/decorators';
 import { VendorsService } from './vendors.service';
-import { CreateVendorDto } from './dto';
+import { CreateVendorDto, UploadDocumentDto } from './dto';
 
 @Controller('vendors')
 export class VendorsController {
@@ -23,5 +23,12 @@ export class VendorsController {
   @Get('me')
   me(@CurrentUser('id') profileId: string) {
     return this.vendors.getByProfile(profileId);
+  }
+
+  /** Start a verification-document upload (returns a signed upload URL). */
+  @Roles('vendor')
+  @Post('me/documents')
+  uploadDocument(@CurrentUser('id') profileId: string, @Body() dto: UploadDocumentDto) {
+    return this.vendors.createDocumentUpload(profileId, dto.type);
   }
 }

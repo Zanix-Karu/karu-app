@@ -1,7 +1,13 @@
 import { IsEmail, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
-import type { City } from '@karu/shared';
+import type { City, DocumentType } from '@karu/shared';
 
 const CITIES: City[] = ['douala', 'yaounde', 'other'];
+const DOCUMENT_TYPES: DocumentType[] = ['rccm', 'carte_grise', 'insurance', 'roadworthiness'];
+
+export class UploadDocumentDto {
+  @IsIn(DOCUMENT_TYPES)
+  type!: DocumentType;
+}
 
 export class CreateVendorDto {
   @IsString()

@@ -1,7 +1,8 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import type { UserRole } from '@karu/shared';
 import { CurrentUser, Public, Roles } from '../auth/decorators';
 import { VehiclesService } from './vehicles.service';
-import { BrowseVehiclesQuery, CreateVehicleDto } from './dto';
+import { AttachPhotoDto, BrowseVehiclesQuery, CreateVehicleDto, UploadPhotoDto } from './dto';
 
 @Controller('vehicles')
 export class VehiclesController {
@@ -31,5 +32,29 @@ export class VehiclesController {
   @Post()
   create(@CurrentUser('id') profileId: string, @Body() dto: CreateVehicleDto) {
     return this.vehicles.create(profileId, dto);
+  }
+
+  /** Start a listing-photo upload (owning vendor or admin). */
+  @Roles('vendor', 'admin')
+  @Post(':id/photos')
+  uploadPhoto(
+    @Param('id') id: string,
+    @CurrentUser('id') profileId: string,
+    @CurrentUser('role') role: UserRole,
+    @Body() dto: UploadPhotoDto,
+  ) {
+    return this.vehicles.createPhotoUpload(id, profileId, role, dto.file_name);
+  }
+
+  /** Record the uploaded photo on the listing. */
+  @Roles('vendor', 'admin')
+  @Post(':id/photos/attach')
+  attachPhoto(
+    @Param('id') id: string,
+    @CurrentUser('id') profileId: string,
+    @CurrentUser('role') role: UserRole,
+    @Body() dto: AttachPhotoDto,
+  ) {
+    return this.vehicles.attachPhoto(id, profileId, role, dto.path);
   }
 }
