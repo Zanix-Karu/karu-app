@@ -11,7 +11,7 @@
 --    signup metadata role may only be customer/vendor — see migration 0013).
 INSERT INTO auth.users (instance_id, id, aud, role, email, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
 VALUES
-  ('00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated', 'falah.ahamad@fodabox.com',        now(), '{"provider":"email","providers":["email"]}', '{"full_name":"Falah Ahamad","locale":"en"}', now(), now()),
+  ('00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated', 'mnfalahahamad@gmail.com',         now(), '{"provider":"email","providers":["email"]}', '{"full_name":"Falah Ahamad","locale":"en"}', now(), now()),
   ('00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated', 'vendor-douala@seed.karuapp.com',  now(), '{"provider":"email","providers":["email"]}', '{"role":"vendor","full_name":"Douala Prestige Rentals","locale":"fr"}', now(), now()),
   ('00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated', 'vendor-yaounde@seed.karuapp.com', now(), '{"provider":"email","providers":["email"]}', '{"role":"vendor","full_name":"Yaounde Auto Services","locale":"fr"}', now(), now()),
   ('00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated', 'customer@seed.karuapp.com',       now(), '{"provider":"email","providers":["email"]}', '{"full_name":"Seed Customer","locale":"en"}', now(), now())
@@ -19,7 +19,7 @@ ON CONFLICT DO NOTHING;
 
 -- 2. Promote the team account to admin (signup can never grant this role).
 UPDATE profiles SET role = 'admin'
-WHERE id = (SELECT id FROM auth.users WHERE email = 'falah.ahamad@fodabox.com');
+WHERE id = (SELECT id FROM auth.users WHERE email = 'mnfalahahamad@gmail.com');
 
 -- 3. Vendor rows — hand-vetted, so verified immediately.
 INSERT INTO vendors (profile_id, business_name, city, contact_email, contact_phone, status, verified_at)
