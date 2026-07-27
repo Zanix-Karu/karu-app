@@ -15,7 +15,7 @@ import {
   StatusBadge,
 } from '../ui';
 
-type Tab = 'overview' | 'vendors' | 'cars' | 'bookings';
+type Tab = 'overview' | 'vendors' | 'documents' | 'cars' | 'bookings';
 
 export function AdminScreen() {
   const [tab, setTab] = useState<Tab>('overview');
@@ -38,12 +38,14 @@ export function AdminScreen() {
       <div className="mt-4 flex flex-wrap gap-2">
         {tabBtn('overview', 'Overview')}
         {tabBtn('vendors', 'Vendors')}
+        {tabBtn('documents', 'Documents')}
         {tabBtn('cars', 'Cars')}
         {tabBtn('bookings', 'Bookings')}
       </div>
       <div className="mt-6">
         {tab === 'overview' && <Overview />}
         {tab === 'vendors' && <Vendors />}
+        {tab === 'documents' && <Documents />}
         {tab === 'cars' && <Cars />}
         {tab === 'bookings' && <Bookings />}
       </div>
@@ -220,6 +222,83 @@ function Vendors() {
           </Button>
         </form>
       </Card>
+    </div>
+  );
+}
+
+// --- Documents ----------------------------------------------------------------
+
+type AdminDocument = {
+  id: string;
+  type: string;
+  status: 'pending' | 'approved' | 'rejected';
+  file_path: string;
+  created_at: string;
+  vendors: { business_name: string } | null;
+};
+
+const DOC_LABEL: Record<string, string> = {
+  rccm: 'RCCM',
+  carte_grise: 'Carte grise',
+  insurance: 'Insurance',
+  roadworthiness: 'Roadworthiness',
+};
+
+function Documents() {
+  const qc = useQueryClient();
+  const [status, setStatus] = useState('pending');
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin-documents', status],
+    queryFn: () => api<AdminDocument[]>(`/admin/documents${status ? `?status=${status}` : ''}`),
+  });
+
+  const review = useMutation({
+    mutationFn: ({ id, decision }: { id: string; decision: 'approved' | 'rejected' }) =>
+      api(`/admin/documents/${id}`, { method: 'PATCH', body: JSON.stringify({ status: decision }) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-documents'] }),
+  });
+
+  return (
+    <div>
+      <Field label="Filter by status" className="max-w-48">
+        <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+          <option value="">All</option>
+        </Select>
+      </Field>
+
+      {isLoading && <Spinner />}
+      {data?.length === 0 && <EmptyState title="No documents" hint="Vendor uploads appear here for review." />}
+
+      <div className="mt-4 space-y-3">
+        {data?.map((d) => (
+          <Card key={d.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <div>
+              <p className="font-semibold">
+                {DOC_LABEL[d.type] ?? d.type} — {d.vendors?.business_name ?? 'unknown vendor'}
+              </p>
+              <p className="text-xs text-karu-mute">
+                {new Date(d.created_at).toLocaleString()} · <span className="capitalize">{d.status}</span>
+              </p>
+            </div>
+            {d.status === 'pending' && (
+              <div className="flex gap-2">
+                <Button onClick={() => review.mutate({ id: d.id, decision: 'approved' })}>Approve</Button>
+                <Button variant="danger" onClick={() => review.mutate({ id: d.id, decision: 'rejected' })}>
+                  Reject
+                </Button>
+              </div>
+            )}
+          </Card>
+        ))}
+      </div>
+      {review.isError && (
+        <div className="mt-3">
+          <ErrorNote>{(review.error as Error).message}</ErrorNote>
+        </div>
+      )}
     </div>
   );
 }

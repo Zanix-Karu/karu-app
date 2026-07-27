@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -48,6 +49,7 @@ export class VehiclesService {
 
     if (query.city) q = q.eq('city', query.city);
     if (query.category) q = q.eq('category', query.category);
+    if (query.vendor_id) q = q.eq('vendor_id', query.vendor_id);
     if (query.transmission) q = q.eq('transmission', query.transmission);
     if (query.seats !== undefined) q = q.gte('seats', query.seats);
     if (query.min_price !== undefined) q = q.gte('daily_rate_xaf', query.min_price);
@@ -172,6 +174,53 @@ export class VehiclesService {
       .single();
     if (error || !data) throw new BadRequestException(error?.message ?? 'Could not attach photo');
     return data as Vehicle;
+  }
+
+  /** Availability blocks for a vehicle (owning vendor or admin). */
+  async listBlocks(vehicleId: string, profileId: string, role: UserRole) {
+    await this.getOwnedVehicle(vehicleId, profileId, role);
+    const { data, error } = await this.supabase.db
+      .from('vehicle_blocks')
+      .select('*')
+      .eq('vehicle_id', vehicleId)
+      .order('start_date');
+    if (error) throw new BadRequestException(error.message);
+    return data ?? [];
+  }
+
+  /** Block dates a car is unavailable (maintenance, private use, …). */
+  async createBlock(
+    vehicleId: string,
+    profileId: string,
+    role: UserRole,
+    dto: { start_date: string; end_date: string; reason?: string },
+  ) {
+    await this.getOwnedVehicle(vehicleId, profileId, role);
+    assertValidWindow(dto.start_date, dto.end_date);
+    const { data, error } = await this.supabase.db
+      .from('vehicle_blocks')
+      .insert({ ...dto, vehicle_id: vehicleId, created_by: profileId })
+      .select('*')
+      .single();
+    if (error) {
+      if (error.code === '23P01') {
+        throw new ConflictException('An overlapping block already exists for this vehicle');
+      }
+      throw new BadRequestException(error.message);
+    }
+    return data;
+  }
+
+  async deleteBlock(vehicleId: string, blockId: string, profileId: string, role: UserRole) {
+    await this.getOwnedVehicle(vehicleId, profileId, role);
+    const { error, count } = await this.supabase.db
+      .from('vehicle_blocks')
+      .delete({ count: 'exact' })
+      .eq('id', blockId)
+      .eq('vehicle_id', vehicleId);
+    if (error) throw new BadRequestException(error.message);
+    if (!count) throw new NotFoundException('Block not found');
+    return { deleted: true };
   }
 
   /** The vehicle, if the caller may manage it (owning vendor or admin). */

@@ -8,7 +8,7 @@ import {
   Routes,
   useNavigate,
 } from 'react-router-dom';
-import { AuthProvider, RequireAdmin, RequireAuth, useAuth } from './lib/auth';
+import { AuthProvider, RequireAdmin, RequireAuth, RequireVendor, useAuth } from './lib/auth';
 import { AuthScreen } from './screens/AuthScreen';
 import { SearchScreen } from './screens/SearchScreen';
 import { CarDetailScreen } from './screens/CarDetailScreen';
@@ -16,6 +16,8 @@ import { ConfirmationScreen } from './screens/ConfirmationScreen';
 import { BookingsScreen } from './screens/BookingsScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { AdminScreen } from './screens/AdminScreen';
+import { VendorAreaScreen } from './screens/VendorAreaScreen';
+import { VendorDirectoryScreen, VendorProfileScreen } from './screens/VendorDirectoryScreen';
 import { Button } from './ui';
 
 const queryClient = new QueryClient({
@@ -50,9 +52,17 @@ function Header() {
           <NavLink to="/search" className={nav}>
             Find a car
           </NavLink>
+          <NavLink to="/vendors" className={nav}>
+            Providers
+          </NavLink>
           {session && (
             <NavLink to="/bookings" className={nav}>
               My bookings
+            </NavLink>
+          )}
+          {profile?.role === 'vendor' && (
+            <NavLink to="/vendor" className={nav}>
+              Vendor area
             </NavLink>
           )}
           {profile?.role === 'admin' && (
@@ -98,7 +108,17 @@ export default function App() {
               <Route path="/" element={<Navigate to="/search" replace />} />
               <Route path="/auth" element={<AuthScreen />} />
               <Route path="/search" element={<SearchScreen />} />
+              <Route path="/vendors" element={<VendorDirectoryScreen />} />
+              <Route path="/vendors/:id" element={<VendorProfileScreen />} />
               <Route path="/cars/:id" element={<CarDetailScreen />} />
+              <Route
+                path="/vendor"
+                element={
+                  <RequireVendor>
+                    <VendorAreaScreen />
+                  </RequireVendor>
+                }
+              />
               <Route
                 path="/bookings/:id/confirmed"
                 element={
