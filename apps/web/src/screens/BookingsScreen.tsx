@@ -10,7 +10,7 @@ import { Button, Card, EmptyState, ErrorNote, Spinner, StatusBadge } from '../ui
  * enforces the same rules server-side — these just surface the right buttons.
  */
 const ACTIONS: Record<
-  'customer' | 'vendor',
+  'customer' | 'vendor' | 'admin',
   Partial<Record<BookingStatus, Array<{ to: BookingStatus; label: string; danger?: boolean; confirm?: string }>>>
 > = {
   customer: {
@@ -28,13 +28,29 @@ const ACTIONS: Record<
     ],
     in_progress: [{ to: 'completed', label: 'Complete' }],
   },
+  // Admins oversee the whole marketplace and may drive any transition.
+  admin: {
+    requested: [
+      { to: 'confirmed', label: 'Confirm' },
+      { to: 'rejected', label: 'Reject', danger: true, confirm: 'Reject this request?' },
+    ],
+    confirmed: [
+      { to: 'in_progress', label: 'Start trip' },
+      { to: 'cancelled', label: 'Cancel', danger: true, confirm: 'Cancel this booking?' },
+    ],
+    in_progress: [{ to: 'completed', label: 'Complete' }],
+  },
 };
 
 export function BookingsScreen() {
   const qc = useQueryClient();
   const { profile } = useAuth();
   const roleActions =
-    profile?.role === 'vendor' ? ACTIONS.vendor : ACTIONS.customer;
+    profile?.role === 'vendor'
+      ? ACTIONS.vendor
+      : profile?.role === 'admin'
+        ? ACTIONS.admin
+        : ACTIONS.customer;
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['my-bookings'],
@@ -54,15 +70,21 @@ export function BookingsScreen() {
   if (error) return <ErrorNote>{(error as Error).message}</ErrorNote>;
 
   const isVendor = profile?.role === 'vendor';
+  const isAdmin = profile?.role === 'admin';
 
   return (
     <div className="mx-auto max-w-3xl">
       <h1 className="font-display text-3xl font-bold">
-        {isVendor ? 'Bookings for your cars' : 'My bookings'}
+        {isVendor ? 'Bookings for your cars' : isAdmin ? 'All bookings' : 'My bookings'}
       </h1>
       {isVendor && (
         <p className="mt-1 text-sm text-karu-mute">
           Confirm or decline requests within 24 hours — customers are notified by email.
+        </p>
+      )}
+      {isAdmin && (
+        <p className="mt-1 text-sm text-karu-mute">
+          Every booking on the platform. The same controls live under Admin → Bookings.
         </p>
       )}
 
