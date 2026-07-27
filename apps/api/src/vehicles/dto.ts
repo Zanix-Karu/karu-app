@@ -6,6 +6,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   Min,
   MaxLength,
@@ -59,6 +60,15 @@ export class BrowseVehiclesQuery {
 
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(50) limit?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) offset?: number;
+
+  /** Restrict to one vendor's fleet (vendor directory profile pages). */
+  @IsOptional() @IsUUID() vendor_id?: string;
+}
+
+export class CreateBlockDto {
+  @IsDateString() start_date!: string;
+  @IsDateString() end_date!: string;
+  @IsOptional() @IsString() @MaxLength(200) reason?: string;
 }
 
 export class AvailabilityQuery {

@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { Profile } from '@karu/shared';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -72,6 +73,66 @@ export function ProfileScreen() {
           </Button>
         </form>
       </Card>
+
+      {profile?.role === 'customer' && <BecomeVendor onDone={refreshProfile} />}
     </div>
+  );
+}
+
+/** Supply-side onboarding: register the signed-in user as a vendor. */
+function BecomeVendor({ onDone }: { onDone: () => Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ business_name: '', city: 'douala', contact_phone: '' });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await api('/vendors', { method: 'POST', body: JSON.stringify(form) });
+      await onDone();
+      navigate('/vendor');
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card className="mt-6 p-6">
+      <h2 className="font-display text-lg font-bold">Have cars to rent out?</h2>
+      <p className="mt-1 text-sm text-karu-mute">
+        List your fleet on Karu. We verify your documents, you confirm bookings, customers pay through the platform.
+      </p>
+      {!open ? (
+        <Button className="mt-4" onClick={() => setOpen(true)}>
+          Become a provider
+        </Button>
+      ) : (
+        <form onSubmit={submit} className="mt-4 space-y-4">
+          <Field label="Business name">
+            <Input required value={form.business_name} onChange={(e) => setForm({ ...form, business_name: e.target.value })} />
+          </Field>
+          <Field label="City">
+            <Select value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })}>
+              <option value="douala">Douala</option>
+              <option value="yaounde">Yaoundé</option>
+              <option value="other">Other</option>
+            </Select>
+          </Field>
+          <Field label="Business phone">
+            <Input value={form.contact_phone} onChange={(e) => setForm({ ...form, contact_phone: e.target.value })} placeholder="+237 6 XX XX XX XX" />
+          </Field>
+          {error && <ErrorNote>{error}</ErrorNote>}
+          <Button type="submit" disabled={busy} className="w-full">
+            {busy ? 'Registering…' : 'Register as a provider'}
+          </Button>
+        </form>
+      )}
+    </Card>
   );
 }

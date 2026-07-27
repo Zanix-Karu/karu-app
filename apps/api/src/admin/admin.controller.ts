@@ -42,6 +42,11 @@ export class AdminController {
     return this.admin.setVendorStatus(id, dto);
   }
 
+  @Get('documents')
+  listDocuments(@Query('status') status?: 'pending' | 'approved' | 'rejected') {
+    return this.admin.listDocuments(status);
+  }
+
   @Patch('documents/:id')
   reviewDocument(
     @Param('id') id: string,

@@ -539,11 +539,8 @@ export function CarCard({
 }) {
   return (
     <div
+      className="karu-car-card"
       style={{
-        display: 'grid',
-        gridTemplateColumns: '230px 1fr auto',
-        gap: 28,
-        alignItems: 'center',
         background: 'var(--white)',
         borderRadius: 'var(--radius-md)',
         boxShadow: 'var(--shadow-card)',
@@ -585,7 +582,7 @@ export function CarCard({
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10, minWidth: 150 }}>
+      <div className="karu-car-card-actions">
         {provider && (
           <span style={{ fontFamily: 'var(--font-ui)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>
             {provider}

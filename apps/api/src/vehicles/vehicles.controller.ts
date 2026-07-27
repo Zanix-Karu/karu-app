@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
 import type { UserRole } from '@karu/shared';
 import { CurrentUser, Public, Roles } from '../auth/decorators';
 import { VehiclesService } from './vehicles.service';
@@ -6,6 +6,7 @@ import {
   AttachPhotoDto,
   AvailabilityQuery,
   BrowseVehiclesQuery,
+  CreateBlockDto,
   CreateVehicleDto,
   UploadPhotoDto,
 } from './dto';
@@ -69,5 +70,38 @@ export class VehiclesController {
     @Body() dto: AttachPhotoDto,
   ) {
     return this.vehicles.attachPhoto(id, profileId, role, dto.path);
+  }
+
+  /** Availability blocks — owning vendor (or admin) manages unavailability. */
+  @Roles('vendor', 'admin')
+  @Get(':id/blocks')
+  listBlocks(
+    @Param('id') id: string,
+    @CurrentUser('id') profileId: string,
+    @CurrentUser('role') role: UserRole,
+  ) {
+    return this.vehicles.listBlocks(id, profileId, role);
+  }
+
+  @Roles('vendor', 'admin')
+  @Post(':id/blocks')
+  createBlock(
+    @Param('id') id: string,
+    @CurrentUser('id') profileId: string,
+    @CurrentUser('role') role: UserRole,
+    @Body() dto: CreateBlockDto,
+  ) {
+    return this.vehicles.createBlock(id, profileId, role, dto);
+  }
+
+  @Roles('vendor', 'admin')
+  @Delete(':id/blocks/:blockId')
+  deleteBlock(
+    @Param('id') id: string,
+    @Param('blockId') blockId: string,
+    @CurrentUser('id') profileId: string,
+    @CurrentUser('role') role: UserRole,
+  ) {
+    return this.vehicles.deleteBlock(id, blockId, profileId, role);
   }
 }

@@ -91,3 +91,15 @@ export function RequireAdmin({ children }: { children: ReactNode }) {
   if (profile.role !== 'admin') return <Navigate to="/search" replace />;
   return <>{children}</>;
 }
+
+/** Gate a route behind the vendor role. */
+export function RequireVendor({ children }: { children: ReactNode }) {
+  const { session, profile } = useAuth();
+  if (session === undefined) return null;
+  if (!session) return <Navigate to="/auth" replace />;
+  if (!profile) return null;
+  if (profile.role !== 'vendor' && profile.role !== 'admin') {
+    return <Navigate to="/profile" replace />;
+  }
+  return <>{children}</>;
+}

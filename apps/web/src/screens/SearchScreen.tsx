@@ -110,7 +110,7 @@ export function SearchScreen() {
       </div>
 
       {/* Sidebar + results — the mockup's 280px/1fr split */}
-      <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 28, marginTop: 28, alignItems: 'start' }}>
+      <div className="karu-sidebar-layout" style={{ marginTop: 28 }}>
         <Card pad={24}>
           <div style={label}>Car type</div>
           {[['', 'All'], ...Object.entries(CATEGORY_LABEL)].map(([value, l]) => (

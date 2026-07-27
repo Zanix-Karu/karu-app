@@ -62,6 +62,17 @@ export class AdminService {
     return data as Vendor;
   }
 
+  /** Documents awaiting (or past) review, with their vendor's name. */
+  async listDocuments(status?: 'pending' | 'approved' | 'rejected') {
+    let q = this.supabase.db
+      .from('vendor_documents')
+      .select('*, vendors(business_name)');
+    if (status) q = q.eq('status', status);
+    const { data, error } = await q.order('created_at', { ascending: false });
+    if (error) throw new BadRequestException(error.message);
+    return data ?? [];
+  }
+
   async reviewDocument(documentId: string, reviewerId: string, dto: ReviewDocumentDto) {
     const { data, error } = await this.supabase.db
       .from('vendor_documents')
