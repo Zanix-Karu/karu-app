@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type {
   ButtonHTMLAttributes,
   InputHTMLAttributes,
@@ -105,11 +106,12 @@ const STATUS_STYLE: Record<BookingStatus, string> = {
 };
 
 export function StatusBadge({ status }: { status: BookingStatus }) {
+  const { t } = useTranslation();
   return (
     <span
-      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_STYLE[status]}`}
+      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLE[status]}`}
     >
-      {status.replace('_', ' ')}
+      {t(`status.${status}`)}
     </span>
   );
 }

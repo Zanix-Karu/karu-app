@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import type { Booking, BookingStatus, Vehicle, Vendor } from '@karu/shared';
@@ -569,6 +570,7 @@ const NEXT_ACTIONS: Partial<Record<BookingStatus, Array<{ to: BookingStatus; lab
 };
 
 function Bookings() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [status, setStatus] = useState('');
   const { data, isLoading } = useQuery({
@@ -589,7 +591,7 @@ function Bookings() {
           <option value="">All</option>
           {['requested', 'confirmed', 'in_progress', 'completed', 'rejected', 'cancelled'].map((s) => (
             <option key={s} value={s}>
-              {s.replace('_', ' ')}
+              {t(`status.${s}`)}
             </option>
           ))}
         </Select>
