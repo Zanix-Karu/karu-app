@@ -67,3 +67,25 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Skeleton shimmer. Respects prefers-reduced-motion: the placeholder still
+   shows, it just stops animating. */
+.karu-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--cream-200) 25%,
+    rgba(217, 217, 217, 0.55) 37%,
+    var(--cream-200) 63%
+  );
+  background-size: 400% 100%;
+  animation: karu-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes karu-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .karu-skeleton { animation: none; }
+}

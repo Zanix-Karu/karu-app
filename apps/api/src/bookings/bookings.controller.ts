@@ -31,6 +31,20 @@ export class BookingsController {
     return this.bookings.getForUser(id, userId, role);
   }
 
+  /**
+   * Booking detail with the parties, shaped per role: a customer sees the
+   * provider, a vendor sees only the customer's display name, an admin sees
+   * both sides in full.
+   */
+  @Get(':id/detail')
+  detail(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole,
+  ) {
+    return this.bookings.getDetailForUser(id, userId, role);
+  }
+
   /** Advance the booking state machine (vendor confirm/reject, customer cancel, …). */
   @Patch(':id/status')
   transition(

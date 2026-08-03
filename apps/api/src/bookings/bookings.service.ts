@@ -13,6 +13,17 @@ import { assertValidWindow } from '../vehicles/dates';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateBookingDto } from './dto';
 
+/**
+ * "Jean Mbarga" -> "Jean M." — enough for a vendor to greet the right person
+ * at pick-up without exposing the full identity.
+ */
+function shortName(fullName: string | null | undefined): string {
+  const parts = (fullName ?? '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'Customer';
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`;
+}
+
 /** Status changes each role is permitted to drive (on top of the state machine). */
 const ALLOWED_BY_ROLE: Record<UserRole, BookingStatus[]> = {
   customer: ['cancelled'],
@@ -161,6 +172,86 @@ export class BookingsService {
   /** A single booking, only if the caller is a party to it (or admin). */
   async getForUser(bookingId: string, userId: string, role: UserRole): Promise<Booking> {
     return this.getOwned(bookingId, userId, role);
+  }
+
+  /**
+   * Booking detail, shaped for who is asking. Every role can open every
+   * booking they are party to, but they see different parties:
+   *
+   *   customer -> the vehicle and the provider (business name, city, phone —
+   *               all already public in the directory)
+   *   vendor   -> the vehicle and the customer's DISPLAY NAME ONLY. Customer
+   *               phone and email are never exposed to vendors; the MVP plan
+   *               and marketplace spec both require all contact to run
+   *               through Karu.
+   *   admin    -> both sides in full, since the team runs operations and
+   *               coordinates pick-ups by hand.
+   */
+  async getDetailForUser(bookingId: string, userId: string, role: UserRole) {
+    const booking = await this.getOwned(bookingId, userId, role);
+
+    const [vehicleRes, vendorRes, customerRes] = await Promise.all([
+      this.supabase.db
+        .from('vehicles')
+        .select('id, make, model, year, category, transmission, seats, photos, city, pickup_locations')
+        .eq('id', booking.vehicle_id)
+        .maybeSingle(),
+      this.supabase.db
+        .from('vendors')
+        .select('id, business_name, city, contact_phone, contact_email')
+        .eq('id', booking.vendor_id)
+        .maybeSingle(),
+      this.supabase.db
+        .from('profiles')
+        .select('id, full_name, phone')
+        .eq('id', booking.customer_id)
+        .maybeSingle(),
+    ]);
+
+    const vendorRow = vendorRes.data as
+      | { id: string; business_name: string; city: string; contact_phone: string | null; contact_email: string | null }
+      | null;
+    const customerRow = customerRes.data as
+      | { id: string; full_name: string | null; phone: string | null }
+      | null;
+
+    // Provider block: contact is public directory information, so customers
+    // and admins both get it. Vendors do not need their own details echoed.
+    const vendor =
+      vendorRow && role !== 'vendor'
+        ? {
+            id: vendorRow.id,
+            business_name: vendorRow.business_name,
+            city: vendorRow.city,
+            contact_phone: vendorRow.contact_phone,
+            contact_email: role === 'admin' ? vendorRow.contact_email : null,
+          }
+        : vendorRow
+          ? { id: vendorRow.id, business_name: vendorRow.business_name, city: vendorRow.city }
+          : null;
+
+    // Customer block: the customer themself does not need it; a vendor gets a
+    // display name and nothing else; an admin gets everything.
+    let customer: Record<string, unknown> | null = null;
+    if (role === 'vendor') {
+      customer = { display_name: shortName(customerRow?.full_name) };
+    } else if (role === 'admin') {
+      const email = await this.emailOf(booking.customer_id);
+      customer = {
+        display_name: customerRow?.full_name ?? 'Customer',
+        full_name: customerRow?.full_name ?? null,
+        phone: customerRow?.phone ?? null,
+        email,
+      };
+    }
+
+    return { ...booking, vehicle: vehicleRes.data ?? null, vendor, customer };
+  }
+
+  /** Auth email for a profile — admin-only paths call this. */
+  private async emailOf(profileId: string): Promise<string | null> {
+    const { data } = await this.supabase.db.auth.admin.getUserById(profileId);
+    return data?.user?.email ?? null;
   }
 
   // --- helpers --------------------------------------------------------------

@@ -4,7 +4,8 @@ import type { Booking, BookingStatus, Review } from '@karu/shared';
 import { api } from '../lib/api';
 import { prettyDate, xaf } from '../lib/format';
 import { ReviewForm } from '../components/ReviewForm';
-import { Button, Card, EmptyState, ErrorNote, Spinner, StatusBadge } from '../ui';
+import { SkeletonCard } from '../components/Skeleton';
+import { Button, Card, EmptyState, ErrorNote, StatusBadge } from '../ui';
 
 /**
  * The customer's own bookings. Vendors have /vendor/bookings and admins have
@@ -42,7 +43,17 @@ export function BookingsScreen() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['my-bookings'] }),
   });
 
-  if (isLoading) return <Spinner label="Loading your bookings…" />;
+  if (isLoading) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <h1 className="font-display text-3xl font-bold">My bookings</h1>
+        <div className="mt-6 space-y-4">
+          <SkeletonCard lines={3} />
+          <SkeletonCard lines={3} />
+        </div>
+      </div>
+    );
+  }
   if (error) return <ErrorNote>{(error as Error).message}</ErrorNote>;
 
   return (
@@ -69,7 +80,7 @@ export function BookingsScreen() {
                     {b.pickup_location ? ` · ${b.pickup_location}` : ''}
                   </p>
                   <Link
-                    to={`/bookings/${b.id}/confirmed`}
+                    to={`/bookings/${b.id}`}
                     className="mt-1 inline-block text-xs font-semibold text-karu-brown underline"
                   >
                     View details
