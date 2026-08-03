@@ -22,17 +22,27 @@ export function prettyDate(iso: string): string {
   });
 }
 
+/** The enum values, in the order they should be offered. */
+export const CITIES = ['douala', 'yaounde', 'other'] as const;
+export const CATEGORIES = ['economy', 'sedan', 'suv', 'pickup', 'van', 'luxury'] as const;
+
 /**
  * City and category names come from the active translation, so a French user
- * sees "Berline" rather than "Sedan". Kept as Proxies so the many existing
- * CITY_LABEL[x] call sites keep working without a sweep.
+ * sees "Berline" rather than "Sedan". Proxies keep the many existing
+ * CITY_LABEL[x] call sites working without a sweep.
+ *
+ * The enumeration traps matter: screens build their filter lists with
+ * Object.entries(CATEGORY_LABEL), and a Proxy with only a `get` trap
+ * enumerates the (empty) target — which silently emptied the car-type filter.
  */
-export const CITY_LABEL: Record<string, string> = new Proxy(
-  {},
-  { get: (_t, key: string) => i18n.t(`city.${key}`) },
-);
+function labelProxy(keys: readonly string[], ns: string): Record<string, string> {
+  return new Proxy({} as Record<string, string>, {
+    get: (_t, key: string) => i18n.t(`${ns}.${key}`),
+    has: (_t, key: string) => keys.includes(key as string),
+    ownKeys: () => [...keys],
+    getOwnPropertyDescriptor: () => ({ enumerable: true, configurable: true }),
+  });
+}
 
-export const CATEGORY_LABEL: Record<string, string> = new Proxy(
-  {},
-  { get: (_t, key: string) => i18n.t(`category.${key}`) },
-);
+export const CITY_LABEL: Record<string, string> = labelProxy(CITIES, 'city');
+export const CATEGORY_LABEL: Record<string, string> = labelProxy(CATEGORIES, 'category');
