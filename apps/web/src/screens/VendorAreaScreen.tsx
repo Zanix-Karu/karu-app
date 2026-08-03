@@ -390,6 +390,15 @@ function Cars({ vendorVerified }: { vendorVerified: boolean }) {
 function CarRow({ car }: { car: Vehicle }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+
+  const retire = useMutation({
+    mutationFn: () =>
+      api<{ removed: boolean; deactivated: boolean; bookings: number }>(`/vehicles/${car.id}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['my-cars'] }),
+  });
 
   const uploadPhoto = useMutation({
     mutationFn: async (file: File) => {
@@ -445,11 +454,34 @@ function CarRow({ car }: { car: Vehicle }) {
               }}
             />
           </label>
+          <Button variant="outline" size="sm" onClick={() => setEditing((v) => !v)}>
+            {editing ? 'Close' : 'Edit'}
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setOpen((v) => !v)}>
             {open ? 'Hide availability' : 'Availability'}
           </Button>
+          <Button
+            variant="danger"
+            size="sm"
+            disabled={retire.isPending}
+            onClick={() => {
+              if (window.confirm('Retire this car? If it has bookings it is taken off the marketplace, otherwise removed entirely.')) {
+                retire.mutate();
+              }
+            }}
+          >
+            {retire.isPending ? 'Working…' : 'Retire'}
+          </Button>
         </div>
       </div>
+      {retire.isSuccess && (
+        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--success)', marginTop: 10 }}>
+          {retire.data?.deactivated
+            ? `Taken off the marketplace — ${retire.data.bookings} booking(s) kept for your records.`
+            : 'Listing removed.'}
+        </p>
+      )}
+      {editing && <EditCar car={car} onDone={() => setEditing(false)} />}
       {uploadPhoto.isError && <div style={{ marginTop: 10 }}><ErrorNote>{(uploadPhoto.error as Error).message}</ErrorNote></div>}
       {open && <Blocks vehicleId={car.id} />}
     </Card>
@@ -513,6 +545,83 @@ function Blocks({ vehicleId }: { vehicleId: string }) {
         <Button size="sm" type="submit" disabled={add.isPending}>Block</Button>
       </form>
       {add.isError && <div style={{ marginTop: 8 }}><ErrorNote>{(add.error as Error).message}</ErrorNote></div>}
+    </div>
+  );
+}
+
+/** Inline edit for the fields a vendor changes most. */
+function EditCar({ car, onDone }: { car: Vehicle; onDone: () => void }) {
+  const qc = useQueryClient();
+  const [form, setForm] = useState({
+    daily_rate_xaf: String(car.daily_rate_xaf),
+    description: car.description ?? '',
+    pickup_locations: car.pickup_locations.join(', '),
+    status: car.status,
+  });
+
+  const save = useMutation({
+    mutationFn: () =>
+      api<Vehicle>(`/vehicles/${car.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          daily_rate_xaf: Number(form.daily_rate_xaf),
+          description: form.description || undefined,
+          pickup_locations: form.pickup_locations
+            ? form.pickup_locations.split(',').map((s) => s.trim()).filter(Boolean)
+            : [],
+          status: form.status,
+        }),
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['my-cars'] });
+      onDone();
+    },
+  });
+
+  return (
+    <div style={{ marginTop: 16, borderTop: '1px solid var(--divider)', paddingTop: 16 }}>
+      <form
+        className="karu-form-grid"
+        onSubmit={(e: FormEvent) => {
+          e.preventDefault();
+          save.mutate();
+        }}
+      >
+        <Field label="Daily rate (XAF)">
+          <Input
+            type="number"
+            min={1}
+            required
+            value={form.daily_rate_xaf}
+            onChange={(e) => setForm({ ...form, daily_rate_xaf: e.target.value })}
+          />
+        </Field>
+        <Field label="Listing status">
+          <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as Vehicle['status'] })}>
+            <option value="active">Active — bookable</option>
+            <option value="draft">Draft — hidden</option>
+            <option value="inactive">Inactive — hidden</option>
+          </Select>
+        </Field>
+        <Field label="Pick-up points (comma-separated)" style={{ gridColumn: '1 / -1' }}>
+          <Input
+            value={form.pickup_locations}
+            onChange={(e) => setForm({ ...form, pickup_locations: e.target.value })}
+          />
+        </Field>
+        <Field label="Description" style={{ gridColumn: '1 / -1' }}>
+          <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+        </Field>
+        <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 10 }}>
+          <Button size="sm" type="submit" disabled={save.isPending}>
+            {save.isPending ? 'Saving…' : 'Save changes'}
+          </Button>
+          <Button size="sm" variant="outline" type="button" onClick={onDone}>
+            Cancel
+          </Button>
+        </div>
+      </form>
+      {save.isError && <div style={{ marginTop: 10 }}><ErrorNote>{(save.error as Error).message}</ErrorNote></div>}
     </div>
   );
 }

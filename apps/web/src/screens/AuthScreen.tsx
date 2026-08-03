@@ -68,7 +68,7 @@ export function AuthScreen() {
         else setNotice('Check your inbox — confirm your email, then sign in.');
       } else {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: window.location.origin + '/auth',
+          redirectTo: window.location.origin + '/auth/reset',
         });
         if (error) throw error;
         setNotice('If that address has an account, a reset link is on its way.');

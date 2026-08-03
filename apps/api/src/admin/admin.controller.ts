@@ -47,6 +47,12 @@ export class AdminController {
     return this.admin.listDocuments(status);
   }
 
+  /** Short-lived signed link so a reviewer can open the file before deciding. */
+  @Get('documents/:id/download')
+  documentDownload(@Param('id') id: string) {
+    return this.admin.documentDownloadUrl(id);
+  }
+
   @Patch('documents/:id')
   reviewDocument(
     @Param('id') id: string,

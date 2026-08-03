@@ -73,6 +73,30 @@ export class AdminService {
     return data ?? [];
   }
 
+  /**
+   * A short-lived signed URL for a verification document. The bucket is
+   * private, so without this an admin is asked to approve an RCCM or
+   * insurance certificate they cannot open — the verification gate would be
+   * theatre. Five minutes is enough to look and decide.
+   */
+  async documentDownloadUrl(documentId: string): Promise<{ url: string; expiresIn: number }> {
+    const { data: doc, error } = await this.supabase.db
+      .from('vendor_documents')
+      .select('file_path')
+      .eq('id', documentId)
+      .maybeSingle();
+    if (error || !doc) throw new NotFoundException('Document not found');
+
+    const expiresIn = 300;
+    const { data, error: signError } = await this.supabase.db.storage
+      .from('vendor-documents')
+      .createSignedUrl((doc as { file_path: string }).file_path, expiresIn);
+    if (signError || !data) {
+      throw new BadRequestException(signError?.message ?? 'Could not create download link');
+    }
+    return { url: data.signedUrl, expiresIn };
+  }
+
   async reviewDocument(documentId: string, reviewerId: string, dto: ReviewDocumentDto) {
     const { data, error } = await this.supabase.db
       .from('vendor_documents')

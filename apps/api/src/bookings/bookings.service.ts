@@ -248,6 +248,23 @@ export class BookingsService {
     return { ...booking, vehicle: vehicleRes.data ?? null, vendor, customer };
   }
 
+  /**
+   * Send a message about a booking to the Karu team. Available to either
+   * party; the team relays it on, which is how the MVP plan intends
+   * customer/vendor communication to work while contact details stay private.
+   */
+  async relayMessage(bookingId: string, userId: string, role: UserRole, message: string) {
+    const booking = await this.getOwned(bookingId, userId, role);
+    const email = await this.emailOf(userId);
+    return this.notifications.relayBookingMessage({
+      bookingId: booking.id,
+      reference: booking.reference,
+      fromRole: role,
+      fromEmail: email,
+      message,
+    });
+  }
+
   /** Auth email for a profile — admin-only paths call this. */
   private async emailOf(profileId: string): Promise<string | null> {
     const { data } = await this.supabase.db.auth.admin.getUserById(profileId);

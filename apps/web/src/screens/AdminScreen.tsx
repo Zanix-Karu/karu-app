@@ -264,6 +264,7 @@ const DOC_LABEL: Record<string, string> = {
 function Documents() {
   const qc = useQueryClient();
   const [status, setStatus] = useState('pending');
+  const [opening, setOpening] = useState<string | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ['admin-documents', status],
     queryFn: () => api<AdminDocument[]>(`/admin/documents${status ? `?status=${status}` : ''}`),
@@ -300,14 +301,34 @@ function Documents() {
                 {new Date(d.created_at).toLocaleString()} · <span className="capitalize">{d.status}</span>
               </p>
             </div>
-            {d.status === 'pending' && (
-              <div className="flex gap-2">
-                <Button onClick={() => review.mutate({ id: d.id, decision: 'approved' })}>Approve</Button>
-                <Button variant="danger" onClick={() => review.mutate({ id: d.id, decision: 'rejected' })}>
-                  Reject
-                </Button>
-              </div>
-            )}
+            <div className="flex flex-wrap gap-2">
+              {/* Reviewing blind is not reviewing — open the file first. */}
+              <Button
+                variant="outline"
+                disabled={opening === d.id}
+                onClick={async () => {
+                  setOpening(d.id);
+                  try {
+                    const { url } = await api<{ url: string }>(`/admin/documents/${d.id}/download`);
+                    window.open(url, '_blank', 'noopener');
+                  } catch (err) {
+                    window.alert((err as Error).message);
+                  } finally {
+                    setOpening(null);
+                  }
+                }}
+              >
+                {opening === d.id ? 'Opening…' : 'View document'}
+              </Button>
+              {d.status === 'pending' && (
+                <>
+                  <Button onClick={() => review.mutate({ id: d.id, decision: 'approved' })}>Approve</Button>
+                  <Button variant="danger" onClick={() => review.mutate({ id: d.id, decision: 'rejected' })}>
+                    Reject
+                  </Button>
+                </>
+              )}
+            </div>
           </Card>
         ))}
       </div>

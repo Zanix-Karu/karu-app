@@ -71,6 +71,62 @@ export class NotificationsService {
   }
 
   /** Render, send via Resend, and log the attempt. Never throws. */
+  /**
+   * Relay a message about a booking to the Karu team.
+   *
+   * Customer contact details never reach vendors (marketplace spec), and
+   * in-app chat is explicitly deferred in the MVP plan — so the team is the
+   * channel. This records who asked, about which booking, and what they said,
+   * then emails the support address. Logged like any other mail, so a failed
+   * send is visible rather than silent.
+   */
+  async relayBookingMessage(params: {
+    bookingId: string;
+    reference: string | null;
+    fromRole: string;
+    fromEmail: string | null;
+    message: string;
+  }): Promise<{ delivered: boolean }> {
+    const to = this.config.get<string>('SUPPORT_EMAIL') ?? 'support@getkaru.io';
+    const subject = `Karu — message about ${params.reference ?? params.bookingId}`;
+    const body = [
+      `A ${params.fromRole} sent a message about booking ${params.reference ?? params.bookingId}.`,
+      params.fromEmail ? `Reply to: ${params.fromEmail}` : 'No reply address on file.',
+      '',
+      params.message,
+    ].join('\n');
+
+    let providerId: string | null = null;
+    let error: string | null = null;
+    try {
+      const apiKey = this.config.get<string>('RESEND_API_KEY');
+      if (!apiKey) throw new Error('RESEND_API_KEY not configured');
+      const from = this.config.get<string>('EMAIL_FROM') ?? 'Karu <onboarding@resend.dev>';
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from, to, subject, text: body, reply_to: params.fromEmail ?? undefined }),
+      });
+      if (!res.ok) throw new Error(`Resend ${res.status}: ${await res.text()}`);
+      providerId = ((await res.json()) as { id?: string }).id ?? null;
+    } catch (e) {
+      error = (e as Error).message;
+      this.logger.warn(`Relay for ${params.bookingId} failed: ${error}`);
+    }
+
+    await this.supabase.db.from('email_log').insert({
+      booking_id: params.bookingId,
+      recipient: to,
+      template: 'booking_message_relay',
+      locale: 'en',
+      provider_id: providerId,
+      status: error ? 'failed' : 'sent',
+      error,
+    });
+
+    return { delivered: !error };
+  }
+
   private async send(
     template: BookingEmailTemplate,
     locale: 'en' | 'fr',
