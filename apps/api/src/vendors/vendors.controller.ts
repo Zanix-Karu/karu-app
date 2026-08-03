@@ -25,6 +25,13 @@ export class VendorsController {
     return this.vendors.getByProfile(profileId);
   }
 
+  /** Dashboard figures — all derived from real bookings, cars and blocks. */
+  @Roles('vendor')
+  @Get('me/stats')
+  stats(@CurrentUser('id') profileId: string) {
+    return this.vendors.statsFor(profileId);
+  }
+
   /** Start a verification-document upload (returns a signed upload URL). */
   @Roles('vendor')
   @Post('me/documents')

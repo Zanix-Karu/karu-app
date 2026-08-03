@@ -88,6 +88,98 @@ export class VendorsService {
     };
   }
 
+  /**
+   * Everything the vendor dashboard shows, in one request. Each figure is
+   * derived from real rows — nothing here is decorative:
+   *   - earnings: completed bookings only
+   *   - responseRate: share of decided requests answered within 24h, using
+   *     requested_at -> confirmed_at (the only response timestamps we hold)
+   *   - fleet: a car is 'booked' if a confirmed/in-progress booking covers
+   *     today, 'unavailable' if inactive or blocked today, else 'available'
+   *   - earningsSeries: completed bookings per day for the last 30 days
+   */
+  async statsFor(profileId: string) {
+    const vendor = await this.getByProfile(profileId);
+    const today = new Date().toISOString().slice(0, 10);
+
+    const [bookingsRes, vehiclesRes, blocksRes] = await Promise.all([
+      this.supabase.db.from('bookings').select('*').eq('vendor_id', vendor.id),
+      this.supabase.db.from('vehicles').select('id, status').eq('vendor_id', vendor.id),
+      this.supabase.db
+        .from('vehicle_blocks')
+        .select('vehicle_id')
+        .lte('start_date', today)
+        .gte('end_date', today),
+    ]);
+    if (bookingsRes.error) throw new BadRequestException(bookingsRes.error.message);
+    if (vehiclesRes.error) throw new BadRequestException(vehiclesRes.error.message);
+
+    const bookings = (bookingsRes.data ?? []) as Array<{
+      status: string;
+      total_xaf: number;
+      vehicle_id: string;
+      start_date: string;
+      end_date: string;
+      requested_at: string;
+      confirmed_at: string | null;
+      created_at: string;
+    }>;
+    const vehicles = (vehiclesRes.data ?? []) as Array<{ id: string; status: string }>;
+    const blockedToday = new Set((blocksRes.data ?? []).map((b) => b.vehicle_id as string));
+
+    const completed = bookings.filter((b) => b.status === 'completed');
+    const holdingToday = new Set(
+      bookings
+        .filter(
+          (b) =>
+            (b.status === 'confirmed' || b.status === 'in_progress') &&
+            b.start_date <= today &&
+            b.end_date >= today,
+        )
+        .map((b) => b.vehicle_id),
+    );
+
+    // Response rate over requests the vendor actually decided.
+    const decided = bookings.filter((b) => b.status !== 'requested');
+    const answeredFast = decided.filter((b) => {
+      if (!b.confirmed_at) return false;
+      const ms = Date.parse(b.confirmed_at) - Date.parse(b.requested_at);
+      return ms >= 0 && ms <= 24 * 3600 * 1000;
+    });
+
+    const since = new Date(Date.now() - 29 * 86_400_000).toISOString().slice(0, 10);
+    const perDay = new Map<string, number>();
+    for (const b of completed) {
+      const day = b.created_at.slice(0, 10);
+      if (day >= since) perDay.set(day, (perDay.get(day) ?? 0) + b.total_xaf);
+    }
+    const earningsSeries: Array<{ day: string; xaf: number }> = [];
+    for (let i = 29; i >= 0; i--) {
+      const day = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
+      earningsSeries.push({ day, xaf: perDay.get(day) ?? 0 });
+    }
+
+    return {
+      earningsXaf: completed.reduce((s, b) => s + b.total_xaf, 0),
+      completedCount: completed.length,
+      requestedCount: bookings.filter((b) => b.status === 'requested').length,
+      upcomingCount: bookings.filter((b) => b.status === 'confirmed').length,
+      responseRate: decided.length ? Math.round((answeredFast.length / decided.length) * 100) : null,
+      decidedCount: decided.length,
+      fleet: {
+        total: vehicles.length,
+        available: vehicles.filter(
+          (v) => v.status === 'active' && !holdingToday.has(v.id) && !blockedToday.has(v.id),
+        ).length,
+        booked: vehicles.filter((v) => holdingToday.has(v.id)).length,
+        unavailable: vehicles.filter(
+          (v) => v.status !== 'active' || (blockedToday.has(v.id) && !holdingToday.has(v.id)),
+        ).length,
+      },
+      earningsSeries,
+    };
+  }
+
   /** Public directory of verified vendors, each with its aggregate rating. */
   async listVerified(): Promise<Array<Vendor & { rating: RatingSummary }>> {
     const { data, error } = await this.supabase.db
