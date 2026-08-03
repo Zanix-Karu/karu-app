@@ -29,3 +29,9 @@ export class TransitionBookingDto {
   @IsIn(TRANSITION_TARGETS) status!: BookingStatus;
   @IsOptional() @IsString() @MaxLength(500) vendor_note?: string;
 }
+
+export class RelayMessageDto {
+  @IsString()
+  @MaxLength(2000)
+  message!: string;
+}

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import type { UserRole } from '@karu/shared';
 import { CurrentUser, Public, Roles } from '../auth/decorators';
 import { VehiclesService } from './vehicles.service';
@@ -8,6 +8,7 @@ import {
   BrowseVehiclesQuery,
   CreateBlockDto,
   CreateVehicleDto,
+  UpdateVehicleDto,
   UploadPhotoDto,
 } from './dto';
 
@@ -70,6 +71,29 @@ export class VehiclesController {
     @Body() dto: AttachPhotoDto,
   ) {
     return this.vehicles.attachPhoto(id, profileId, role, dto.path);
+  }
+
+  /** Edit a listing (owning vendor or admin). */
+  @Roles('vendor', 'admin')
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @CurrentUser('id') profileId: string,
+    @CurrentUser('role') role: UserRole,
+    @Body() dto: UpdateVehicleDto,
+  ) {
+    return this.vehicles.update(id, profileId, role, { ...dto });
+  }
+
+  /** Retire a listing: deactivated if it has bookings, deleted if it never did. */
+  @Roles('vendor', 'admin')
+  @Delete(':id')
+  retire(
+    @Param('id') id: string,
+    @CurrentUser('id') profileId: string,
+    @CurrentUser('role') role: UserRole,
+  ) {
+    return this.vehicles.retire(id, profileId, role);
   }
 
   /** Availability blocks — owning vendor (or admin) manages unavailability. */

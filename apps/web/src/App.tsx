@@ -11,6 +11,7 @@ import {
 import { AuthProvider, RequireView, useAuth, useView } from './lib/auth';
 import { HOME, NAV } from './lib/roles';
 import { AuthScreen } from './screens/AuthScreen';
+import { ResetPasswordScreen } from './screens/ResetPasswordScreen';
 import { SearchScreen } from './screens/SearchScreen';
 import { CarDetailScreen } from './screens/CarDetailScreen';
 import { ConfirmationScreen } from './screens/ConfirmationScreen';
@@ -121,6 +122,7 @@ export default function App() {
             <Routes>
               <Route path="/" element={<HomeRedirect />} />
               <Route path="/auth" element={<AuthScreen />} />
+              <Route path="/auth/reset" element={<ResetPasswordScreen />} />
 
               {/* Public marketplace — readable by every view. Only *booking*
                   is customer-only, enforced inside CarDetailScreen. */}

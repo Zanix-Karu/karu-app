@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import type { UserRole } from '@karu/shared';
 import { CurrentUser, Roles } from '../auth/decorators';
 import { BookingsService } from './bookings.service';
-import { CreateBookingDto, TransitionBookingDto } from './dto';
+import { CreateBookingDto, RelayMessageDto, TransitionBookingDto } from './dto';
 
 @Controller('bookings')
 export class BookingsController {
@@ -29,6 +29,17 @@ export class BookingsController {
     @CurrentUser('role') role: UserRole,
   ) {
     return this.bookings.getForUser(id, userId, role);
+  }
+
+  /** Message the Karu team about this booking (either party). */
+  @Post(':id/message')
+  message(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole,
+    @Body() dto: RelayMessageDto,
+  ) {
+    return this.bookings.relayMessage(id, userId, role, dto.message);
   }
 
   /**

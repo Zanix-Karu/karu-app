@@ -11,7 +11,7 @@ import {
   Min,
   MaxLength,
 } from 'class-validator';
-import type { City, Transmission, VehicleCategory } from '@karu/shared';
+import type { City, Transmission, VehicleCategory, VehicleStatus } from '@karu/shared';
 
 const CATEGORIES: VehicleCategory[] = ['economy', 'sedan', 'suv', 'pickup', 'van', 'luxury'];
 const CITIES: City[] = ['douala', 'yaounde', 'other'];
@@ -63,6 +63,25 @@ export class BrowseVehiclesQuery {
 
   /** Restrict to one vendor's fleet (vendor directory profile pages). */
   @IsOptional() @IsUUID() vendor_id?: string;
+}
+
+/**
+ * Every field optional — a vendor edits one thing at a time. vendor_id is
+ * deliberately absent so a listing can never be moved to another vendor.
+ */
+export class UpdateVehicleDto {
+  @IsOptional() @IsString() @MaxLength(60) make?: string;
+  @IsOptional() @IsString() @MaxLength(60) model?: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1980) year?: number;
+  @IsOptional() @IsIn(CATEGORIES) category?: VehicleCategory;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) seats?: number;
+  @IsOptional() @IsIn(TRANSMISSIONS) transmission?: Transmission;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) daily_rate_xaf?: number;
+  @IsOptional() @IsIn(CITIES) city?: City;
+  @IsOptional() @IsArray() @IsString({ each: true }) pickup_locations?: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) photos?: string[];
+  @IsOptional() @IsString() @MaxLength(2000) description?: string;
+  @IsOptional() @IsIn(['draft', 'active', 'inactive']) status?: VehicleStatus;
 }
 
 export class CreateBlockDto {

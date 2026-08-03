@@ -176,6 +176,58 @@ export class VehiclesService {
     return data as Vehicle;
   }
 
+  /** Edit a listing. Ownership-checked; vendor_id can never be reassigned. */
+  async update(
+    vehicleId: string,
+    profileId: string,
+    role: UserRole,
+    patch: Record<string, unknown>,
+  ): Promise<Vehicle> {
+    await this.getOwnedVehicle(vehicleId, profileId, role);
+    if (Object.keys(patch).length === 0) {
+      throw new BadRequestException('Nothing to update');
+    }
+
+    const { data, error } = await this.supabase.db
+      .from('vehicles')
+      .update(patch)
+      .eq('id', vehicleId)
+      .select('*')
+      .single();
+    if (error || !data) throw new BadRequestException(error?.message ?? 'Could not update vehicle');
+    return data as Vehicle;
+  }
+
+  /**
+   * Retire a listing. Cars with bookings are never hard-deleted — that would
+   * orphan a customer's history (bookings.vehicle_id is ON DELETE RESTRICT
+   * for exactly this reason). They are marked 'inactive', which removes them
+   * from the public catalogue while leaving every past booking intact. A car
+   * that has never been booked is deleted outright.
+   */
+  async retire(vehicleId: string, profileId: string, role: UserRole) {
+    await this.getOwnedVehicle(vehicleId, profileId, role);
+
+    const { count, error: countError } = await this.supabase.db
+      .from('bookings')
+      .select('id', { count: 'exact', head: true })
+      .eq('vehicle_id', vehicleId);
+    if (countError) throw new BadRequestException(countError.message);
+
+    if ((count ?? 0) > 0) {
+      const { error } = await this.supabase.db
+        .from('vehicles')
+        .update({ status: 'inactive' })
+        .eq('id', vehicleId);
+      if (error) throw new BadRequestException(error.message);
+      return { removed: false, deactivated: true, bookings: count };
+    }
+
+    const { error } = await this.supabase.db.from('vehicles').delete().eq('id', vehicleId);
+    if (error) throw new BadRequestException(error.message);
+    return { removed: true, deactivated: false, bookings: 0 };
+  }
+
   /** Availability blocks for a vehicle (owning vendor or admin). */
   async listBlocks(vehicleId: string, profileId: string, role: UserRole) {
     await this.getOwnedVehicle(vehicleId, profileId, role);
