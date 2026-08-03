@@ -1,11 +1,23 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useLocation, useNavigate } from 'react-router-dom';
-import type { Booking, BookingStatus, Vehicle, Vendor, VendorDocument } from '@karu/shared';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import type { Booking, BookingStatus, Review, Vehicle, Vendor, VendorDocument } from '@karu/shared';
 import { api } from '../lib/api';
 import { CATEGORY_LABEL, CITY_LABEL, prettyDate, xaf } from '../lib/format';
-import { Badge, Button, Card, Field, Input, Select, SidebarNav, StatCard, StepNav } from '../ds';
+import { Badge, Button, Card, Field, Input, Rating, Select, SidebarNav, StatCard, StepNav } from '../ds';
+import { EarningsChart } from '../components/EarningsChart';
 import { EmptyState, ErrorNote, Spinner, StatusBadge } from '../ui';
+
+interface VendorStats {
+  earningsXaf: number;
+  completedCount: number;
+  requestedCount: number;
+  upcomingCount: number;
+  responseRate: number | null;
+  decidedCount: number;
+  fleet: { total: number; available: number; booked: number; unavailable: number };
+  earningsSeries: Array<{ day: string; xaf: number }>;
+}
 
 type Section = 'dashboard' | 'bookings' | 'cars' | 'documents';
 
@@ -66,7 +78,7 @@ export function VendorAreaScreen() {
       </div>
 
       <div>
-        {section === 'dashboard' && <Dashboard />}
+        {section === 'dashboard' && <Dashboard vendor={vendor} />}
         {section === 'bookings' && <VendorBookings />}
         {section === 'cars' && <Cars vendorVerified={vendor.status === 'verified'} />}
         {section === 'documents' && <Documents />}
@@ -77,39 +89,103 @@ export function VendorAreaScreen() {
 
 // --- Dashboard ----------------------------------------------------------------
 
-function Dashboard() {
+function Dashboard({ vendor }: { vendor: Vendor }) {
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ['vendor-stats'],
+    queryFn: () => api<VendorStats>('/vendors/me/stats'),
+  });
   const { data: bookings } = useQuery({
     queryKey: ['my-bookings'],
     queryFn: () => api<Booking[]>('/bookings/mine'),
   });
-  const { data: cars } = useQuery({
-    queryKey: ['my-cars'],
-    queryFn: () => api<Vehicle[]>('/vehicles/mine'),
+  const { data: reviews } = useQuery({
+    queryKey: ['vendor-reviews', vendor.id],
+    queryFn: () => api<Review[]>(`/vendors/${vendor.id}/reviews`),
   });
 
-  const stats = useMemo(() => {
-    const b = bookings ?? [];
-    return {
-      earnings: b.filter((x) => x.status === 'completed').reduce((s, x) => s + x.total_xaf, 0),
-      requests: b.filter((x) => x.status === 'requested').length,
-      upcoming: b.filter((x) => x.status === 'confirmed').length,
-      fleet: cars?.length ?? 0,
-      active: cars?.filter((c) => c.status === 'active').length ?? 0,
-    };
-  }, [bookings, cars]);
+  if (isLoading || !stats) return <Spinner label="Loading your dashboard…" />;
 
   const upcoming = (bookings ?? [])
     .filter((b) => b.status === 'confirmed' || b.status === 'in_progress')
     .slice(0, 5);
 
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+
   return (
     <div>
-      <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 32 }}>Dashboard</h1>
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+        <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 32 }}>
+          {greeting}, {vendor.business_name}
+        </h1>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <Link to={`/vendors/${vendor.id}`}>
+            <Button size="sm" variant="outline">View public profile</Button>
+          </Link>
+          <Link to="/vendor/cars">
+            <Button size="sm">Add a car</Button>
+          </Link>
+        </div>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginTop: 20 }}>
-        <StatCard label="Total earnings (completed)" value={xaf(stats.earnings)} accent />
-        <StatCard label="Requests awaiting reply" value={stats.requests} hint="Confirm within 24h" />
-        <StatCard label="Upcoming bookings" value={stats.upcoming} />
-        <StatCard label="Fleet" value={`${stats.active}/${stats.fleet}`} hint="active / total cars" />
+        <StatCard
+          label="Total earnings"
+          value={xaf(stats.earningsXaf)}
+          hint={`${stats.completedCount} completed rental${stats.completedCount === 1 ? '' : 's'}`}
+          accent
+        />
+        <StatCard
+          label="Requests awaiting reply"
+          value={stats.requestedCount}
+          hint={stats.requestedCount > 0 ? 'Confirm within 24h' : 'All caught up'}
+        />
+        <StatCard label="Upcoming bookings" value={stats.upcomingCount} />
+        <StatCard
+          label="Response rate"
+          value={stats.responseRate === null ? '—' : `${stats.responseRate}%`}
+          hint={
+            stats.responseRate === null
+              ? 'No answered requests yet'
+              : `${stats.decidedCount} request${stats.decidedCount === 1 ? '' : 's'} answered within 24h`
+          }
+        />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16, marginTop: 20 }}>
+        <Card>
+          <h2 style={{ margin: '0 0 6px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 20 }}>
+            Earnings overview
+          </h2>
+          <EarningsChart series={stats.earningsSeries} />
+        </Card>
+
+        <Card>
+          <h2 style={{ margin: '0 0 12px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 20 }}>
+            Vehicle status
+          </h2>
+          {[
+            ['Total vehicles', stats.fleet.total, 'var(--ink)'],
+            ['Available today', stats.fleet.available, 'var(--success)'],
+            ['On a trip today', stats.fleet.booked, 'var(--gold-600)'],
+            ['Unavailable', stats.fleet.unavailable, 'var(--gray-500)'],
+          ].map(([label, value, color]) => (
+            <div
+              key={label as string}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                padding: '9px 0',
+                borderBottom: '1px solid var(--divider)',
+                fontFamily: 'var(--font-ui)',
+                fontSize: 15,
+              }}
+            >
+              <span style={{ color: 'var(--gray-500)' }}>{label as string}</span>
+              <span style={{ fontWeight: 700, color: color as string }}>{value as number}</span>
+            </div>
+          ))}
+        </Card>
       </div>
 
       <h2 style={{ margin: '32px 0 14px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
@@ -129,6 +205,28 @@ function Dashboard() {
               </div>
             </div>
             <StatusBadge status={b.status} />
+          </Card>
+        ))}
+      </div>
+
+      <h2 style={{ margin: '32px 0 14px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
+        Recent reviews
+      </h2>
+      {(!reviews || reviews.length === 0) && (
+        <EmptyState title="No reviews yet" hint="Customers can review you once a trip is completed." />
+      )}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
+        {reviews?.slice(0, 6).map((r) => (
+          <Card key={r.id}>
+            <Rating value={r.rating} />
+            {r.comment && (
+              <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, marginTop: 8, lineHeight: 1.5 }}>
+                &ldquo;{r.comment}&rdquo;
+              </p>
+            )}
+            <p style={{ fontFamily: 'var(--font-ui)', fontSize: 12, color: 'var(--gray-400)', marginTop: 8 }}>
+              {prettyDate(r.created_at.slice(0, 10))}
+            </p>
           </Card>
         ))}
       </div>
