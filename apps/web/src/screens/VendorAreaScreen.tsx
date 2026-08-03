@@ -1,22 +1,33 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
-import type { Booking, Vehicle, Vendor, VendorDocument } from '@karu/shared';
+import { useLocation, useNavigate } from 'react-router-dom';
+import type { Booking, BookingStatus, Vehicle, Vendor, VendorDocument } from '@karu/shared';
 import { api } from '../lib/api';
 import { CATEGORY_LABEL, CITY_LABEL, prettyDate, xaf } from '../lib/format';
 import { Badge, Button, Card, Field, Input, Select, SidebarNav, StatCard, StepNav } from '../ds';
 import { EmptyState, ErrorNote, Spinner, StatusBadge } from '../ui';
 
-type Section = 'dashboard' | 'cars' | 'documents';
+type Section = 'dashboard' | 'bookings' | 'cars' | 'documents';
 
 const NAV = [
-  { key: 'dashboard', label: 'Dashboard' },
-  { key: 'cars', label: 'My cars' },
-  { key: 'documents', label: 'Documents' },
+  { key: 'dashboard', label: 'Dashboard', path: '/vendor' },
+  { key: 'bookings', label: 'Booking requests', path: '/vendor/bookings' },
+  { key: 'cars', label: 'My cars', path: '/vendor/cars' },
+  { key: 'documents', label: 'Documents', path: '/vendor/documents' },
 ];
 
+/** Section is derived from the URL so the rail, header nav and page agree. */
+function sectionFromPath(pathname: string): Section {
+  if (pathname.startsWith('/vendor/bookings')) return 'bookings';
+  if (pathname.startsWith('/vendor/cars')) return 'cars';
+  if (pathname.startsWith('/vendor/documents')) return 'documents';
+  return 'dashboard';
+}
+
 export function VendorAreaScreen() {
-  const [section, setSection] = useState<Section>('dashboard');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const section = sectionFromPath(location.pathname);
 
   const { data: vendor, isLoading, error } = useQuery({
     queryKey: ['vendor-me'],
@@ -47,16 +58,16 @@ export function VendorAreaScreen() {
             {vendor.status === 'verified' ? '✓ Verified' : `Verification ${vendor.status}`}
           </Badge>
         </div>
-        <SidebarNav items={NAV} active={section} onSelect={(k) => setSection(k as Section)} />
-        <div style={{ padding: '14px 18px 4px' }}>
-          <Link to="/bookings" style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 15, color: 'var(--yellow)' }}>
-            Booking requests →
-          </Link>
-        </div>
+        <SidebarNav
+          items={NAV}
+          active={section}
+          onSelect={(k) => navigate(NAV.find((n) => n.key === k)!.path)}
+        />
       </div>
 
       <div>
         {section === 'dashboard' && <Dashboard />}
+        {section === 'bookings' && <VendorBookings />}
         {section === 'cars' && <Cars vendorVerified={vendor.status === 'verified'} />}
         {section === 'documents' && <Documents />}
       </div>
@@ -121,6 +132,101 @@ function Dashboard() {
           </Card>
         ))}
       </div>
+    </div>
+  );
+}
+
+// --- Booking requests ----------------------------------------------------------
+
+/** Transitions a vendor may drive, per current status. */
+const VENDOR_ACTIONS: Partial<
+  Record<BookingStatus, Array<{ to: BookingStatus; label: string; danger?: boolean; confirm?: string }>>
+> = {
+  requested: [
+    { to: 'confirmed', label: 'Confirm' },
+    { to: 'rejected', label: 'Reject', danger: true, confirm: 'Reject this request?' },
+  ],
+  confirmed: [
+    { to: 'in_progress', label: 'Start trip' },
+    { to: 'cancelled', label: 'Cancel', danger: true, confirm: 'Cancel this booking?' },
+  ],
+  in_progress: [{ to: 'completed', label: 'Complete' }],
+};
+
+function VendorBookings() {
+  const qc = useQueryClient();
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['my-bookings'],
+    queryFn: () => api<Booking[]>('/bookings/mine'),
+  });
+
+  const transition = useMutation({
+    mutationFn: ({ id, to }: { id: string; to: BookingStatus }) =>
+      api<Booking>(`/bookings/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status: to }) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['my-bookings'] }),
+  });
+
+  if (isLoading) return <Spinner label="Loading booking requests…" />;
+  if (error) return <ErrorNote>{(error as Error).message}</ErrorNote>;
+
+  return (
+    <div>
+      <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 32 }}>
+        Booking requests
+      </h1>
+      <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 6 }}>
+        Confirm or decline within 24 hours. Customers see the change straight away, and we email them too.
+      </p>
+
+      {data?.length === 0 && (
+        <EmptyState title="No requests yet" hint="Requests for your cars will appear here." />
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 20 }}>
+        {data?.map((b) => (
+          <Card key={b.id} style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 14 }}>
+            <div>
+              <div style={{ fontFamily: 'var(--font-ui)', fontSize: 12, color: 'var(--gray-400)' }}>
+                {b.reference}
+              </div>
+              <div style={{ fontFamily: 'var(--font-ui)', fontWeight: 700, marginTop: 2 }}>
+                {prettyDate(b.start_date)} → {prettyDate(b.end_date)}
+              </div>
+              <div style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-500)', marginTop: 2 }}>
+                {xaf(b.total_xaf)}
+                {b.pickup_location ? ` · ${b.pickup_location}` : ''}
+              </div>
+              {b.customer_note && (
+                <div style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-500)', marginTop: 4 }}>
+                  &ldquo;{b.customer_note}&rdquo;
+                </div>
+              )}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <StatusBadge status={b.status} />
+              {VENDOR_ACTIONS[b.status]?.map((a) => (
+                <Button
+                  key={a.to}
+                  size="sm"
+                  variant={a.danger ? 'danger' : 'primary'}
+                  disabled={transition.isPending}
+                  onClick={() => {
+                    if (a.confirm && !window.confirm(a.confirm)) return;
+                    transition.mutate({ id: b.id, to: a.to });
+                  }}
+                >
+                  {a.label}
+                </Button>
+              ))}
+            </div>
+          </Card>
+        ))}
+      </div>
+      {transition.isError && (
+        <div style={{ marginTop: 12 }}>
+          <ErrorNote>{(transition.error as Error).message}</ErrorNote>
+        </div>
+      )}
     </div>
   );
 }
