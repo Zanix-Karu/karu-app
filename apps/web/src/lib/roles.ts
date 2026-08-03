@@ -49,11 +49,13 @@ export const NAV: Record<View, NavItem[]> = {
   guest: [
     { to: '/search', label: 'Find a car' },
     { to: '/vendors', label: 'Providers' },
+    { to: '/list-your-car', label: 'List your car' },
   ],
   customer: [
     { to: '/search', label: 'Find a car' },
     { to: '/vendors', label: 'Providers' },
     { to: '/bookings', label: 'My bookings' },
+    { to: '/list-your-car', label: 'List your car' },
   ],
   vendor: [
     { to: '/vendor', label: 'Dashboard' },
@@ -71,8 +73,8 @@ export const NAV: Record<View, NavItem[]> = {
 
 /** Route prefixes each view may open. Anything else redirects to its HOME. */
 const ALLOWED: Record<View, string[]> = {
-  guest: ['/search', '/vendors', '/cars', '/auth'],
-  customer: ['/search', '/vendors', '/cars', '/bookings', '/profile', '/auth'],
+  guest: ['/search', '/vendors', '/cars', '/auth', '/list-your-car'],
+  customer: ['/search', '/vendors', '/cars', '/bookings', '/profile', '/auth', '/list-your-car'],
   vendor: ['/search', '/vendors', '/cars', '/vendor', '/profile', '/auth'],
   admin: ['/search', '/vendors', '/cars', '/admin', '/profile', '/auth'],
 };

@@ -12,6 +12,7 @@ import { AuthProvider, RequireView, useAuth, useView } from './lib/auth';
 import { HOME, NAV } from './lib/roles';
 import { AuthScreen } from './screens/AuthScreen';
 import { ResetPasswordScreen } from './screens/ResetPasswordScreen';
+import { ListYourCarScreen } from './screens/ListYourCarScreen';
 import { SearchScreen } from './screens/SearchScreen';
 import { CarDetailScreen } from './screens/CarDetailScreen';
 import { ConfirmationScreen } from './screens/ConfirmationScreen';
@@ -130,6 +131,7 @@ export default function App() {
               <Route path="/vendors" element={<VendorDirectoryScreen />} />
               <Route path="/vendors/:id" element={<VendorProfileScreen />} />
               <Route path="/cars/:id" element={<CarDetailScreen />} />
+              <Route path="/list-your-car" element={<ListYourCarScreen />} />
 
               {/* Customer view */}
               <Route

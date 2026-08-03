@@ -79,12 +79,99 @@ export function VendorAreaScreen() {
       </div>
 
       <div>
+        {vendor.status !== 'verified' && <Onboarding vendor={vendor} onGo={navigate} />}
         {section === 'dashboard' && <Dashboard vendor={vendor} />}
         {section === 'bookings' && <VendorBookings />}
         {section === 'cars' && <Cars vendorVerified={vendor.status === 'verified'} />}
         {section === 'documents' && <Documents />}
       </div>
     </div>
+  );
+}
+
+/**
+ * What a new provider should do next. A pending vendor otherwise lands on an
+ * empty dashboard with a grey badge and no idea what is expected of them.
+ */
+function Onboarding({ vendor, onGo }: { vendor: Vendor; onGo: (to: string) => void }) {
+  const { data: cars } = useQuery({
+    queryKey: ['my-cars'],
+    queryFn: () => api<Vehicle[]>('/vehicles/mine'),
+  });
+
+  const rejected = vendor.status === 'rejected' || vendor.status === 'suspended';
+  const steps = [
+    {
+      done: true,
+      title: 'Business details',
+      body: `${vendor.business_name} · ${CITY_LABEL[vendor.city]}`,
+      action: null as null | { label: string; to: string },
+    },
+    {
+      done: false,
+      title: 'Upload your documents',
+      body: 'RCCM, carte grise and insurance. We review within one business day.',
+      action: { label: 'Upload documents', to: '/vendor/documents' },
+    },
+    {
+      done: (cars?.length ?? 0) > 0,
+      title: 'Add your first car',
+      body:
+        (cars?.length ?? 0) > 0
+          ? `${cars!.length} car${cars!.length === 1 ? '' : 's'} added — they go live once you are verified.`
+          : 'You can add cars now; they stay drafts until verification completes.',
+      action: { label: 'Add a car', to: '/vendor/cars' },
+    },
+  ];
+
+  return (
+    <Card style={{ marginBottom: 24, borderLeft: '4px solid var(--yellow)' }}>
+      <h2 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 22 }}>
+        {rejected ? 'Your account needs attention' : 'Welcome to Karu — two steps to go live'}
+      </h2>
+      <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 6 }}>
+        {rejected
+          ? `Verification is currently ${vendor.status}. Send us a message and we will help sort it out.`
+          : 'Your listings stay hidden from customers until verification completes.'}
+      </p>
+
+      <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {steps.map((st, i) => (
+          <div key={st.title} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <span
+              aria-hidden="true"
+              style={{
+                width: 26,
+                height: 26,
+                borderRadius: '50%',
+                flexShrink: 0,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontFamily: 'var(--font-ui)',
+                fontWeight: 700,
+                fontSize: 13,
+                background: st.done ? 'var(--success)' : 'var(--cream-200)',
+                color: st.done ? 'var(--white)' : 'var(--gray-500)',
+              }}
+            >
+              {st.done ? '✓' : i + 1}
+            </span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: 'var(--font-ui)', fontWeight: 700, fontSize: 15 }}>{st.title}</div>
+              <div style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-500)', marginTop: 2 }}>
+                {st.body}
+              </div>
+            </div>
+            {st.action && (
+              <Button size="sm" variant="outline" onClick={() => onGo(st.action!.to)}>
+                {st.action.label}
+              </Button>
+            )}
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }
 
