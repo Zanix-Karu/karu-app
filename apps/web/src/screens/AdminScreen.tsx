@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useLocation, useNavigate } from 'react-router-dom';
 import type { Booking, BookingStatus, Vehicle, Vendor } from '@karu/shared';
 import { api } from '../lib/api';
 import { CATEGORY_LABEL, CITY_LABEL, prettyDate, xaf } from '../lib/format';
@@ -17,13 +18,29 @@ import {
 
 type Tab = 'overview' | 'vendors' | 'documents' | 'cars' | 'bookings';
 
+const TAB_PATH: Record<Tab, string> = {
+  overview: '/admin',
+  vendors: '/admin/vendors',
+  documents: '/admin/documents',
+  cars: '/admin/cars',
+  bookings: '/admin/bookings',
+};
+
+/** Tab comes from the URL so the header nav and the console agree. */
+function tabFromPath(pathname: string): Tab {
+  const rest = pathname.replace(/^\/admin\/?/, '');
+  return (['vendors', 'documents', 'cars', 'bookings'] as Tab[]).find((t) => rest.startsWith(t)) ?? 'overview';
+}
+
 export function AdminScreen() {
-  const [tab, setTab] = useState<Tab>('overview');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const tab = tabFromPath(location.pathname);
 
   const tabBtn = (t: Tab, label: string) => (
     <button
       key={t}
-      onClick={() => setTab(t)}
+      onClick={() => navigate(TAB_PATH[t])}
       className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
         tab === t ? 'bg-karu-ink text-karu-cream' : 'text-karu-brown hover:bg-karu-ink/5'
       }`}

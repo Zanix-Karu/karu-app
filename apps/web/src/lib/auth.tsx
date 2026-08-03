@@ -10,6 +10,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import type { Profile } from '@karu/shared';
 import { supabase } from './supabase';
 import { api } from './api';
+import { HOME, viewOf, type View } from './roles';
 
 interface AuthState {
   /** undefined = still resolving the initial session */
@@ -73,6 +74,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/** The view this session presents as — 'guest' until signed in. */
+export function useView(): View {
+  const { session, profile } = useAuth();
+  return viewOf(Boolean(session), profile?.role);
+}
+
 /** Gate a route behind a signed-in session. */
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { session } = useAuth();
@@ -82,24 +89,25 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-/** Gate a route behind the admin role (resolved server-side via the profile). */
-export function RequireAdmin({ children }: { children: ReactNode }) {
+/**
+ * Gate a route behind one or more views. A role that isn't entitled is sent to
+ * its OWN home rather than a shared one, so it never lands on another view's
+ * surface. Roles are checked against the profile (resolved server-side), never
+ * against anything the client controls.
+ */
+export function RequireView({
+  views,
+  children,
+}: {
+  views: View[];
+  children: ReactNode;
+}) {
   const { session, profile } = useAuth();
-  if (session === undefined) return null;
-  if (!session) return <Navigate to="/auth" replace />;
-  if (!profile) return null; // profile loading
-  if (profile.role !== 'admin') return <Navigate to="/search" replace />;
-  return <>{children}</>;
-}
-
-/** Gate a route behind the vendor role. */
-export function RequireVendor({ children }: { children: ReactNode }) {
-  const { session, profile } = useAuth();
-  if (session === undefined) return null;
-  if (!session) return <Navigate to="/auth" replace />;
-  if (!profile) return null;
-  if (profile.role !== 'vendor' && profile.role !== 'admin') {
-    return <Navigate to="/profile" replace />;
-  }
+  const location = useLocation();
+  if (session === undefined) return null; // session still resolving
+  if (!session) return <Navigate to="/auth" state={{ from: location.pathname }} replace />;
+  if (!profile) return null; // profile still loading
+  const view = viewOf(true, profile.role);
+  if (!views.includes(view)) return <Navigate to={HOME[view]} replace />;
   return <>{children}</>;
 }

@@ -4,7 +4,8 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { Booking, Vehicle } from '@karu/shared';
 import { computeDepositXaf } from '@karu/shared';
 import { api } from '../lib/api';
-import { useAuth } from '../lib/auth';
+import { useAuth, useView } from '../lib/auth';
+import { CAN_BOOK } from '../lib/roles';
 import { CATEGORY_LABEL, CITY_LABEL, prettyDate, rentalDays, todayISO, xaf } from '../lib/format';
 import { Button, Card, CarImage, ErrorNote, Field, Input, Spinner } from '../ui';
 
@@ -17,6 +18,8 @@ export function CarDetailScreen() {
   const { id = '' } = useParams();
   const [search] = useSearchParams();
   const { session } = useAuth();
+  const view = useView();
+  const canBook = CAN_BOOK[view];
   const navigate = useNavigate();
 
   const [from, setFrom] = useState(search.get('from') ?? '');
@@ -122,6 +125,18 @@ export function CarDetailScreen() {
           {xaf(car.daily_rate_xaf)} <span className="text-sm font-normal text-karu-mute">/ day</span>
         </p>
 
+        {/* Vendors and admins browse read-only — showing them a booking CTA
+            the API would refuse (403 Requires role: customer) is a dead
+            control. Tell them why instead. */}
+        {!canBook && (
+          <div className="mt-4 rounded-lg border border-karu-ink/10 bg-karu-cream px-4 py-3 text-sm text-karu-brown">
+            You&rsquo;re signed in as {view === 'vendor' ? 'a provider' : 'an admin'}, so booking is
+            disabled. This is how the listing looks to customers.
+          </div>
+        )}
+
+        {canBook && (
+        <>
         <div className="mt-4 grid grid-cols-2 gap-3">
           <Field label="Pick-up">
             <Input type="date" min={todayISO()} value={from} onChange={(e) => setFrom(e.target.value)} />
@@ -187,6 +202,8 @@ export function CarDetailScreen() {
             </div>
           </>
         )}
+        </>
+        )}
 
         {book.isError && (
           <div className="mt-3">
@@ -194,22 +211,26 @@ export function CarDetailScreen() {
           </div>
         )}
 
-        <Button
-          className="mt-4 w-full"
-          disabled={!windowChosen || !avail?.available || book.isPending}
-          onClick={() => {
-            if (!session) {
-              navigate('/auth', { state: { from: `/cars/${id}?from=${from}&to=${to}` } });
-              return;
-            }
-            book.mutate();
-          }}
-        >
-          {book.isPending ? 'Sending request…' : session ? 'Request to book' : 'Sign in to book'}
-        </Button>
-        <p className="mt-2 text-center text-xs text-karu-mute">
-          No charge yet — the provider confirms within 24h.
-        </p>
+        {canBook && (
+          <>
+            <Button
+              className="mt-4 w-full"
+              disabled={!windowChosen || !avail?.available || book.isPending}
+              onClick={() => {
+                if (!session) {
+                  navigate('/auth', { state: { from: `/cars/${id}?from=${from}&to=${to}` } });
+                  return;
+                }
+                book.mutate();
+              }}
+            >
+              {book.isPending ? 'Sending request…' : session ? 'Request to book' : 'Sign in to book'}
+            </Button>
+            <p className="mt-2 text-center text-xs text-karu-mute">
+              No charge yet — the provider confirms within 24h.
+            </p>
+          </>
+        )}
       </Card>
     </div>
   );

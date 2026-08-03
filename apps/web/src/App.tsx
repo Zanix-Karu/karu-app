@@ -8,7 +8,8 @@ import {
   Routes,
   useNavigate,
 } from 'react-router-dom';
-import { AuthProvider, RequireAdmin, RequireAuth, RequireVendor, useAuth } from './lib/auth';
+import { AuthProvider, RequireView, useAuth, useView } from './lib/auth';
+import { HOME, NAV } from './lib/roles';
 import { AuthScreen } from './screens/AuthScreen';
 import { SearchScreen } from './screens/SearchScreen';
 import { CarDetailScreen } from './screens/CarDetailScreen';
@@ -23,6 +24,12 @@ import { Button } from './ui';
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
 });
+
+/** "/" sends each view to its own home. */
+function HomeRedirect() {
+  const view = useView();
+  return <Navigate to={HOME[view]} replace />;
+}
 
 function NotFoundScreen() {
   return (
@@ -44,6 +51,7 @@ function NotFoundScreen() {
 
 function Header() {
   const { session, profile, signOut } = useAuth();
+  const view = useView();
   const navigate = useNavigate();
 
   // px-3 on mobile so the row fits a 375px viewport without overflowing.
@@ -56,7 +64,7 @@ function Header() {
     <header className="sticky top-0 z-20 bg-karu-ink">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 py-3 sm:justify-between sm:gap-4">
         <Link
-          to="/search"
+          to={HOME[view]}
           className="shrink-0"
           style={{
             fontFamily: 'var(--font-display)',
@@ -68,28 +76,13 @@ function Header() {
         >
           KARU
         </Link>
+        {/* Each view sees only its own items — see lib/roles.ts */}
         <nav className="flex flex-wrap items-center justify-center gap-1">
-          <NavLink to="/search" className={nav}>
-            Find a car
-          </NavLink>
-          <NavLink to="/vendors" className={nav}>
-            Providers
-          </NavLink>
-          {session && (
-            <NavLink to="/bookings" className={nav}>
-              My bookings
+          {NAV[view].map((item) => (
+            <NavLink key={item.to} to={item.to} end={item.to === '/vendor' || item.to === '/admin'} className={nav}>
+              {item.label}
             </NavLink>
-          )}
-          {profile?.role === 'vendor' && (
-            <NavLink to="/vendor" className={nav}>
-              Vendor area
-            </NavLink>
-          )}
-          {profile?.role === 'admin' && (
-            <NavLink to="/admin" className={nav}>
-              Admin
-            </NavLink>
-          )}
+          ))}
         </nav>
         <div className="flex flex-wrap items-center justify-center gap-2">
           {session ? (
@@ -125,52 +118,64 @@ export default function App() {
           <Header />
           <main className="mx-auto max-w-6xl px-4 py-8">
             <Routes>
-              <Route path="/" element={<Navigate to="/search" replace />} />
+              <Route path="/" element={<HomeRedirect />} />
               <Route path="/auth" element={<AuthScreen />} />
+
+              {/* Public marketplace — readable by every view. Only *booking*
+                  is customer-only, enforced inside CarDetailScreen. */}
               <Route path="/search" element={<SearchScreen />} />
               <Route path="/vendors" element={<VendorDirectoryScreen />} />
               <Route path="/vendors/:id" element={<VendorProfileScreen />} />
               <Route path="/cars/:id" element={<CarDetailScreen />} />
+
+              {/* Customer view */}
               <Route
-                path="/vendor"
+                path="/bookings"
                 element={
-                  <RequireVendor>
-                    <VendorAreaScreen />
-                  </RequireVendor>
+                  <RequireView views={['customer']}>
+                    <BookingsScreen />
+                  </RequireView>
                 }
               />
               <Route
                 path="/bookings/:id/confirmed"
                 element={
-                  <RequireAuth>
+                  <RequireView views={['customer']}>
                     <ConfirmationScreen />
-                  </RequireAuth>
+                  </RequireView>
                 }
               />
+
+              {/* Vendor view */}
               <Route
-                path="/bookings"
+                path="/vendor/*"
                 element={
-                  <RequireAuth>
-                    <BookingsScreen />
-                  </RequireAuth>
+                  <RequireView views={['vendor']}>
+                    <VendorAreaScreen />
+                  </RequireView>
                 }
               />
+
+              {/* Admin view */}
+              <Route
+                path="/admin/*"
+                element={
+                  <RequireView views={['admin']}>
+                    <AdminScreen />
+                  </RequireView>
+                }
+              />
+
+              {/* Shared by every signed-in view */}
               <Route
                 path="/profile"
                 element={
-                  <RequireAuth>
+                  <RequireView views={['customer', 'vendor', 'admin']}>
                     <ProfileScreen />
-                  </RequireAuth>
+                  </RequireView>
                 }
               />
-              <Route
-                path="/admin"
-                element={
-                  <RequireAdmin>
-                    <AdminScreen />
-                  </RequireAdmin>
-                }
-              />
+
               {/* An unknown URL should say so rather than silently redirect. */}
               <Route path="*" element={<NotFoundScreen />} />
             </Routes>

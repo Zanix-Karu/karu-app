@@ -1,67 +1,32 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import type { Booking, BookingStatus } from '@karu/shared';
 import { api } from '../lib/api';
-import { useAuth } from '../lib/auth';
 import { prettyDate, xaf } from '../lib/format';
 import { Button, Card, EmptyState, ErrorNote, Spinner, StatusBadge } from '../ui';
 
 /**
- * Actions each role may take from this screen, per booking status. The API
- * enforces the same rules server-side — these just surface the right buttons.
+ * The customer's own bookings. Vendors have /vendor/bookings and admins have
+ * /admin/bookings — each view gets its own surface rather than one screen
+ * reinterpreting itself three ways.
  */
-const ACTIONS: Record<
-  'customer' | 'vendor' | 'admin',
-  Partial<Record<BookingStatus, Array<{ to: BookingStatus; label: string; danger?: boolean; confirm?: string }>>>
-> = {
-  customer: {
-    requested: [{ to: 'cancelled', label: 'Cancel', danger: true, confirm: 'Cancel this booking?' }],
-    confirmed: [{ to: 'cancelled', label: 'Cancel', danger: true, confirm: 'Cancel this booking?' }],
-  },
-  vendor: {
-    requested: [
-      { to: 'confirmed', label: 'Confirm' },
-      { to: 'rejected', label: 'Reject', danger: true, confirm: 'Reject this request?' },
-    ],
-    confirmed: [
-      { to: 'in_progress', label: 'Start trip' },
-      { to: 'cancelled', label: 'Cancel', danger: true, confirm: 'Cancel this booking?' },
-    ],
-    in_progress: [{ to: 'completed', label: 'Complete' }],
-  },
-  // Admins oversee the whole marketplace and may drive any transition.
-  admin: {
-    requested: [
-      { to: 'confirmed', label: 'Confirm' },
-      { to: 'rejected', label: 'Reject', danger: true, confirm: 'Reject this request?' },
-    ],
-    confirmed: [
-      { to: 'in_progress', label: 'Start trip' },
-      { to: 'cancelled', label: 'Cancel', danger: true, confirm: 'Cancel this booking?' },
-    ],
-    in_progress: [{ to: 'completed', label: 'Complete' }],
-  },
+const CUSTOMER_ACTIONS: Partial<Record<BookingStatus, { label: string; confirm: string }>> = {
+  requested: { label: 'Cancel', confirm: 'Cancel this booking?' },
+  confirmed: { label: 'Cancel', confirm: 'Cancel this booking?' },
 };
 
 export function BookingsScreen() {
   const qc = useQueryClient();
-  const { profile } = useAuth();
-  const roleActions =
-    profile?.role === 'vendor'
-      ? ACTIONS.vendor
-      : profile?.role === 'admin'
-        ? ACTIONS.admin
-        : ACTIONS.customer;
-
   const { data, isLoading, error } = useQuery({
     queryKey: ['my-bookings'],
     queryFn: () => api<Booking[]>('/bookings/mine'),
   });
 
-  const transition = useMutation({
-    mutationFn: ({ id, to }: { id: string; to: BookingStatus }) =>
+  const cancel = useMutation({
+    mutationFn: (id: string) =>
       api<Booking>(`/bookings/${id}/status`, {
         method: 'PATCH',
-        body: JSON.stringify({ status: to }),
+        body: JSON.stringify({ status: 'cancelled' }),
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['my-bookings'] }),
   });
@@ -69,72 +34,59 @@ export function BookingsScreen() {
   if (isLoading) return <Spinner label="Loading your bookings…" />;
   if (error) return <ErrorNote>{(error as Error).message}</ErrorNote>;
 
-  const isVendor = profile?.role === 'vendor';
-  const isAdmin = profile?.role === 'admin';
-
   return (
     <div className="mx-auto max-w-3xl">
-      <h1 className="font-display text-3xl font-bold">
-        {isVendor ? 'Bookings for your cars' : isAdmin ? 'All bookings' : 'My bookings'}
-      </h1>
-      {isVendor && (
-        <p className="mt-1 text-sm text-karu-mute">
-          Confirm or decline requests within 24 hours. Customers see the change here straight
-          away, and we email them too.
-        </p>
-      )}
-      {isAdmin && (
-        <p className="mt-1 text-sm text-karu-mute">
-          Every booking on the platform. The same controls live under Admin → Bookings.
-        </p>
-      )}
+      <h1 className="font-display text-3xl font-bold">My bookings</h1>
 
       {data && data.length === 0 && (
-        <EmptyState
-          title="No bookings yet"
-          hint={isVendor ? 'Requests for your cars will appear here.' : 'Find a car and send your first request.'}
-        />
+        <EmptyState title="No bookings yet" hint="Find a car and send your first request." />
       )}
 
       <div className="mt-6 space-y-4">
-        {data?.map((b) => (
-          <Card key={b.id} className="flex flex-wrap items-center justify-between gap-4 p-5">
-            <div>
-              <p className="font-mono text-xs text-karu-mute">{b.reference ?? b.id}</p>
-              <p className="mt-1 font-semibold">
-                {prettyDate(b.start_date)} → {prettyDate(b.end_date)}
-              </p>
-              <p className="text-sm text-karu-mute">
-                {xaf(b.total_xaf)}
-                {b.pickup_location ? ` · ${b.pickup_location}` : ''}
-              </p>
-              {isVendor && b.customer_note && (
-                <p className="mt-1 text-xs text-karu-mute">“{b.customer_note}”</p>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <StatusBadge status={b.status} />
-              {roleActions[b.status]?.map((a) => (
-                <Button
-                  key={a.to}
-                  variant={a.danger ? 'danger' : 'primary'}
-                  disabled={transition.isPending}
-                  onClick={() => {
-                    if (a.confirm && !window.confirm(a.confirm)) return;
-                    transition.mutate({ id: b.id, to: a.to });
-                  }}
-                >
-                  {a.label}
-                </Button>
-              ))}
-            </div>
-          </Card>
-        ))}
+        {data?.map((b) => {
+          const action = CUSTOMER_ACTIONS[b.status];
+          return (
+            <Card key={b.id} className="flex flex-wrap items-center justify-between gap-4 p-5">
+              <div>
+                <p className="font-mono text-xs text-karu-mute">{b.reference ?? b.id}</p>
+                <p className="mt-1 font-semibold">
+                  {prettyDate(b.start_date)} → {prettyDate(b.end_date)}
+                </p>
+                <p className="text-sm text-karu-mute">
+                  {xaf(b.total_xaf)}
+                  {b.pickup_location ? ` · ${b.pickup_location}` : ''}
+                </p>
+                {b.status === 'completed' && (
+                  <Link
+                    to={`/bookings/${b.id}/confirmed`}
+                    className="mt-1 inline-block text-xs font-semibold text-karu-brown underline"
+                  >
+                    View details
+                  </Link>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <StatusBadge status={b.status} />
+                {action && (
+                  <Button
+                    variant="danger"
+                    disabled={cancel.isPending}
+                    onClick={() => {
+                      if (window.confirm(action.confirm)) cancel.mutate(b.id);
+                    }}
+                  >
+                    {action.label}
+                  </Button>
+                )}
+              </div>
+            </Card>
+          );
+        })}
       </div>
 
-      {transition.isError && (
+      {cancel.isError && (
         <div className="mt-4">
-          <ErrorNote>{(transition.error as Error).message}</ErrorNote>
+          <ErrorNote>{(cancel.error as Error).message}</ErrorNote>
         </div>
       )}
     </div>
