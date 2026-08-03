@@ -5,8 +5,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import type { DocumentType, Vendor } from '@karu/shared';
+import type { DocumentType, RatingSummary, Vendor } from '@karu/shared';
 import { SupabaseService } from '../supabase/supabase.service';
+import { ReviewsService } from '../reviews/reviews.service';
 import { CreateVendorDto } from './dto';
 
 /** Private bucket for verification documents — access via signed URLs only. */
@@ -14,7 +15,10 @@ const DOCUMENTS_BUCKET = 'vendor-documents';
 
 @Injectable()
 export class VendorsService {
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly reviews: ReviewsService,
+  ) {}
 
   /**
    * Register the authenticated user as a vendor. Creates the vendor row
@@ -84,14 +88,17 @@ export class VendorsService {
     };
   }
 
-  /** Public directory of verified vendors. */
-  async listVerified(): Promise<Vendor[]> {
+  /** Public directory of verified vendors, each with its aggregate rating. */
+  async listVerified(): Promise<Array<Vendor & { rating: RatingSummary }>> {
     const { data, error } = await this.supabase.db
       .from('vendors')
       .select('*')
       .eq('status', 'verified')
       .order('created_at', { ascending: false });
     if (error) throw new NotFoundException(error.message);
-    return (data ?? []) as Vendor[];
+
+    const vendors = (data ?? []) as Vendor[];
+    const ratings = await this.reviews.summaryByVendor(vendors.map((v) => v.id));
+    return vendors.map((v) => ({ ...v, rating: ratings[v.id] }));
   }
 }

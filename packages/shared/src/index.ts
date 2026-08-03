@@ -146,3 +146,20 @@ export interface Booking {
   created_at: string;
   updated_at: string;
 }
+
+export interface Review {
+  id: string;
+  booking_id: string;
+  author_id: string;
+  /** Who is being reviewed: 'vendor' = the customer reviewed the provider. */
+  target: ReviewTarget;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+}
+
+/** Aggregate reputation shown on cards, listings and provider profiles. */
+export interface RatingSummary {
+  average: number | null;
+  count: number;
+}
