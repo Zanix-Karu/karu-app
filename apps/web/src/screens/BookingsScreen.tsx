@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import type { Booking, BookingStatus } from '@karu/shared';
+import type { Booking, BookingStatus, Review } from '@karu/shared';
 import { api } from '../lib/api';
 import { prettyDate, xaf } from '../lib/format';
+import { ReviewForm } from '../components/ReviewForm';
 import { Button, Card, EmptyState, ErrorNote, Spinner, StatusBadge } from '../ui';
 
 /**
@@ -21,6 +22,16 @@ export function BookingsScreen() {
     queryKey: ['my-bookings'],
     queryFn: () => api<Booking[]>('/bookings/mine'),
   });
+
+  // Which completed bookings the customer has already reviewed, so the form
+  // is only offered once.
+  const completedIds = (data ?? []).filter((b) => b.status === 'completed').map((b) => b.id);
+  const { data: myReviews } = useQuery({
+    queryKey: ['my-reviews', completedIds.join(',')],
+    queryFn: () => api<Review[]>(`/reviews/mine?booking_ids=${completedIds.join(',')}`),
+    enabled: completedIds.length > 0,
+  });
+  const reviewed = new Set((myReviews ?? []).map((r) => r.booking_id));
 
   const cancel = useMutation({
     mutationFn: (id: string) =>
@@ -46,39 +57,43 @@ export function BookingsScreen() {
         {data?.map((b) => {
           const action = CUSTOMER_ACTIONS[b.status];
           return (
-            <Card key={b.id} className="flex flex-wrap items-center justify-between gap-4 p-5">
-              <div>
-                <p className="font-mono text-xs text-karu-mute">{b.reference ?? b.id}</p>
-                <p className="mt-1 font-semibold">
-                  {prettyDate(b.start_date)} → {prettyDate(b.end_date)}
-                </p>
-                <p className="text-sm text-karu-mute">
-                  {xaf(b.total_xaf)}
-                  {b.pickup_location ? ` · ${b.pickup_location}` : ''}
-                </p>
-                {b.status === 'completed' && (
+            <Card key={b.id} className="p-5">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <p className="font-mono text-xs text-karu-mute">{b.reference ?? b.id}</p>
+                  <p className="mt-1 font-semibold">
+                    {prettyDate(b.start_date)} → {prettyDate(b.end_date)}
+                  </p>
+                  <p className="text-sm text-karu-mute">
+                    {xaf(b.total_xaf)}
+                    {b.pickup_location ? ` · ${b.pickup_location}` : ''}
+                  </p>
                   <Link
                     to={`/bookings/${b.id}/confirmed`}
                     className="mt-1 inline-block text-xs font-semibold text-karu-brown underline"
                   >
                     View details
                   </Link>
-                )}
+                </div>
+                <div className="flex items-center gap-3">
+                  <StatusBadge status={b.status} />
+                  {action && (
+                    <Button
+                      variant="danger"
+                      disabled={cancel.isPending}
+                      onClick={() => {
+                        if (window.confirm(action.confirm)) cancel.mutate(b.id);
+                      }}
+                    >
+                      {action.label}
+                    </Button>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <StatusBadge status={b.status} />
-                {action && (
-                  <Button
-                    variant="danger"
-                    disabled={cancel.isPending}
-                    onClick={() => {
-                      if (window.confirm(action.confirm)) cancel.mutate(b.id);
-                    }}
-                  >
-                    {action.label}
-                  </Button>
-                )}
-              </div>
+
+              {b.status === 'completed' && !reviewed.has(b.id) && (
+                <ReviewForm bookingId={b.id} prompt="How was this rental? Rate the provider." />
+              )}
             </Card>
           );
         })}

@@ -1,16 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import type { Vehicle, Vendor } from '@karu/shared';
+import type { RatingSummary, Review, Vehicle, Vendor } from '@karu/shared';
 import { api } from '../lib/api';
 import { CATEGORY_LABEL, CITY_LABEL } from '../lib/format';
-import { Badge, Card, CarCard } from '../ds';
+import { Badge, Card, CarCard, Rating } from '../ds';
 import { EmptyState, ErrorNote, Spinner } from '../ui';
+
+type VendorWithRating = Vendor & { rating: RatingSummary };
 
 /** Public directory of verified providers — trust is the product. */
 export function VendorDirectoryScreen() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['vendors-public'],
-    queryFn: () => api<Vendor[]>('/vendors'),
+    queryFn: () => api<VendorWithRating[]>('/vendors'),
   });
 
   if (isLoading) return <Spinner label="Loading providers…" />;
@@ -38,6 +40,15 @@ export function VendorDirectoryScreen() {
                   <div style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 4 }}>
                     {CITY_LABEL[v.city]}
                   </div>
+                  <div style={{ marginTop: 8 }}>
+                    {v.rating?.average != null ? (
+                      <Rating value={v.rating.average} count={v.rating.count} />
+                    ) : (
+                      <span style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-400)' }}>
+                        No reviews yet
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <Badge variant="success">✓ Verified</Badge>
               </div>
@@ -54,7 +65,7 @@ export function VendorProfileScreen() {
   const { id = '' } = useParams();
   const { data: vendors, isLoading: loadingVendors } = useQuery({
     queryKey: ['vendors-public'],
-    queryFn: () => api<Vendor[]>('/vendors'),
+    queryFn: () => api<VendorWithRating[]>('/vendors'),
   });
   const vendor = vendors?.find((v) => v.id === id);
 
@@ -98,10 +109,21 @@ export function VendorProfileScreen() {
               {CITY_LABEL[vendor.city]}
               {vendor.contact_phone ? ` · ${vendor.contact_phone}` : ''}
             </p>
+            <div style={{ marginTop: 10 }}>
+              {vendor.rating?.average != null ? (
+                <Rating value={vendor.rating.average} count={vendor.rating.count} color="var(--white)" size={18} />
+              ) : (
+                <span style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--text-on-dark-muted)' }}>
+                  No reviews yet
+                </span>
+              )}
+            </div>
           </div>
           <Badge variant="solid">✓ Verified provider</Badge>
         </div>
       )}
+
+      <VendorReviews vendorId={id} />
 
       <h2 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22, margin: '28px 0 14px' }}>
         Available cars
@@ -114,6 +136,38 @@ export function VendorProfileScreen() {
         ))}
       </div>
     </div>
+  );
+}
+
+/** What customers said about this provider. */
+function VendorReviews({ vendorId }: { vendorId: string }) {
+  const { data } = useQuery({
+    queryKey: ['vendor-reviews', vendorId],
+    queryFn: () => api<Review[]>(`/vendors/${vendorId}/reviews`),
+  });
+  if (!data || data.length === 0) return null;
+
+  return (
+    <>
+      <h2 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22, margin: '28px 0 14px' }}>
+        What customers said
+      </h2>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+        {data.map((r) => (
+          <Card key={r.id}>
+            <Rating value={r.rating} />
+            {r.comment && (
+              <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, marginTop: 8, lineHeight: 1.5 }}>
+                &ldquo;{r.comment}&rdquo;
+              </p>
+            )}
+            <p style={{ fontFamily: 'var(--font-ui)', fontSize: 12, color: 'var(--gray-400)', marginTop: 8 }}>
+              {new Date(r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </p>
+          </Card>
+        ))}
+      </div>
+    </>
   );
 }
 
