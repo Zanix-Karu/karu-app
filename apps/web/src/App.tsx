@@ -155,7 +155,7 @@ export default function App() {
               <Route
                 path="/bookings"
                 element={
-                  <RequireView views={['customer']}>
+                  <RequireView views={['customer', 'admin']}>
                     <BookingsScreen />
                   </RequireView>
                 }
@@ -163,7 +163,7 @@ export default function App() {
               <Route
                 path="/bookings/:id/confirmed"
                 element={
-                  <RequireView views={['customer']}>
+                  <RequireView views={['customer', 'admin']}>
                     <ConfirmationScreen />
                   </RequireView>
                 }
@@ -173,7 +173,7 @@ export default function App() {
               <Route
                 path="/vendor/*"
                 element={
-                  <RequireView views={['vendor']}>
+                  <RequireView views={['vendor', 'admin']}>
                     <VendorAreaScreen />
                   </RequireView>
                 }

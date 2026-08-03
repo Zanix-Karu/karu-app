@@ -295,14 +295,18 @@ export class VehiclesService {
     return vehicle;
   }
 
-  /** Vendor's own listings (any status). */
-  async listForVendorProfile(profileId: string): Promise<Vehicle[]> {
-    const vendor = await this.vendors.getByProfile(profileId);
-    const { data, error } = await this.supabase.db
-      .from('vehicles')
-      .select('*')
-      .eq('vendor_id', vendor.id)
-      .order('created_at', { ascending: false });
+  /**
+   * Listings for the calling vendor, in any status. An admin has no vendor
+   * record of their own, so they get the whole fleet — a superadmin oversees
+   * every vendor's cars, not none.
+   */
+  async listForVendorProfile(profileId: string, role: UserRole = 'vendor'): Promise<Vehicle[]> {
+    let q = this.supabase.db.from('vehicles').select('*');
+    if (role !== 'admin') {
+      const vendor = await this.vendors.getByProfile(profileId);
+      q = q.eq('vendor_id', vendor.id);
+    }
+    const { data, error } = await q.order('created_at', { ascending: false });
     if (error) throw new NotFoundException(error.message);
     return (data ?? []) as Vehicle[];
   }

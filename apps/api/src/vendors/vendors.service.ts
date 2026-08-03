@@ -98,8 +98,22 @@ export class VendorsService {
    *     today, 'unavailable' if inactive or blocked today, else 'available'
    *   - earningsSeries: completed bookings per day for the last 30 days
    */
+  async statsForVendorId(vendorId: string) {
+    const { data } = await this.supabase.db
+      .from('vendors')
+      .select('*')
+      .eq('id', vendorId)
+      .maybeSingle();
+    if (!data) throw new NotFoundException('Vendor not found');
+    return this.buildStats(data as Vendor);
+  }
+
   async statsFor(profileId: string) {
     const vendor = await this.getByProfile(profileId);
+    return this.buildStats(vendor);
+  }
+
+  private async buildStats(vendor: Vendor) {
     const today = new Date().toISOString().slice(0, 10);
 
     const [bookingsRes, vehiclesRes, blocksRes] = await Promise.all([

@@ -36,7 +36,9 @@ export const CAN_BOOK: Record<View, boolean> = {
   guest: true, // prompted to sign in; the CTA is legitimate
   customer: true,
   vendor: false,
-  admin: false,
+  // Superadmin: the ops team books on behalf of walk-in and phone customers,
+  // so an admin can do anything a customer can.
+  admin: true,
 };
 
 export interface NavItem {
@@ -65,10 +67,13 @@ export const NAV: Record<View, NavItem[]> = {
     { to: '/vendor/documents', label: 'nav.documents' },
     { to: '/search', label: 'nav.viewMarketplace' },
   ],
+  // Superadmin sees its own console first, then every other surface.
   admin: [
     { to: '/admin', label: 'nav.operations' },
     { to: '/admin/bookings', label: 'nav.bookings' },
-    { to: '/search', label: 'nav.viewMarketplace' },
+    { to: '/search', label: 'nav.findCar' },
+    { to: '/bookings', label: 'nav.myBookings' },
+    { to: '/vendor', label: 'nav.dashboard' },
   ],
 };
 
@@ -77,7 +82,8 @@ const ALLOWED: Record<View, string[]> = {
   guest: ['/search', '/vendors', '/cars', '/auth', '/list-your-car'],
   customer: ['/search', '/vendors', '/cars', '/bookings', '/profile', '/auth', '/list-your-car'],
   vendor: ['/search', '/vendors', '/cars', '/vendor', '/profile', '/auth'],
-  admin: ['/search', '/vendors', '/cars', '/admin', '/profile', '/auth'],
+  // An admin is a superadmin: every route any other view can reach.
+  admin: ['/search', '/vendors', '/cars', '/admin', '/vendor', '/bookings', '/profile', '/auth', '/list-your-car'],
 };
 
 export function canOpen(view: View, path: string): boolean {

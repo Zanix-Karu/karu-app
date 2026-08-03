@@ -67,6 +67,18 @@ export class ReviewsService {
     return data as Review;
   }
 
+  /** Remove a review. Admin-only: reputation is public, so moderation is a
+   * deliberate superadmin action rather than something an author can undo. */
+  async remove(reviewId: string): Promise<{ deleted: true }> {
+    const { error, count } = await this.supabase.db
+      .from('reviews')
+      .delete({ count: 'exact' })
+      .eq('id', reviewId);
+    if (error) throw new BadRequestException(error.message);
+    if (!count) throw new NotFoundException('Review not found');
+    return { deleted: true };
+  }
+
   /** Reviews the caller has already written, so the UI can hide the form. */
   async mineForBookings(userId: string, bookingIds: string[]): Promise<Review[]> {
     if (bookingIds.length === 0) return [];

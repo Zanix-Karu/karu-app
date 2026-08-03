@@ -24,10 +24,10 @@ export class VehiclesController {
   }
 
   /** A vendor's own listings. Declared before :id so it isn't shadowed. */
-  @Roles('vendor')
+  @Roles('vendor', 'admin')
   @Get('mine')
-  mine(@CurrentUser('id') profileId: string) {
-    return this.vehicles.listForVendorProfile(profileId);
+  mine(@CurrentUser('id') profileId: string, @CurrentUser('role') role: UserRole) {
+    return this.vehicles.listForVendorProfile(profileId, role);
   }
 
   @Public()

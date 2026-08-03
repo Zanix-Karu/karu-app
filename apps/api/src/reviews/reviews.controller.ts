@@ -1,6 +1,6 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
 import type { UserRole } from '@karu/shared';
-import { CurrentUser, Public } from '../auth/decorators';
+import { CurrentUser, Public, Roles } from '../auth/decorators';
 import { ReviewsService } from './reviews.service';
 import { CreateReviewDto } from './dto';
 
@@ -23,6 +23,13 @@ export class ReviewsController {
   @Get('reviews/mine')
   mine(@CurrentUser('id') userId: string, @Query('booking_ids') bookingIds?: string) {
     return this.reviews.mineForBookings(userId, bookingIds ? bookingIds.split(',') : []);
+  }
+
+  /** Moderation — remove a review outright. */
+  @Roles('admin')
+  @Delete('reviews/:id')
+  remove(@Param('id') id: string) {
+    return this.reviews.remove(id);
   }
 
   /** Public reputation for a provider. */
