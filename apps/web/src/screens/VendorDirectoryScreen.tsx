@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import type { RatingSummary, Review, Vehicle, Vendor } from '@karu/shared';
@@ -11,6 +12,7 @@ type VendorWithRating = Vendor & { rating: RatingSummary };
 
 /** Public directory of verified providers — trust is the product. */
 export function VendorDirectoryScreen() {
+  const { t } = useTranslation();
   const { data, isLoading, error } = useQuery({
     queryKey: ['vendors-public'],
     queryFn: () => api<VendorWithRating[]>('/vendors'),
@@ -34,13 +36,13 @@ export function VendorDirectoryScreen() {
   return (
     <div>
       <h1 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 40 }}>
-        Verified providers
+        {t('providers.title')}
       </h1>
       <p style={{ fontFamily: 'var(--font-ui)', fontSize: 15, color: 'var(--gray-500)', marginTop: 6 }}>
-        Every provider on Karu has passed document verification — business registration, carte grise, insurance.
+        {t('providers.sub')}
       </p>
 
-      {data?.length === 0 && <EmptyState title="No providers yet" />}
+      {data?.length === 0 && <EmptyState title={t('providers.none')} />}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 18, marginTop: 24 }}>
         {data?.map((v) => (
           <Link key={v.id} to={`/vendors/${v.id}`}>
@@ -58,12 +60,12 @@ export function VendorDirectoryScreen() {
                       <Rating value={v.rating.average} count={v.rating.count} />
                     ) : (
                       <span style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-400)' }}>
-                        No reviews yet
+                        {t('providers.noReviews')}
                       </span>
                     )}
                   </div>
                 </div>
-                <Badge variant="success">✓ Verified</Badge>
+                <Badge variant="success">{t('providers.verified')}</Badge>
               </div>
             </Card>
           </Link>
@@ -75,6 +77,7 @@ export function VendorDirectoryScreen() {
 
 /** One provider's page: profile + their bookable fleet. */
 export function VendorProfileScreen() {
+  const { t } = useTranslation();
   const { id = '' } = useParams();
   const { data: vendors, isLoading: loadingVendors } = useQuery({
     queryKey: ['vendors-public'],
@@ -87,13 +90,13 @@ export function VendorProfileScreen() {
     queryFn: () => api<Vehicle[]>(`/vehicles?vendor_id=${id}`),
   });
 
-  if (loadingVendors) return <Spinner label="Loading provider…" />;
+  if (loadingVendors) return <Spinner label={t('common.loading')} />;
   // An unknown id must say so, not render an empty fleet as if the provider existed.
   if (!vendor) {
     return (
       <EmptyState
-        title="Provider not found"
-        hint="This provider may have been removed, or is no longer verified."
+        title={t('providers.notFound')}
+        hint={t('providers.notFoundHint')}
       />
     );
   }
@@ -127,22 +130,22 @@ export function VendorProfileScreen() {
                 <Rating value={vendor.rating.average} count={vendor.rating.count} color="var(--white)" size={18} />
               ) : (
                 <span style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--text-on-dark-muted)' }}>
-                  No reviews yet
+                  {t('providers.noReviews')}
                 </span>
               )}
             </div>
           </div>
-          <Badge variant="solid">✓ Verified provider</Badge>
+          <Badge variant="solid">{t('providers.verifiedProvider')}</Badge>
         </div>
       )}
 
       <VendorReviews vendorId={id} />
 
       <h2 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22, margin: '28px 0 14px' }}>
-        Available cars
+        {t('providers.availableCars')}
       </h2>
       {isLoading && <Spinner />}
-      {cars?.length === 0 && <EmptyState title="No cars listed right now" />}
+      {cars?.length === 0 && <EmptyState title={t('providers.noCars')} />}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {cars?.map((v) => (
           <CarCardLink key={v.id} vehicle={v} />
@@ -154,6 +157,7 @@ export function VendorProfileScreen() {
 
 /** What customers said about this provider. */
 function VendorReviews({ vendorId }: { vendorId: string }) {
+  const { t } = useTranslation();
   const { data } = useQuery({
     queryKey: ['vendor-reviews', vendorId],
     queryFn: () => api<Review[]>(`/vendors/${vendorId}/reviews`),
@@ -163,7 +167,7 @@ function VendorReviews({ vendorId }: { vendorId: string }) {
   return (
     <>
       <h2 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22, margin: '28px 0 14px' }}>
-        What customers said
+        {t('providers.whatCustomersSaid')}
       </h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
         {data.map((r) => (
@@ -185,17 +189,19 @@ function VendorReviews({ vendorId }: { vendorId: string }) {
 }
 
 function CarCardLink({ vehicle: v }: { vehicle: Vehicle }) {
+  const { t } = useTranslation();
   return (
     <Link to={`/cars/${v.id}`}>
       <CarCard
         image={v.photos[0]}
         name={`${v.make} ${v.model}`}
-        category={`or similar ${CATEGORY_LABEL[v.category]}${v.year ? ` · ${v.year}` : ''}`}
-        seats={v.seats ? `${v.seats} Seats` : '—'}
-        transmission={v.transmission === 'automatic' ? 'Automatic' : 'Manual'}
+        category={`${t('search.orSimilar', { category: CATEGORY_LABEL[v.category] })}${v.year ? ` · ${v.year}` : ''}`}
+        seats={v.seats ? t('common.seats', { count: v.seats }) : '—'}
+        transmission={v.transmission === 'automatic' ? t('common.automatic') : t('common.manual')}
         extra={CITY_LABEL[v.city]}
         price={v.daily_rate_xaf}
-        subPrice="all fees in"
+        subPrice={t('common.allFeesIn')}
+                perDayLabel={t('common.perDay')}
       />
     </Link>
   );

@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import type { Profile } from '@karu/shared';
 import { api } from '../lib/api';
@@ -6,6 +7,7 @@ import { useAuth } from '../lib/auth';
 import { Button, Card, ErrorNote, Field, Input, Select } from '../ui';
 
 export function ProfileScreen() {
+  const { t } = useTranslation();
   const { profile, refreshProfile, session } = useAuth();
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -43,22 +45,22 @@ export function ProfileScreen() {
 
   return (
     <div className="mx-auto max-w-md">
-      <h1 className="font-display text-3xl font-bold">Your profile</h1>
+      <h1 className="font-display text-3xl font-bold">{t('profile.title')}</h1>
       <p className="mt-1 text-sm text-karu-mute">{session?.user.email}</p>
 
       <Card className="mt-6 p-6">
         <form onSubmit={save} className="space-y-4">
-          <Field label="Full name">
+          <Field label={t('profile.fullName')}>
             <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
           </Field>
-          <Field label="Phone (for pick-up coordination)">
+          <Field label={t('profile.phone')}>
             <Input
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+237 6 XX XX XX XX"
             />
           </Field>
-          <Field label="Preferred language">
+          <Field label={t('profile.preferredLanguage')}>
             <Select value={locale} onChange={(e) => setLocale(e.target.value as 'en' | 'fr')}>
               <option value="en">English</option>
               <option value="fr">Français</option>
@@ -66,10 +68,10 @@ export function ProfileScreen() {
           </Field>
 
           {error && <ErrorNote>{error}</ErrorNote>}
-          {saved && <p className="text-sm font-semibold text-green-700">Saved ✓</p>}
+          {saved && <p className="text-sm font-semibold text-green-700">{t('profile.saved')}</p>}
 
           <Button type="submit" disabled={busy} className="w-full">
-            {busy ? 'Saving…' : 'Save changes'}
+            {busy ? t('common.saving') : t('common.save')}
           </Button>
         </form>
       </Card>
@@ -81,16 +83,16 @@ export function ProfileScreen() {
 
 /** Points at the provider landing page, which carries the real pitch. */
 function BecomeVendor() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   return (
     <Card className="mt-6 p-6">
-      <h2 className="font-display text-lg font-bold">Have cars to rent out?</h2>
+      <h2 className="font-display text-lg font-bold">{t('profile.haveCars')}</h2>
       <p className="mt-1 text-sm text-karu-mute">
-        List your fleet on Karu. We verify your documents and bring you booking requests — you
-        choose which to accept.
+        {t('profile.haveCarsSub')}
       </p>
       <Button className="mt-4" onClick={() => navigate('/list-your-car')}>
-        See how it works
+        {t('profile.seeHow')}
       </Button>
     </Card>
   );

@@ -10,6 +10,8 @@ import {
 } from 'react-router-dom';
 import { AuthProvider, RequireView, useAuth, useView } from './lib/auth';
 import { HOME, NAV } from './lib/roles';
+import { useTranslation } from 'react-i18next';
+import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { AuthScreen } from './screens/AuthScreen';
 import { ResetPasswordScreen } from './screens/ResetPasswordScreen';
 import { ListYourCarScreen } from './screens/ListYourCarScreen';
@@ -35,24 +37,26 @@ function HomeRedirect() {
 }
 
 function NotFoundScreen() {
+  const { t } = useTranslation();
   return (
     <div className="mx-auto max-w-lg py-16 text-center">
       <p className="font-display text-5xl font-bold text-karu-brown">404</p>
-      <h1 className="mt-3 font-display text-2xl font-bold">We can&rsquo;t find that page</h1>
+      <h1 className="mt-3 font-display text-2xl font-bold">{t('notFound.title')}</h1>
       <p className="mt-2 text-sm text-karu-mute">
-        The link may be out of date, or the page may have moved.
+        {t('notFound.sub')}
       </p>
       <Link
         to="/search"
         className="mt-6 inline-block rounded-full bg-karu-yellow px-5 py-2.5 text-sm font-semibold text-karu-ink"
       >
-        Find a car
+        {t('nav.findCar')}
       </Link>
     </div>
   );
 }
 
 function Header() {
+  const { t } = useTranslation();
   const { session, profile, signOut } = useAuth();
   const view = useView();
   const navigate = useNavigate();
@@ -83,15 +87,16 @@ function Header() {
         <nav className="flex flex-wrap items-center justify-center gap-1">
           {NAV[view].map((item) => (
             <NavLink key={item.to} to={item.to} end={item.to === '/vendor' || item.to === '/admin'} className={nav}>
-              {item.label}
+              {t(item.label)}
             </NavLink>
           ))}
         </nav>
         <div className="flex flex-wrap items-center justify-center gap-2">
+          <LanguageSwitcher />
           {session ? (
             <>
               <NavLink to="/profile" className={nav}>
-                {profile?.full_name?.split(' ')[0] ?? 'Profile'}
+                {profile?.full_name?.split(' ')[0] ?? t('common.profile')}
               </NavLink>
               <Button
                 variant="ghost"
@@ -101,15 +106,24 @@ function Header() {
                   navigate('/search');
                 }}
               >
-                Sign out
+                {t('common.signOut')}
               </Button>
             </>
           ) : (
-            <Button onClick={() => navigate('/auth')}>Sign in</Button>
+            <Button onClick={() => navigate('/auth')}>{t('common.signIn')}</Button>
           )}
         </div>
       </div>
     </header>
+  );
+}
+
+function Footer() {
+  const { t } = useTranslation();
+  return (
+    <footer className="mx-auto max-w-6xl px-4 pb-8 text-center text-xs text-karu-mute">
+      {t('common.tagline')}
+    </footer>
   );
 }
 
@@ -195,9 +209,7 @@ export default function App() {
               <Route path="*" element={<NotFoundScreen />} />
             </Routes>
           </main>
-          <footer className="mx-auto max-w-6xl px-4 pb-8 text-center text-xs text-karu-mute">
-            Karu — verified car rental for Cameroon · Douala & Yaoundé
-          </footer>
+          <Footer />
         </BrowserRouter>
       </AuthProvider>
     </QueryClientProvider>

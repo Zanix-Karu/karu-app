@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { Booking, Vehicle } from '@karu/shared';
@@ -17,6 +18,7 @@ interface Availability {
 export function CarDetailScreen() {
   const { id = '' } = useParams();
   const [search] = useSearchParams();
+  const { t } = useTranslation();
   const { session } = useAuth();
   const view = useView();
   const canBook = CAN_BOOK[view];
@@ -56,8 +58,8 @@ export function CarDetailScreen() {
       navigate(`/bookings/${booking.id}/confirmed`, { state: { booking } }),
   });
 
-  if (isLoading) return <Spinner label="Loading car…" />;
-  if (!car) return <ErrorNote>Car not found.</ErrorNote>;
+  if (isLoading) return <Spinner label={t('common.loading')} />;
+  if (!car) return <ErrorNote>{t('car.notFound')}</ErrorNote>;
 
   const days = windowChosen ? rentalDays(from, to) : 0;
   const total = days * car.daily_rate_xaf;
@@ -83,9 +85,9 @@ export function CarDetailScreen() {
 
         <div className="mt-4 flex flex-wrap gap-2">
           {[
-            car.transmission === 'automatic' ? 'Automatic' : 'Manual',
-            ...(car.seats ? [`${car.seats} seats`] : []),
-            'Verified provider',
+            car.transmission === 'automatic' ? t('common.automatic') : t('common.manual'),
+            ...(car.seats ? [t('common.seats', { count: car.seats })] : []),
+            t('car.verifiedProvider'),
           ].map((f) => (
             <span
               key={f}
@@ -101,7 +103,7 @@ export function CarDetailScreen() {
         {car.pickup_locations.length > 0 && (
           <div className="mt-5">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-karu-mute">
-              Pick-up locations
+              {t('car.pickupLocations')}
             </h2>
             <ul className="mt-1 text-sm">
               {car.pickup_locations.map((p) => (
@@ -116,13 +118,13 @@ export function CarDetailScreen() {
             promised — until then cancelling is always free because nothing
             has been charged. */}
         <div className="mt-6 rounded-xl bg-karu-yellow/15 px-4 py-3 text-xs text-karu-brown">
-          Cancel any time before pick-up at no cost · No hidden fees — what you see is what you pay
+          {t('car.conditions')}
         </div>
       </div>
 
       <Card className="h-fit p-5">
         <p className="font-display text-2xl font-bold">
-          {xaf(car.daily_rate_xaf)} <span className="text-sm font-normal text-karu-mute">/ day</span>
+          {xaf(car.daily_rate_xaf)} <span className="text-sm font-normal text-karu-mute">/ {t('common.perDay')}</span>
         </p>
 
         {/* Vendors and admins browse read-only — showing them a booking CTA
@@ -130,33 +132,32 @@ export function CarDetailScreen() {
             control. Tell them why instead. */}
         {!canBook && (
           <div className="mt-4 rounded-lg border border-karu-ink/10 bg-karu-cream px-4 py-3 text-sm text-karu-brown">
-            You&rsquo;re signed in as {view === 'vendor' ? 'a provider' : 'an admin'}, so booking is
-            disabled. This is how the listing looks to customers.
+            {view === 'vendor' ? t('car.readOnlyVendor') : t('car.readOnlyAdmin')}
           </div>
         )}
 
         {canBook && (
         <>
         <div className="mt-4 grid grid-cols-2 gap-3">
-          <Field label="Pick-up">
+          <Field label={t('search.pickUp')}>
             <Input type="date" min={todayISO()} value={from} onChange={(e) => setFrom(e.target.value)} />
           </Field>
-          <Field label="Return">
+          <Field label={t('search.return')}>
             <Input type="date" min={from || todayISO()} value={to} onChange={(e) => setTo(e.target.value)} />
           </Field>
         </div>
 
         {windowChosen && (
           <div className="mt-3 text-sm">
-            {checking && <p className="text-karu-mute">Checking availability…</p>}
+            {checking && <p className="text-karu-mute">{t('car.checking')}</p>}
             {avail && avail.available && (
               <p className="font-semibold text-green-700">
-                ✓ Available {prettyDate(from)} → {prettyDate(to)}
+                ✓ {t('car.available', { from: prettyDate(from), to: prettyDate(to) })}
               </p>
             )}
             {avail && !avail.available && (
               <p className="font-semibold text-karu-terracotta">
-                Not available for those dates — try different ones.
+                {t('car.notAvailable')}
               </p>
             )}
           </div>
@@ -164,7 +165,7 @@ export function CarDetailScreen() {
 
         {windowChosen && avail?.available && (
           <>
-            <Field label="Preferred pick-up point" className="mt-3">
+            <Field label={t('car.preferredPickup')} className="mt-3">
               <Input
                 list="pickups"
                 value={pickup}
@@ -177,7 +178,7 @@ export function CarDetailScreen() {
                 ))}
               </datalist>
             </Field>
-            <Field label="Note to the provider (optional)" className="mt-3">
+            <Field label={t('car.noteToProvider')} className="mt-3">
               <Input value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
             </Field>
 
@@ -189,15 +190,15 @@ export function CarDetailScreen() {
                 <span>{xaf(total)}</span>
               </div>
               <div className="flex justify-between font-semibold">
-                <span>Total (all fees in)</span>
+                <span>{t('car.totalAllFees')}</span>
                 <span>{xaf(total)}</span>
               </div>
               <div className="flex justify-between text-karu-brown">
-                <span>Deposit due now (15%)</span>
+                <span>{t('car.depositNow')}</span>
                 <span>{xaf(computeDepositXaf(total))}</span>
               </div>
               <p className="pt-1 text-xs text-karu-mute">
-                Deposit is payable once the provider confirms. Balance at pick-up.
+                {t('car.depositNote')}
               </p>
             </div>
           </>
@@ -224,10 +225,10 @@ export function CarDetailScreen() {
                 book.mutate();
               }}
             >
-              {book.isPending ? 'Sending request…' : session ? 'Request to book' : 'Sign in to book'}
+              {book.isPending ? t('car.sending') : session ? t('car.requestToBook') : t('car.signInToBook')}
             </Button>
             <p className="mt-2 text-center text-xs text-karu-mute">
-              No charge yet — the provider confirms within 24h.
+              {t('car.noCharge')}
             </p>
           </>
         )}

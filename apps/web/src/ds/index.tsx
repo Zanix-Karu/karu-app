@@ -519,6 +519,7 @@ export function CarCard({
   price,
   currency = 'FCFA',
   subPrice,
+  perDayLabel = 'per day',
   onView,
   style = {},
 }: {
@@ -534,6 +535,8 @@ export function CarCard({
   price: number;
   currency?: string;
   subPrice?: string;
+  /** Passed in so the design system stays free of i18n wiring. */
+  perDayLabel?: string;
   onView?: () => void;
   style?: CSSProperties;
 }) {
@@ -599,7 +602,7 @@ export function CarCard({
             </div>
           )}
           <div style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 13, color: 'var(--gray-500)', marginTop: 2 }}>
-            per day
+            {perDayLabel}
           </div>
         </div>
         <Button variant="primary" size="sm" onClick={onView} style={{ marginTop: 4 }}>

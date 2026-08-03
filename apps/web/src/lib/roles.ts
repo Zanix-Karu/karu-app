@@ -41,33 +41,34 @@ export const CAN_BOOK: Record<View, boolean> = {
 
 export interface NavItem {
   to: string;
+  /** i18n key — resolved in the header so labels follow the active language. */
   label: string;
 }
 
 /** The nav for each view. A role only ever sees its own items. */
 export const NAV: Record<View, NavItem[]> = {
   guest: [
-    { to: '/search', label: 'Find a car' },
-    { to: '/vendors', label: 'Providers' },
-    { to: '/list-your-car', label: 'List your car' },
+    { to: '/search', label: 'nav.findCar' },
+    { to: '/vendors', label: 'nav.providers' },
+    { to: '/list-your-car', label: 'nav.listYourCar' },
   ],
   customer: [
-    { to: '/search', label: 'Find a car' },
-    { to: '/vendors', label: 'Providers' },
-    { to: '/bookings', label: 'My bookings' },
-    { to: '/list-your-car', label: 'List your car' },
+    { to: '/search', label: 'nav.findCar' },
+    { to: '/vendors', label: 'nav.providers' },
+    { to: '/bookings', label: 'nav.myBookings' },
+    { to: '/list-your-car', label: 'nav.listYourCar' },
   ],
   vendor: [
-    { to: '/vendor', label: 'Dashboard' },
-    { to: '/vendor/bookings', label: 'Booking requests' },
-    { to: '/vendor/cars', label: 'My cars' },
-    { to: '/vendor/documents', label: 'Documents' },
-    { to: '/search', label: 'View marketplace' },
+    { to: '/vendor', label: 'nav.dashboard' },
+    { to: '/vendor/bookings', label: 'nav.bookingRequests' },
+    { to: '/vendor/cars', label: 'nav.myCars' },
+    { to: '/vendor/documents', label: 'nav.documents' },
+    { to: '/search', label: 'nav.viewMarketplace' },
   ],
   admin: [
-    { to: '/admin', label: 'Operations' },
-    { to: '/admin/bookings', label: 'Bookings' },
-    { to: '/search', label: 'View marketplace' },
+    { to: '/admin', label: 'nav.operations' },
+    { to: '/admin/bookings', label: 'nav.bookings' },
+    { to: '/search', label: 'nav.viewMarketplace' },
   ],
 };
 

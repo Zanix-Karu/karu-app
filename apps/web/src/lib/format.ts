@@ -1,3 +1,5 @@
+import i18n from '../i18n';
+
 /** Formatting helpers shared by every screen. */
 
 export const xaf = (n: number) => `${n.toLocaleString('fr-FR')} XAF`;
@@ -12,24 +14,25 @@ export function rentalDays(start: string, end: string): number {
 export const todayISO = () => new Date().toISOString().slice(0, 10);
 
 export function prettyDate(iso: string): string {
-  return new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', {
+  const tag = i18n.resolvedLanguage === 'fr' ? 'fr-FR' : 'en-GB';
+  return new Date(`${iso}T00:00:00`).toLocaleDateString(tag, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
   });
 }
 
-export const CITY_LABEL: Record<string, string> = {
-  douala: 'Douala',
-  yaounde: 'Yaoundé',
-  other: 'Other',
-};
+/**
+ * City and category names come from the active translation, so a French user
+ * sees "Berline" rather than "Sedan". Kept as Proxies so the many existing
+ * CITY_LABEL[x] call sites keep working without a sweep.
+ */
+export const CITY_LABEL: Record<string, string> = new Proxy(
+  {},
+  { get: (_t, key: string) => i18n.t(`city.${key}`) },
+);
 
-export const CATEGORY_LABEL: Record<string, string> = {
-  economy: 'Economy',
-  sedan: 'Sedan',
-  suv: 'SUV',
-  pickup: 'Pickup',
-  van: 'Van',
-  luxury: 'Luxury',
-};
+export const CATEGORY_LABEL: Record<string, string> = new Proxy(
+  {},
+  { get: (_t, key: string) => i18n.t(`category.${key}`) },
+);
