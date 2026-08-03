@@ -163,3 +163,45 @@ export interface RatingSummary {
   average: number | null;
   count: number;
 }
+
+// ---- Currency -------------------------------------------------------------
+
+export type DisplayCurrency = 'XAF' | 'EUR' | 'GBP';
+
+/**
+ * The CFA franc BEAC is pegged to the euro at a FIXED rate — this is not a
+ * market rate and does not move, so EUR conversion is exact rather than
+ * indicative.
+ */
+export const XAF_PER_EUR = 655.957;
+
+/**
+ * GBP genuinely floats against the euro, so there is no honest constant for
+ * it. This is a fallback used only when no live rate has been supplied, and
+ * anything shown from it must be labelled approximate.
+ */
+export const FALLBACK_XAF_PER_GBP = 780;
+
+export interface ConversionResult {
+  amount: number;
+  currency: DisplayCurrency;
+  /** False only for EUR, which is a fixed peg. */
+  approximate: boolean;
+}
+
+/**
+ * Convert an XAF price for display alongside the original. The XAF figure
+ * always remains the price actually charged — this is a courtesy for diaspora
+ * customers reading in a currency they think in.
+ */
+export function convertFromXaf(
+  amountXaf: number,
+  currency: DisplayCurrency,
+  xafPerGbp: number = FALLBACK_XAF_PER_GBP,
+): ConversionResult {
+  if (currency === 'XAF') return { amount: amountXaf, currency, approximate: false };
+  if (currency === 'EUR') {
+    return { amount: amountXaf / XAF_PER_EUR, currency, approximate: false };
+  }
+  return { amount: amountXaf / xafPerGbp, currency, approximate: true };
+}

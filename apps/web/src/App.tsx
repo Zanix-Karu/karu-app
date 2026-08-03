@@ -12,6 +12,8 @@ import { AuthProvider, RequireView, useAuth, useView } from './lib/auth';
 import { HOME, NAV } from './lib/roles';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
+import { CurrencySwitcher } from './components/CurrencySwitcher';
+import { CurrencyProvider } from './lib/currency';
 import { AuthScreen } from './screens/AuthScreen';
 import { ResetPasswordScreen } from './screens/ResetPasswordScreen';
 import { ListYourCarScreen } from './screens/ListYourCarScreen';
@@ -93,6 +95,7 @@ function Header() {
         </nav>
         <div className="flex flex-wrap items-center justify-center gap-2">
           <LanguageSwitcher />
+          <CurrencySwitcher />
           {session ? (
             <>
               <NavLink to="/profile" className={nav}>
@@ -131,6 +134,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <CurrencyProvider>
         <BrowserRouter>
           <Header />
           <main className="mx-auto max-w-6xl px-4 py-8">
@@ -211,6 +215,7 @@ export default function App() {
           </main>
           <Footer />
         </BrowserRouter>
+        </CurrencyProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

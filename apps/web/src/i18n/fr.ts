@@ -145,6 +145,9 @@ export const fr = {
     noneHint: 'Élargissez vos dates ou retirez un filtre.',
     loadError:
       'Impossible de charger les voitures pour le moment. Vérifiez votre connexion et réessayez — si cela persiste, contactez-nous.',
+    prev: 'Précédent',
+    next: 'Suivant',
+    showing: '{{from}}–{{to}} sur {{total}}',
     orSimilar: 'ou similaire · {{category}}',
   },
   car: {

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import type { Booking, BookingStatus, Vehicle, Vendor } from '@karu/shared';
-import { api } from '../lib/api';
+import { api, type Page } from '../lib/api';
 import { CATEGORY_LABEL, CITY_LABEL, prettyDate, xaf } from '../lib/format';
 import {
   Button,
@@ -352,7 +352,7 @@ function Cars() {
   });
   const { data: cars, isLoading } = useQuery({
     queryKey: ['admin-cars'],
-    queryFn: () => api<Vehicle[]>('/vehicles?sort=newest&limit=50'),
+    queryFn: () => api<Page<Vehicle>>('/vehicles?sort=newest&limit=50').then((p) => p.items),
   });
 
   const [form, setForm] = useState({

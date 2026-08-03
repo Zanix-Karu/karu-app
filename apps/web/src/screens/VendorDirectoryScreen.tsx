@@ -2,11 +2,12 @@ import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import type { RatingSummary, Review, Vehicle, Vendor } from '@karu/shared';
-import { api } from '../lib/api';
+import { api, type Page } from '../lib/api';
 import { CATEGORY_LABEL, CITY_LABEL } from '../lib/format';
 import { Badge, Card, CarCard, Rating } from '../ds';
 import { EmptyState, ErrorNote, Spinner } from '../ui';
 import { SkeletonCard } from '../components/Skeleton';
+import { useCurrency } from '../lib/currency';
 
 type VendorWithRating = Vendor & { rating: RatingSummary };
 
@@ -87,7 +88,7 @@ export function VendorProfileScreen() {
 
   const { data: cars, isLoading } = useQuery({
     queryKey: ['vendor-cars', id],
-    queryFn: () => api<Vehicle[]>(`/vehicles?vendor_id=${id}`),
+    queryFn: () => api<Page<Vehicle>>(`/vehicles?vendor_id=${id}&limit=50`).then((p) => p.items),
   });
 
   if (loadingVendors) return <Spinner label={t('common.loading')} />;
@@ -190,6 +191,7 @@ function VendorReviews({ vendorId }: { vendorId: string }) {
 
 function CarCardLink({ vehicle: v }: { vehicle: Vehicle }) {
   const { t } = useTranslation();
+  const { secondary } = useCurrency();
   return (
     <Link to={`/cars/${v.id}`}>
       <CarCard
@@ -202,6 +204,7 @@ function CarCardLink({ vehicle: v }: { vehicle: Vehicle }) {
         price={v.daily_rate_xaf}
         subPrice={t('common.allFeesIn')}
                 perDayLabel={t('common.perDay')}
+        secondaryPrice={secondary(v.daily_rate_xaf)}
       />
     </Link>
   );

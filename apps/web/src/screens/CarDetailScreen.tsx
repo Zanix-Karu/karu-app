@@ -7,6 +7,7 @@ import { computeDepositXaf } from '@karu/shared';
 import { api } from '../lib/api';
 import { useAuth, useView } from '../lib/auth';
 import { CAN_BOOK } from '../lib/roles';
+import { useCurrency } from '../lib/currency';
 import { CATEGORY_LABEL, CITY_LABEL, prettyDate, rentalDays, todayISO, xaf } from '../lib/format';
 import { Button, Card, CarImage, ErrorNote, Field, Input, Spinner } from '../ui';
 
@@ -22,6 +23,7 @@ export function CarDetailScreen() {
   const { session } = useAuth();
   const view = useView();
   const canBook = CAN_BOOK[view];
+  const { secondary } = useCurrency();
   const navigate = useNavigate();
 
   const [from, setFrom] = useState(search.get('from') ?? '');
@@ -126,6 +128,9 @@ export function CarDetailScreen() {
         <p className="font-display text-2xl font-bold">
           {xaf(car.daily_rate_xaf)} <span className="text-sm font-normal text-karu-mute">/ {t('common.perDay')}</span>
         </p>
+        {secondary(car.daily_rate_xaf) && (
+          <p className="text-sm font-semibold text-karu-gold">{secondary(car.daily_rate_xaf)}</p>
+        )}
 
         {/* Vendors and admins browse read-only — showing them a booking CTA
             the API would refuse (403 Requires role: customer) is a dead
@@ -191,7 +196,12 @@ export function CarDetailScreen() {
               </div>
               <div className="flex justify-between font-semibold">
                 <span>{t('car.totalAllFees')}</span>
-                <span>{xaf(total)}</span>
+                <span>
+                  {xaf(total)}
+                  {secondary(total) && (
+                    <span className="ml-1 font-normal text-karu-mute">({secondary(total)})</span>
+                  )}
+                </span>
               </div>
               <div className="flex justify-between text-karu-brown">
                 <span>{t('car.depositNow')}</span>
