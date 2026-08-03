@@ -159,9 +159,7 @@ export function BookingDetailScreen() {
             {row('Total (all fees in)', xaf(b.total_xaf))}
             {b.deposit_xaf ? row('Deposit (15%)', xaf(b.deposit_xaf)) : null}
           </div>
-          <p className="mt-3 text-xs text-karu-mute">
-            No payment has been taken through Karu — the team arranges the deposit directly.
-          </p>
+          <DepositBlock bookingId={b.id} view={view} />
         </Card>
 
         {/* Provider — shown to customers and admins. */}
@@ -252,6 +250,8 @@ export function BookingDetailScreen() {
         </Card>
       )}
 
+      {view === 'admin' && <RecordDeposit bookingId={b.id} />}
+
       <MessageKaru bookingId={b.id} reference={b.reference} />
 
       {b.status === 'completed' && view !== 'admin' && (
@@ -323,6 +323,172 @@ function MessageKaru({ bookingId, reference }: { bookingId: string; reference: s
           {send.isPending ? 'Sending…' : 'Send to Karu'}
         </Button>
       </form>
+    </Card>
+  );
+}
+
+/** Status wording that never overstates what actually happened. */
+const PAYMENT_COPY: Record<string, { label: string; tone: 'neutral' | 'success' | 'danger' }> = {
+  pending: { label: 'Deposit not yet paid', tone: 'neutral' },
+  held: { label: 'Deposit received', tone: 'success' },
+  released: { label: 'Paid out to the provider', tone: 'success' },
+  refunded: { label: 'Deposit refunded', tone: 'neutral' },
+  failed: { label: 'Deposit payment failed', tone: 'danger' },
+};
+
+/**
+ * The deposit, told truthfully. While the provider is the manual placeholder
+ * there is no "Pay now" and no Paid badge — a booking only shows as paid once
+ * an admin records that the team actually received the money.
+ */
+function DepositBlock({ bookingId, view }: { bookingId: string; view: string }) {
+  const qc = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ['payment', bookingId],
+    queryFn: () =>
+      api<{ payment: { status: string; amount_xaf: number } | null; chargingEnabled: boolean }>(
+        `/bookings/${bookingId}/payment`,
+      ),
+  });
+
+  const start = useMutation({
+    mutationFn: () =>
+      api<{ instructions: string; redirectUrl: string | null }>(
+        `/bookings/${bookingId}/payment/intent`,
+        { method: 'POST' },
+      ),
+    onSuccess: (r) => {
+      if (r.redirectUrl) window.location.href = r.redirectUrl;
+      else void qc.invalidateQueries({ queryKey: ['payment', bookingId] });
+    },
+  });
+
+  const status = data?.payment?.status;
+  const copy = status ? PAYMENT_COPY[status] : null;
+
+  return (
+    <div className="mt-3 border-t border-karu-ink/10 pt-3">
+      {copy ? (
+        <p
+          className={`text-xs font-semibold ${
+            copy.tone === 'success'
+              ? 'text-green-700'
+              : copy.tone === 'danger'
+                ? 'text-karu-terracotta'
+                : 'text-karu-mute'
+          }`}
+        >
+          {copy.label}
+        </p>
+      ) : (
+        <p className="text-xs text-karu-mute">No deposit recorded yet.</p>
+      )}
+
+      {!data?.chargingEnabled && (
+        <p className="mt-1 text-xs text-karu-mute">
+          Online payment isn&rsquo;t live yet — the Karu team arranges the deposit with you
+          directly. Nothing has been charged.
+        </p>
+      )}
+
+      {view === 'customer' && status !== 'held' && status !== 'released' && (
+        <>
+          <Button
+            variant="outline"
+            className="mt-3"
+            disabled={start.isPending}
+            onClick={() => start.mutate()}
+          >
+            {start.isPending ? 'One moment…' : 'How do I pay the deposit?'}
+          </Button>
+          {start.isSuccess && (
+            <p className="mt-2 text-xs text-karu-brown">{start.data?.instructions}</p>
+          )}
+          {start.isError && (
+            <div className="mt-2">
+              <ErrorNote>{(start.error as Error).message}</ErrorNote>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Admin-only reconciliation. Deposits are collected off-platform while the
+ * provider is manual, so a human records what was actually received — the
+ * system never infers it.
+ */
+function RecordDeposit({ bookingId }: { bookingId: string }) {
+  const qc = useQueryClient();
+  const [status, setStatus] = useState<'held' | 'released' | 'refunded' | 'failed'>('held');
+  const [reference, setReference] = useState('');
+
+  const record = useMutation({
+    mutationFn: () =>
+      api(`/admin/bookings/${bookingId}/payment`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status, reference: reference.trim() || undefined }),
+      }),
+    onSuccess: () => {
+      setReference('');
+      void qc.invalidateQueries({ queryKey: ['payment', bookingId] });
+    },
+  });
+
+  return (
+    <Card style={{ marginTop: 16 }}>
+      <h2 className="font-display text-lg font-bold">Record deposit</h2>
+      <p className="mt-1 text-sm text-karu-mute">
+        Use this once the team has actually received or returned money. Nothing is marked paid
+        automatically.
+      </p>
+      <form
+        className="mt-3 flex flex-wrap items-end gap-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          record.mutate();
+        }}
+      >
+        <label className="text-sm">
+          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-karu-mute">
+            Status
+          </span>
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value as typeof status)}
+            className="rounded-lg border border-karu-ink/15 px-3 py-2 text-sm"
+          >
+            <option value="held">Deposit received</option>
+            <option value="released">Paid out to provider</option>
+            <option value="refunded">Refunded to customer</option>
+            <option value="failed">Payment failed</option>
+          </select>
+        </label>
+        <label className="text-sm">
+          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-karu-mute">
+            Reference (optional)
+          </span>
+          <input
+            value={reference}
+            onChange={(e) => setReference(e.target.value)}
+            placeholder="Bank/transfer ref"
+            className="rounded-lg border border-karu-ink/15 px-3 py-2 text-sm"
+          />
+        </label>
+        <Button type="submit" disabled={record.isPending}>
+          {record.isPending ? 'Saving…' : 'Record'}
+        </Button>
+      </form>
+      {record.isSuccess && (
+        <p className="mt-2 text-sm font-semibold text-green-700">Recorded ✓</p>
+      )}
+      {record.isError && (
+        <div className="mt-2">
+          <ErrorNote>{(record.error as Error).message}</ErrorNote>
+        </div>
+      )}
     </Card>
   );
 }
