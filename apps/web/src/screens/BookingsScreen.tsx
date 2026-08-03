@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import type { Booking, BookingStatus, Review } from '@karu/shared';
 import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import { prettyDate, xaf } from '../lib/format';
 import { ReviewForm } from '../components/ReviewForm';
 import { SkeletonCard } from '../components/Skeleton';
@@ -21,9 +22,19 @@ const CUSTOMER_ACTIONS: Partial<Record<BookingStatus, { label: string; confirm: 
 export function BookingsScreen() {
   const { t } = useTranslation();
   const qc = useQueryClient();
+  // An admin gets every booking back from /bookings/mine — that is the point
+  // of the oversight console at /admin/bookings. Here, "My bookings" has to
+  // mean the trips this person actually booked, or the page offers to review
+  // rentals they were never part of.
+  const { profile } = useAuth();
   const { data, isLoading, error } = useQuery({
-    queryKey: ['my-bookings'],
-    queryFn: () => api<Booking[]>('/bookings/mine'),
+    queryKey: ['my-bookings', profile?.id ?? 'self'],
+    queryFn: async () => {
+      const all = await api<Booking[]>('/bookings/mine');
+      return profile?.role === 'admin'
+        ? all.filter((b) => b.customer_id === profile.id)
+        : all;
+    },
   });
 
   // Which completed bookings the customer has already reviewed, so the form

@@ -8,8 +8,12 @@ import { CreateBookingDto, RelayMessageDto, TransitionBookingDto } from './dto';
 export class BookingsController {
   constructor(private readonly bookings: BookingsService) {}
 
-  /** Only customers create booking requests. */
-  @Roles('customer')
+  /**
+   * Customers create booking requests. Admins may too — the ops team books on
+   * behalf of walk-in and phone customers, and a superadmin should be able to
+   * do anything either party can.
+   */
+  @Roles('customer', 'admin')
   @Post()
   create(@CurrentUser('id') customerId: string, @Body() dto: CreateBookingDto) {
     return this.bookings.create(customerId, dto);

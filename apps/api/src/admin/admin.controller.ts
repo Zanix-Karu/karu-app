@@ -11,6 +11,7 @@ import {
 import type { BookingStatus, VendorStatus } from '@karu/shared';
 import { CurrentUser, Roles } from '../auth/decorators';
 import { AdminService } from './admin.service';
+import { VendorsService } from '../vendors/vendors.service';
 import {
   AdminCreateVehicleDto,
   AdminCreateVendorDto,
@@ -23,7 +24,10 @@ import {
 @Roles('admin')
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly admin: AdminService) {}
+  constructor(
+    private readonly admin: AdminService,
+    private readonly vendors: VendorsService,
+  ) {}
 
   @Get('overview')
   overview() {
@@ -37,14 +41,25 @@ export class AdminController {
     return this.admin.listVendors(status);
   }
 
+  /** Any vendor's dashboard figures — superadmin oversight. */
+  @Get('vendors/:id/stats')
+  vendorStats(@Param('id') id: string) {
+    return this.vendors.statsForVendorId(id);
+  }
+
   @Patch('vendors/:id/status')
   setVendorStatus(@Param('id') id: string, @Body() dto: SetVendorStatusDto) {
     return this.admin.setVendorStatus(id, dto);
   }
 
   @Get('documents')
-  listDocuments(@Query('status') status?: 'pending' | 'approved' | 'rejected') {
-    return this.admin.listDocuments(status);
+  listDocuments(
+    @Query('status') status?: 'pending' | 'approved' | 'rejected',
+    // Scoping to one vendor is what lets an admin open a single provider's
+    // paperwork from inside that provider's area, rather than the whole queue.
+    @Query('vendor_id') vendorId?: string,
+  ) {
+    return this.admin.listDocuments(status, vendorId);
   }
 
   /** Short-lived signed link so a reviewer can open the file before deciding. */

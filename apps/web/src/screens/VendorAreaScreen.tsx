@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import type { Booking, BookingStatus, Review, Vehicle, Vendor, VendorDocument } from '@karu/shared';
 import { api } from '../lib/api';
+import { useView } from '../lib/auth';
 import { CATEGORY_LABEL, CITY_LABEL, prettyDate, xaf } from '../lib/format';
 import { Badge, Button, Card, Field, Input, Rating, Select, SidebarNav, StatCard, StepNav } from '../ds';
 import { EarningsChart } from '../components/EarningsChart';
@@ -40,16 +41,55 @@ function sectionFromPath(pathname: string): Section {
 export function VendorAreaScreen() {
   const location = useLocation();
   const navigate = useNavigate();
+  const view = useView();
   const section = sectionFromPath(location.pathname);
+  const isAdmin = view === 'admin';
+  const [asVendorId, setAsVendorId] = useState<string>('');
 
+  // A vendor has their own record. An admin has none, so they pick whose area
+  // to inspect — a superadmin can see every provider's dashboard.
   const { data: vendor, isLoading, error } = useQuery({
     queryKey: ['vendor-me'],
     queryFn: () => api<Vendor>('/vendors/me'),
+    enabled: !isAdmin,
+  });
+  const { data: allVendors } = useQuery({
+    queryKey: ['admin-vendors', ''],
+    queryFn: () => api<Vendor[]>('/admin/vendors'),
+    enabled: isAdmin,
   });
 
-  if (isLoading) return <Spinner label="Loading your vendor account…" />;
-  if (error) return <ErrorNote>{(error as Error).message}</ErrorNote>;
-  if (!vendor) return null;
+  const active = isAdmin ? allVendors?.find((v) => v.id === asVendorId) : vendor;
+
+  if (!isAdmin && isLoading) return <Spinner label="Loading your vendor account…" />;
+  if (!isAdmin && error) return <ErrorNote>{(error as Error).message}</ErrorNote>;
+
+  if (isAdmin && !active) {
+    return (
+      <div>
+        <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 32 }}>
+          Provider area
+        </h1>
+        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 6 }}>
+          You&rsquo;re an admin, so you have no provider account of your own. Choose a provider to
+          view their dashboard as they see it.
+        </p>
+        <Card style={{ marginTop: 18, maxWidth: 420 }}>
+          <Field label="Provider">
+            <Select value={asVendorId} onChange={(e) => setAsVendorId(e.target.value)}>
+              <option value="">Choose a provider…</option>
+              {allVendors?.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.business_name} ({v.status})
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </Card>
+      </div>
+    );
+  }
+  if (!active) return null;
 
   return (
     <div className="karu-vendor-layout">
@@ -65,11 +105,20 @@ export function VendorAreaScreen() {
       >
         <div style={{ padding: '4px 18px 16px' }}>
           <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 18, color: 'var(--white)' }}>
-            {vendor.business_name}
+            {active.business_name}
           </div>
-          <Badge variant={vendor.status === 'verified' ? 'success' : 'upcoming'} style={{ marginTop: 8 }}>
-            {vendor.status === 'verified' ? '✓ Verified' : `Verification ${vendor.status}`}
+          <Badge variant={active.status === 'verified' ? 'success' : 'upcoming'} style={{ marginTop: 8 }}>
+            {active.status === 'verified' ? '✓ Verified' : `Verification ${active.status}`}
           </Badge>
+          {isAdmin && (
+            <button
+              onClick={() => setAsVendorId('')}
+              style={{ display: 'block', marginTop: 10, background: 'none', border: 'none', padding: 0,
+                cursor: 'pointer', fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--yellow)', textDecoration: 'underline' }}
+            >
+              Switch provider
+            </button>
+          )}
         </div>
         <SidebarNav
           items={NAV}
@@ -79,11 +128,18 @@ export function VendorAreaScreen() {
       </div>
 
       <div>
-        {vendor.status !== 'verified' && <Onboarding vendor={vendor} onGo={navigate} />}
-        {section === 'dashboard' && <Dashboard vendor={vendor} />}
-        {section === 'bookings' && <VendorBookings />}
-        {section === 'cars' && <Cars vendorVerified={vendor.status === 'verified'} />}
-        {section === 'documents' && <Documents />}
+        {active.status !== 'verified' && !isAdmin && <Onboarding vendor={active} onGo={navigate} />}
+        {/*
+          When an admin is viewing a provider, every tab is scoped to that
+          provider: an unscoped `/vehicles/mine` would show all six cars on the
+          platform under one provider's name, which reads as their fleet.
+        */}
+        {section === 'dashboard' && <Dashboard vendor={active} asAdmin={isAdmin} />}
+        {section === 'bookings' && <VendorBookings asVendorId={isAdmin ? active.id : undefined} />}
+        {section === 'cars' && (
+          <Cars vendorVerified={active.status === 'verified'} asVendorId={isAdmin ? active.id : undefined} />
+        )}
+        {section === 'documents' && <Documents asVendor={isAdmin ? active : undefined} />}
       </div>
     </div>
   );
@@ -177,14 +233,20 @@ function Onboarding({ vendor, onGo }: { vendor: Vendor; onGo: (to: string) => vo
 
 // --- Dashboard ----------------------------------------------------------------
 
-function Dashboard({ vendor }: { vendor: Vendor }) {
+function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: boolean }) {
   const { data: stats, isLoading } = useQuery({
-    queryKey: ['vendor-stats'],
-    queryFn: () => api<VendorStats>('/vendors/me/stats'),
+    queryKey: ['vendor-stats', vendor.id, asAdmin],
+    queryFn: () =>
+      api<VendorStats>(asAdmin ? `/admin/vendors/${vendor.id}/stats` : '/vendors/me/stats'),
   });
   const { data: bookings } = useQuery({
-    queryKey: ['my-bookings'],
-    queryFn: () => api<Booking[]>('/bookings/mine'),
+    // As an admin, /bookings/mine returns every booking on the platform, so the
+    // upcoming-trips panel has to be narrowed to the provider being viewed.
+    queryKey: ['my-bookings', asAdmin ? vendor.id : 'self'],
+    queryFn: async () => {
+      const all = await api<Booking[]>('/bookings/mine');
+      return asAdmin ? all.filter((b) => b.vendor_id === vendor.id) : all;
+    },
   });
   const { data: reviews } = useQuery({
     queryKey: ['vendor-reviews', vendor.id],
@@ -348,11 +410,14 @@ const VENDOR_ACTIONS: Partial<
   in_progress: [{ to: 'completed', label: 'Complete' }],
 };
 
-function VendorBookings() {
+function VendorBookings({ asVendorId }: { asVendorId?: string }) {
   const qc = useQueryClient();
   const { data, isLoading, error } = useQuery({
-    queryKey: ['my-bookings'],
-    queryFn: () => api<Booking[]>('/bookings/mine'),
+    queryKey: ['my-bookings', asVendorId ?? 'self'],
+    queryFn: async () => {
+      const all = await api<Booking[]>('/bookings/mine');
+      return asVendorId ? all.filter((b) => b.vendor_id === asVendorId) : all;
+    },
   });
 
   const transition = useMutation({
@@ -441,21 +506,30 @@ function VendorBookings() {
 
 // --- My cars (list + wizard + photos + availability blocks) --------------------
 
-function Cars({ vendorVerified }: { vendorVerified: boolean }) {
+function Cars({ vendorVerified, asVendorId }: { vendorVerified: boolean; asVendorId?: string }) {
   const qc = useQueryClient();
   const [adding, setAdding] = useState(false);
   const { data: cars, isLoading } = useQuery({
-    queryKey: ['my-cars'],
-    queryFn: () => api<Vehicle[]>('/vehicles/mine'),
+    queryKey: ['my-cars', asVendorId ?? 'self'],
+    queryFn: async () => {
+      const all = await api<Vehicle[]>('/vehicles/mine');
+      return asVendorId ? all.filter((v) => v.vendor_id === asVendorId) : all;
+    },
   });
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 32 }}>My cars</h1>
-        <Button size="sm" onClick={() => setAdding((v) => !v)}>
-          {adding ? 'Close' : '+ Add a car'}
-        </Button>
+        <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 32 }}>
+          {asVendorId ? 'Cars' : 'My cars'}
+        </h1>
+        {/* Adding posts to /vehicles as the caller, so it would land on the
+            admin's own (non-existent) vendor record — hidden while viewing. */}
+        {!asVendorId && (
+          <Button size="sm" onClick={() => setAdding((v) => !v)}>
+            {adding ? 'Close' : '+ Add a car'}
+          </Button>
+        )}
       </div>
       {!vendorVerified && (
         <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gold-600)', marginTop: 8 }}>
@@ -845,8 +919,20 @@ const DOC_TYPES = [
   { type: 'roadworthiness', label: 'Roadworthiness inspection' },
 ] as const;
 
-function Documents() {
+function Documents({ asVendor }: { asVendor?: Vendor }) {
   const qc = useQueryClient();
+
+  // An admin has no documents of their own to upload. What they need here is
+  // the provider's paperwork and where it stands in review — with a link
+  // straight to the queue where they can act on it.
+  const { data: docs, isLoading } = useQuery({
+    queryKey: ['vendor-docs', asVendor?.id],
+    queryFn: () => api<(VendorDocument & { vendors?: { business_name: string } })[]>(
+      `/admin/documents?vendor_id=${asVendor!.id}`,
+    ),
+    enabled: !!asVendor,
+  });
+
   const upload = useMutation({
     mutationFn: async ({ type, file }: { type: string; file: File }) => {
       const res = await api<{ document: VendorDocument; upload: { signedUrl: string; path: string } }>(
@@ -859,6 +945,32 @@ function Documents() {
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['vendor-me'] }),
   });
+
+  if (asVendor) {
+    return (
+      <div>
+        <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 32 }}>Verification documents</h1>
+        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 6 }}>
+          {asVendor.business_name}&rsquo;s paperwork, as submitted. Approve or reject in{' '}
+          <Link to="/admin/documents" style={{ color: 'var(--gold-600)', fontWeight: 600 }}>the review queue</Link>.
+        </p>
+        {isLoading && <Spinner />}
+        <div style={{ display: 'grid', gap: 14, marginTop: 20, maxWidth: 560 }}>
+          {DOC_TYPES.map((d) => {
+            const doc = docs?.find((x) => x.type === d.type);
+            return (
+              <Card key={d.type} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 15 }}>{d.label}</span>
+                <span style={{ fontFamily: 'var(--font-ui)', fontSize: 13, fontWeight: 700, color: doc ? 'var(--gold-600)' : 'var(--gray-400)' }}>
+                  {doc ? doc.status : 'not uploaded'}
+                </span>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>

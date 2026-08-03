@@ -63,11 +63,12 @@ export class AdminService {
   }
 
   /** Documents awaiting (or past) review, with their vendor's name. */
-  async listDocuments(status?: 'pending' | 'approved' | 'rejected') {
+  async listDocuments(status?: 'pending' | 'approved' | 'rejected', vendorId?: string) {
     let q = this.supabase.db
       .from('vendor_documents')
       .select('*, vendors(business_name)');
     if (status) q = q.eq('status', status);
+    if (vendorId) q = q.eq('vendor_id', vendorId);
     const { data, error } = await q.order('created_at', { ascending: false });
     if (error) throw new BadRequestException(error.message);
     return data ?? [];
