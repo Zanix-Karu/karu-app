@@ -8,6 +8,7 @@ import { CATEGORY_LABEL, CITY_LABEL, prettyDate, rentalDays, xaf } from '../lib/
 import { Badge, Button, Card } from '../ds';
 import { ErrorNote, StatusBadge } from '../ui';
 import { Skeleton, SkeletonCard } from '../components/Skeleton';
+import { useCurrency } from '../lib/currency';
 import { ReviewForm } from '../components/ReviewForm';
 
 interface BookingDetail extends Booking {
@@ -60,6 +61,7 @@ function daysUntil(date: string): number {
 export function BookingDetailScreen() {
   const { id = '' } = useParams();
   const view = useView();
+  const { secondary } = useCurrency();
   const navigate = useNavigate();
   const qc = useQueryClient();
 
@@ -156,7 +158,15 @@ export function BookingDetailScreen() {
           <div className="mt-2">
             {row('Daily rate', xaf(b.daily_rate_xaf))}
             {row(`${days} day${days > 1 ? 's' : ''}`, xaf(b.total_xaf))}
-            {row('Total (all fees in)', xaf(b.total_xaf))}
+            {row(
+              'Total (all fees in)',
+              <>
+                {xaf(b.total_xaf)}
+                {secondary(b.total_xaf) && (
+                  <span className="ml-1 font-normal text-karu-mute">({secondary(b.total_xaf)})</span>
+                )}
+              </>,
+            )}
             {b.deposit_xaf ? row('Deposit (15%)', xaf(b.deposit_xaf)) : null}
           </div>
           <DepositBlock bookingId={b.id} view={view} />

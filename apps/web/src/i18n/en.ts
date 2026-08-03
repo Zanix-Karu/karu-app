@@ -140,6 +140,9 @@ export const en = {
     noneHint: 'Try widening your dates or clearing a filter.',
     loadError:
       "We couldn't load cars just now. Please check your connection and try again — if it keeps happening, contact us and we'll sort it out.",
+    prev: 'Previous',
+    next: 'Next',
+    showing: 'Showing {{from}}–{{to}} of {{total}}',
     orSimilar: 'or similar {{category}}',
   },
   car: {

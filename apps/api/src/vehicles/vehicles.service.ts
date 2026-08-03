@@ -12,6 +12,14 @@ import { VendorsService } from '../vendors/vendors.service';
 import { BrowseVehiclesQuery, CreateVehicleDto } from './dto';
 import { assertValidWindow } from './dates';
 
+/** A page of listings, plus enough context for the UI to paginate. */
+export interface BrowseResult {
+  items: Vehicle[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 /** Public bucket — listing photos are served directly by their public URL. */
 const PHOTOS_BUCKET = 'vehicle-photos';
 
@@ -40,10 +48,12 @@ export class VehiclesService {
    * is given — excluding vehicles that are booked (confirmed/in_progress) or
    * blocked for any overlapping day.
    */
-  async browse(query: BrowseVehiclesQuery): Promise<Vehicle[]> {
+  async browse(query: BrowseVehiclesQuery): Promise<BrowseResult> {
     let q = this.supabase.db
+      // `count: 'exact'` so the UI can show "1–20 of 47" rather than guessing
+      // whether another page exists.
       .from('vehicles')
-      .select('*, vendors!inner(status)')
+      .select('*, vendors!inner(status)', { count: 'exact' })
       .eq('status', 'active')
       .eq('vendors.status', 'verified');
 
@@ -72,10 +82,11 @@ export class VehiclesService {
     const offset = query.offset ?? 0;
     q = q.range(offset, offset + limit - 1);
 
-    const { data, error } = await q;
+    const { data, error, count } = await q;
     if (error) throw new BadRequestException(error.message);
     // Strip the joined vendors column used only for the verified filter.
-    return (data ?? []).map(({ vendors: _vendors, ...v }) => v) as Vehicle[];
+    const items = (data ?? []).map(({ vendors: _vendors, ...v }) => v) as Vehicle[];
+    return { items, total: count ?? items.length, limit, offset };
   }
 
   /** Can this vehicle be rented for [from, to]? Lists what's in the way if not. */

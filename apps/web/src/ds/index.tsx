@@ -519,6 +519,7 @@ export function CarCard({
   price,
   currency = 'FCFA',
   subPrice,
+  secondaryPrice,
   perDayLabel = 'per day',
   onView,
   style = {},
@@ -535,6 +536,8 @@ export function CarCard({
   price: number;
   currency?: string;
   subPrice?: string;
+  /** Converted price shown beside XAF, e.g. "€38". */
+  secondaryPrice?: string | null;
   /** Passed in so the design system stays free of i18n wiring. */
   perDayLabel?: string;
   onView?: () => void;
@@ -596,6 +599,11 @@ export function CarCard({
           <span style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 26, color: 'var(--ink)' }}>
             {currency} {price.toLocaleString('en-US')}
           </span>
+          {secondaryPrice && (
+            <div style={{ fontFamily: 'var(--font-ui)', fontWeight: 700, fontSize: 15, color: 'var(--gold-600)' }}>
+              {secondaryPrice}
+            </div>
+          )}
           {subPrice && (
             <div style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 13, color: 'var(--gray-400)' }}>
               {subPrice}

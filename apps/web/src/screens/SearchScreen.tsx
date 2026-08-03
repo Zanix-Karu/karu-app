@@ -3,11 +3,12 @@ import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import type { Vehicle } from '@karu/shared';
-import { api } from '../lib/api';
+import { api, type Page } from '../lib/api';
 import { CATEGORY_LABEL, CITY_LABEL, todayISO } from '../lib/format';
 import { Button, CarCard, Card, Field, Input, Select } from '../ds';
 import { EmptyState, ErrorNote } from '../ui';
 import { SkeletonCarCard } from '../components/Skeleton';
+import { useCurrency } from '../lib/currency';
 
 interface Filters {
   city: string;
@@ -41,24 +42,35 @@ const label: React.CSSProperties = {
 
 export function SearchScreen() {
   const { t } = useTranslation();
+  const { secondary } = useCurrency();
   const [draft, setDraft] = useState<Filters>(EMPTY);
   const [applied, setApplied] = useState<Filters>(EMPTY);
+  const [offset, setOffset] = useState(0);
+  const PAGE = 12;
   const navigate = useNavigate();
 
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(applied)) if (v) params.set(k, v);
+  params.set('limit', String(PAGE));
+  params.set('offset', String(offset));
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['vehicles', params.toString()],
-    queryFn: () => api<Vehicle[]>(`/vehicles?${params.toString()}`),
+    queryFn: () => api<Page<Vehicle>>(`/vehicles?${params.toString()}`),
+    placeholderData: (prev) => prev, // keep the list visible while paging
   });
+  const cars = data?.items;
+  const total = data?.total ?? 0;
 
   const set = (k: keyof Filters) => (e: { target: { value: string } }) =>
     setDraft((d) => ({ ...d, [k]: e.target.value }));
 
   const datesHalfSet = Boolean(draft.from) !== Boolean(draft.to);
   const apply = () => {
-    if (!datesHalfSet) setApplied(draft);
+    if (!datesHalfSet) {
+      setApplied(draft);
+      setOffset(0); // a new filter set starts at page 1
+    }
   };
 
   return (
@@ -163,11 +175,11 @@ export function SearchScreen() {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <span style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 15, color: 'var(--gray-500)' }}>
-              {data ? t('search.available', { count: data.length }) : ' '}
+              {data ? t('search.available', { count: total }) : ' '}
             </span>
             <Select
               value={applied.sort}
-              onChange={(e) => setApplied((a) => ({ ...a, sort: e.target.value }))}
+              onChange={(e) => { setApplied((a) => ({ ...a, sort: e.target.value })); setOffset(0); }}
               style={{ width: 220, padding: '10px 14px' }}
             >
               <option value="price_asc">{t('search.sortPriceAsc')}</option>
@@ -188,12 +200,12 @@ export function SearchScreen() {
               {t('search.loadError')}
             </ErrorNote>
           )}
-          {data && data.length === 0 && (
+          {cars && cars.length === 0 && (
             <EmptyState title={t('search.noneTitle')} hint={t('search.noneHint')} />
           )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-            {data?.map((v) => (
+            {cars?.map((v) => (
               <CarCard
                 key={v.id}
                 image={v.photos[0]}
@@ -205,6 +217,7 @@ export function SearchScreen() {
                 price={v.daily_rate_xaf}
                 subPrice={t('common.allFeesIn')}
                 perDayLabel={t('common.perDay')}
+        secondaryPrice={secondary(v.daily_rate_xaf)}
                 onView={() =>
                   navigate(
                     `/cars/${v.id}${applied.from && applied.to ? `?from=${applied.from}&to=${applied.to}` : ''}`,
@@ -213,6 +226,34 @@ export function SearchScreen() {
               />
             ))}
           </div>
+
+          {total > PAGE && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 24 }}>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={offset === 0}
+                onClick={() => setOffset(Math.max(0, offset - PAGE))}
+              >
+                ← {t('search.prev')}
+              </Button>
+              <span style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)' }}>
+                {t('search.showing', {
+                  from: offset + 1,
+                  to: Math.min(offset + PAGE, total),
+                  total,
+                })}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={offset + PAGE >= total}
+                onClick={() => setOffset(offset + PAGE)}
+              >
+                {t('search.next')} →
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>

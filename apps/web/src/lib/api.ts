@@ -25,3 +25,11 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
   return res.json() as Promise<T>;
 }
+
+/** Paged list response, as returned by GET /vehicles. */
+export interface Page<T> {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+}
