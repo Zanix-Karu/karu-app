@@ -2,12 +2,15 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import type { Booking } from '@karu/shared';
 import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import { prettyDate, xaf } from '../lib/format';
 import { Card, ErrorNote, Spinner } from '../ui';
 
 export function ConfirmationScreen() {
   const { id = '' } = useParams();
   const location = useLocation();
+  const { session } = useAuth();
+  const email = session?.user.email;
   const passed = (location.state as { booking?: Booking } | null)?.booking;
 
   const { data, isLoading, error } = useQuery({
@@ -54,7 +57,7 @@ export function ConfirmationScreen() {
           </div>
           {booking.deposit_xaf && (
             <div className="flex justify-between">
-              <dt className="text-karu-mute">Deposit due on confirmation</dt>
+              <dt className="text-karu-mute">Deposit (payable once confirmed)</dt>
               <dd className="font-semibold">{xaf(booking.deposit_xaf)}</dd>
             </div>
           )}
@@ -63,10 +66,24 @@ export function ConfirmationScreen() {
 
       <Card className="mt-4 p-6">
         <h2 className="font-display text-lg font-bold">What happens next?</h2>
+        {/* Only state things the system actually does. Email delivery is
+            best-effort, so it is never claimed in the past tense — the
+            bookings page is the reliable source of truth for status. */}
         <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm">
-          <li>We've emailed you a copy of this request — the provider usually confirms within 24 hours.</li>
-          <li>Once confirmed, you'll get a confirmation email with your deposit instructions.</li>
-          <li>Show your reference at pick-up. The balance is settled there.</li>
+          <li>Your request is with the provider. They usually respond within 24 hours.</li>
+          <li>
+            Track the status any time under <strong>My bookings</strong>
+            {email ? (
+              <>
+                {' '}— we&rsquo;ll also email <strong>{email}</strong> when it changes
+              </>
+            ) : null}
+            .
+          </li>
+          <li>
+            Quote your reference at pick-up. Nothing has been charged — the Karu team will
+            contact you about paying the deposit once the provider confirms.
+          </li>
         </ol>
       </Card>
 

@@ -108,8 +108,12 @@ export function CarDetailScreen() {
           </div>
         )}
 
+        {/* State only what is enforced today. A timed free-cancellation window
+            needs the refund path from the payments phase before it can be
+            promised — until then cancelling is always free because nothing
+            has been charged. */}
         <div className="mt-6 rounded-xl bg-karu-yellow/15 px-4 py-3 text-xs text-karu-brown">
-          Free cancellation up to 48h before pick-up · No hidden fees — what you see is what you pay
+          Cancel any time before pick-up at no cost · No hidden fees — what you see is what you pay
         </div>
       </div>
 

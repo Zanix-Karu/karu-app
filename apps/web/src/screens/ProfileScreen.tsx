@@ -106,7 +106,8 @@ function BecomeVendor({ onDone }: { onDone: () => Promise<void> }) {
     <Card className="mt-6 p-6">
       <h2 className="font-display text-lg font-bold">Have cars to rent out?</h2>
       <p className="mt-1 text-sm text-karu-mute">
-        List your fleet on Karu. We verify your documents, you confirm bookings, customers pay through the platform.
+        List your fleet on Karu. We verify your documents and bring you booking requests; you confirm
+        the ones you want. Payments are arranged directly with the Karu team for now.
       </p>
       {!open ? (
         <Button className="mt-4" onClick={() => setOpen(true)}>

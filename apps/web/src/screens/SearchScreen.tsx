@@ -73,7 +73,7 @@ export function SearchScreen() {
           Rent the right car. <span style={{ color: 'var(--yellow)' }}>Right where you are.</span>
         </h1>
         <p style={{ margin: '6px 0 0', fontFamily: 'var(--font-ui)', color: 'var(--text-on-dark-muted)', fontSize: 15 }}>
-          Every car inspected, every provider verified, every booking protected.
+          Every provider verified · Total price up front · No hidden fees.
         </p>
 
         <div
@@ -174,7 +174,12 @@ export function SearchScreen() {
           </div>
 
           {isLoading && <Spinner label="Finding cars…" />}
-          {error && <ErrorNote>Could not load cars — is the API running? ({(error as Error).message})</ErrorNote>}
+          {error && (
+            <ErrorNote>
+              We couldn&rsquo;t load cars just now. Please check your connection and try again — if
+              it keeps happening, contact us and we&rsquo;ll sort it out.
+            </ErrorNote>
+          )}
           {data && data.length === 0 && (
             <EmptyState title="No cars match" hint="Try widening your dates or clearing a filter." />
           )}

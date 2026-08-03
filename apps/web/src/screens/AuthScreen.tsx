@@ -5,9 +5,34 @@ import { Button, Card, ErrorNote, Field, Input, Select } from '../ui';
 
 type Mode = 'login' | 'signup' | 'reset';
 
+/**
+ * Common near-misses of popular mail domains. A typo here silently creates a
+ * real, working account the user can never sign back into, so warn before it
+ * happens — sign-in deliberately can't tell them "no such account" afterwards.
+ */
+const DOMAIN_TYPOS: Record<string, string> = {
+  'gmai.com': 'gmail.com',
+  'gmial.com': 'gmail.com',
+  'gmail.co': 'gmail.com',
+  'gnail.com': 'gmail.com',
+  'hotmial.com': 'hotmail.com',
+  'hotmai.com': 'hotmail.com',
+  'yahooo.com': 'yahoo.com',
+  'outlok.com': 'outlook.com',
+  'iclould.com': 'icloud.com',
+};
+
+function domainSuggestion(email: string): string | null {
+  const domain = email.split('@')[1]?.toLowerCase();
+  if (!domain) return null;
+  const fix = DOMAIN_TYPOS[domain];
+  return fix ? `${email.split('@')[0]}@${fix}` : null;
+}
+
 export function AuthScreen() {
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
+  const [confirmEmail, setConfirmEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [locale, setLocale] = useState<'en' | 'fr'>('en');
@@ -17,6 +42,7 @@ export function AuthScreen() {
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: string } | null)?.from ?? '/search';
+  const suggestion = domainSuggestion(email);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -29,6 +55,9 @@ export function AuthScreen() {
         if (error) throw error;
         navigate(from, { replace: true });
       } else if (mode === 'signup') {
+        if (email.trim().toLowerCase() !== confirmEmail.trim().toLowerCase()) {
+          throw new Error("Those email addresses don't match — please check both.");
+        }
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -58,6 +87,7 @@ export function AuthScreen() {
         setMode(m);
         setError(null);
         setNotice(null);
+        setConfirmEmail('');
       }}
       className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
         mode === m ? 'bg-karu-ink text-karu-cream' : 'text-karu-brown hover:bg-karu-ink/5'
@@ -110,6 +140,36 @@ export function AuthScreen() {
               autoComplete="email"
             />
           </Field>
+
+          {suggestion && (
+            <p className="-mt-2 text-sm text-karu-brown">
+              Did you mean{' '}
+              <button
+                type="button"
+                className="font-semibold underline"
+                onClick={() => {
+                  setEmail(suggestion);
+                  if (mode === 'signup') setConfirmEmail(suggestion);
+                }}
+              >
+                {suggestion}
+              </button>
+              ?
+            </p>
+          )}
+
+          {mode === 'signup' && (
+            <Field label="Confirm email">
+              <Input
+                type="email"
+                value={confirmEmail}
+                onChange={(e) => setConfirmEmail(e.target.value)}
+                required
+                autoComplete="email"
+                onPaste={(e) => e.preventDefault()}
+              />
+            </Field>
+          )}
 
           {mode !== 'reset' && (
             <Field label="Password">

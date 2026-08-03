@@ -79,7 +79,8 @@ export function BookingsScreen() {
       </h1>
       {isVendor && (
         <p className="mt-1 text-sm text-karu-mute">
-          Confirm or decline requests within 24 hours — customers are notified by email.
+          Confirm or decline requests within 24 hours. Customers see the change here straight
+          away, and we email them too.
         </p>
       )}
       {isAdmin && (

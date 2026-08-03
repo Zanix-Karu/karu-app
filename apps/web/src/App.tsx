@@ -24,6 +24,24 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
 });
 
+function NotFoundScreen() {
+  return (
+    <div className="mx-auto max-w-lg py-16 text-center">
+      <p className="font-display text-5xl font-bold text-karu-brown">404</p>
+      <h1 className="mt-3 font-display text-2xl font-bold">We can&rsquo;t find that page</h1>
+      <p className="mt-2 text-sm text-karu-mute">
+        The link may be out of date, or the page may have moved.
+      </p>
+      <Link
+        to="/search"
+        className="mt-6 inline-block rounded-full bg-karu-yellow px-5 py-2.5 text-sm font-semibold text-karu-ink"
+      >
+        Find a car
+      </Link>
+    </div>
+  );
+}
+
 function Header() {
   const { session, profile, signOut } = useAuth();
   const navigate = useNavigate();
@@ -153,7 +171,8 @@ export default function App() {
                   </RequireAdmin>
                 }
               />
-              <Route path="*" element={<Navigate to="/search" replace />} />
+              {/* An unknown URL should say so rather than silently redirect. */}
+              <Route path="*" element={<NotFoundScreen />} />
             </Routes>
           </main>
           <footer className="mx-auto max-w-6xl px-4 pb-8 text-center text-xs text-karu-mute">
