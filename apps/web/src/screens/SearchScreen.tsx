@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import type { Vehicle } from '@karu/shared';
@@ -39,6 +40,7 @@ const label: React.CSSProperties = {
 };
 
 export function SearchScreen() {
+  const { t } = useTranslation();
   const [draft, setDraft] = useState<Filters>(EMPTY);
   const [applied, setApplied] = useState<Filters>(EMPTY);
   const navigate = useNavigate();
@@ -71,10 +73,10 @@ export function SearchScreen() {
         }}
       >
         <h1 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 44 }}>
-          Rent the right car. <span style={{ color: 'var(--yellow)' }}>Right where you are.</span>
+          {t('search.heroA')} <span style={{ color: 'var(--yellow)' }}>{t('search.heroB')}</span>
         </h1>
         <p style={{ margin: '6px 0 0', fontFamily: 'var(--font-ui)', color: 'var(--text-on-dark-muted)', fontSize: 15 }}>
-          Every provider verified · Total price up front · No hidden fees.
+          {t('search.sub')}
         </p>
 
         <div
@@ -86,26 +88,26 @@ export function SearchScreen() {
             alignItems: 'end',
           }}
         >
-          <Field label="City" onDark>
+          <Field label={t('search.city')} onDark>
             <Select value={draft.city} onChange={set('city')}>
-              <option value="">All cities</option>
+              <option value="">{t('search.allCities')}</option>
               <option value="douala">Douala</option>
               <option value="yaounde">Yaoundé</option>
             </Select>
           </Field>
-          <Field label="Pick-up" onDark>
+          <Field label={t('search.pickUp')} onDark>
             <Input type="date" min={todayISO()} value={draft.from} onChange={set('from')} />
           </Field>
-          <Field label="Return" onDark>
+          <Field label={t('search.return')} onDark>
             <Input type="date" min={draft.from || todayISO()} value={draft.to} onChange={set('to')} />
           </Field>
           <Button variant="primary" onClick={apply} disabled={datesHalfSet} style={{ height: 50 }}>
-            Search cars
+            {t('search.searchCars')}
           </Button>
         </div>
         {datesHalfSet && (
           <p style={{ margin: '10px 0 0', fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--yellow-soft)' }}>
-            Pick both dates to filter by availability.
+            {t('search.bothDates')}
           </p>
         )}
       </div>
@@ -113,8 +115,8 @@ export function SearchScreen() {
       {/* Sidebar + results — the mockup's 280px/1fr split */}
       <div className="karu-sidebar-layout" style={{ marginTop: 28 }}>
         <Card pad={24}>
-          <div style={label}>Car type</div>
-          {[['', 'All'], ...Object.entries(CATEGORY_LABEL)].map(([value, l]) => (
+          <div style={label}>{t('search.carType')}</div>
+          {[['', t('search.all')], ...Object.entries(CATEGORY_LABEL)].map(([value, l]) => (
             <label
               key={value}
               style={{
@@ -140,37 +142,37 @@ export function SearchScreen() {
             </label>
           ))}
 
-          <div style={{ ...label, marginTop: 24 }}>Transmission</div>
+          <div style={{ ...label, marginTop: 24 }}>{t('search.transmission')}</div>
           <Select value={draft.transmission} onChange={set('transmission')}>
-            <option value="">Any</option>
-            <option value="automatic">Automatic</option>
-            <option value="manual">Manual</option>
+            <option value="">{t('search.any')}</option>
+            <option value="automatic">{t('common.automatic')}</option>
+            <option value="manual">{t('common.manual')}</option>
           </Select>
 
-          <div style={{ ...label, marginTop: 24 }}>Seats (at least)</div>
+          <div style={{ ...label, marginTop: 24 }}>{t('search.seatsAtLeast')}</div>
           <Input type="number" min={1} placeholder="Any" value={draft.seats} onChange={set('seats')} />
 
-          <div style={{ ...label, marginTop: 24 }}>Max price / day (XAF)</div>
+          <div style={{ ...label, marginTop: 24 }}>{t('search.maxPrice')}</div>
           <Input type="number" min={0} step={5000} placeholder="Any" value={draft.max_price} onChange={set('max_price')} />
 
           <Button full style={{ marginTop: 24 }} size="sm" onClick={apply} disabled={datesHalfSet}>
-            Apply filters
+            {t('search.applyFilters')}
           </Button>
         </Card>
 
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <span style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 15, color: 'var(--gray-500)' }}>
-              {data ? `${data.length} car${data.length === 1 ? '' : 's'} available` : ' '}
+              {data ? t('search.available', { count: data.length }) : ' '}
             </span>
             <Select
               value={applied.sort}
               onChange={(e) => setApplied((a) => ({ ...a, sort: e.target.value }))}
               style={{ width: 220, padding: '10px 14px' }}
             >
-              <option value="price_asc">Price: Low → High</option>
-              <option value="price_desc">Price: High → Low</option>
-              <option value="newest">Newest</option>
+              <option value="price_asc">{t('search.sortPriceAsc')}</option>
+              <option value="price_desc">{t('search.sortPriceDesc')}</option>
+              <option value="newest">{t('search.sortNewest')}</option>
             </Select>
           </div>
 
@@ -183,12 +185,11 @@ export function SearchScreen() {
           )}
           {error && (
             <ErrorNote>
-              We couldn&rsquo;t load cars just now. Please check your connection and try again — if
-              it keeps happening, contact us and we&rsquo;ll sort it out.
+              {t('search.loadError')}
             </ErrorNote>
           )}
           {data && data.length === 0 && (
-            <EmptyState title="No cars match" hint="Try widening your dates or clearing a filter." />
+            <EmptyState title={t('search.noneTitle')} hint={t('search.noneHint')} />
           )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -197,12 +198,13 @@ export function SearchScreen() {
                 key={v.id}
                 image={v.photos[0]}
                 name={`${v.make} ${v.model}`}
-                category={`or similar ${CATEGORY_LABEL[v.category]}${v.year ? ` · ${v.year}` : ''}`}
-                seats={v.seats ? `${v.seats} Seats` : '—'}
-                transmission={v.transmission === 'automatic' ? 'Automatic' : 'Manual'}
+                category={`${t('search.orSimilar', { category: CATEGORY_LABEL[v.category] })}${v.year ? ` · ${v.year}` : ''}`}
+                seats={v.seats ? t('common.seats', { count: v.seats }) : '—'}
+                transmission={v.transmission === 'automatic' ? t('common.automatic') : t('common.manual')}
                 extra={CITY_LABEL[v.city]}
                 price={v.daily_rate_xaf}
-                subPrice="all fees in"
+                subPrice={t('common.allFeesIn')}
+                perDayLabel={t('common.perDay')}
                 onView={() =>
                   navigate(
                     `/cars/${v.id}${applied.from && applied.to ? `?from=${applied.from}&to=${applied.to}` : ''}`,

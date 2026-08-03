@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useState, type FormEvent } from 'react';
@@ -13,46 +14,12 @@ import { ErrorNote } from '../ui';
  * having to sign up as a customer first and hunt for a form.
  */
 
-const STEPS = [
-  {
-    n: 1,
-    title: 'Tell us about your business',
-    body: 'Business name, city and a phone number. Two minutes.',
-  },
-  {
-    n: 2,
-    title: 'Send your documents',
-    body: 'RCCM, carte grise and insurance. We check them within one business day.',
-  },
-  {
-    n: 3,
-    title: 'List your cars and take bookings',
-    body: 'You set the price and availability. Accept only the requests you want.',
-  },
-];
-
-const REASONS = [
-  {
-    title: 'You stay in control',
-    body: 'Your price, your calendar, your decision on every request. Block dates whenever a car is unavailable.',
-  },
-  {
-    title: 'We bring verified renters',
-    body: 'Every customer has an account with us, and we handle the conversation — your phone number stays private.',
-  },
-  {
-    title: 'No listing fee',
-    body: 'Listing costs nothing. You only hear from us when someone wants your car.',
-  },
-  {
-    title: 'Trust is the product',
-    body: 'Verified providers are what customers come to Karu for. That badge is worth more than a cheap listing.',
-  },
-];
-
 export function ListYourCarScreen() {
+  const { t } = useTranslation();
   const view = useView();
   const navigate = useNavigate();
+  const reasons = t('listYourCar.reasons', { returnObjects: true }) as unknown as Array<{ title: string; body: string }>;
+  const steps = t('listYourCar.steps', { returnObjects: true }) as unknown as Array<{ title: string; body: string }>;
 
   return (
     <div>
@@ -65,7 +32,7 @@ export function ListYourCarScreen() {
         }}
       >
         <h1 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 46, maxWidth: 720 }}>
-          Your cars are earning nothing while they sit.
+          {t('listYourCar.heroTitle')}
         </h1>
         <p
           style={{
@@ -76,30 +43,29 @@ export function ListYourCarScreen() {
             maxWidth: 620,
           }}
         >
-          List your fleet on Karu and reach renters across Douala and Yaoundé — including the
-          diaspora booking ahead of landing.
+          {t('listYourCar.heroSub')}
         </p>
         <div style={{ marginTop: 26, display: 'flex', flexWrap: 'wrap', gap: 12 }}>
           {view === 'guest' && (
             <Button size="lg" onClick={() => navigate('/auth', { state: { from: '/vendor' } })}>
-              Create a provider account
+              {t('listYourCar.createAccount')}
             </Button>
           )}
           {view === 'customer' && (
             <Button size="lg" onClick={() => document.getElementById('convert')?.scrollIntoView({ behavior: 'smooth' })}>
-              Register your business
+              {t('listYourCar.registerBusiness')}
             </Button>
           )}
           {view === 'vendor' && (
             <Button size="lg" onClick={() => navigate('/vendor')}>
-              Go to your dashboard
+              {t('listYourCar.goToDashboard')}
             </Button>
           )}
         </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 18, marginTop: 28 }}>
-        {REASONS.map((r) => (
+        {reasons.map((r) => (
           <Card key={r.title}>
             <h2 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 19 }}>{r.title}</h2>
             <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 8, lineHeight: 1.55 }}>
@@ -110,11 +76,11 @@ export function ListYourCarScreen() {
       </div>
 
       <h2 style={{ fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 26, margin: '36px 0 16px' }}>
-        How it works
+        {t('listYourCar.howItWorks')}
       </h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 18 }}>
-        {STEPS.map((s) => (
-          <Card key={s.n}>
+        {steps.map((s, i) => (
+          <Card key={s.title}>
             <span
               style={{
                 display: 'inline-flex',
@@ -129,7 +95,7 @@ export function ListYourCarScreen() {
                 fontWeight: 800,
               }}
             >
-              {s.n}
+              {i + 1}
             </span>
             <h3 style={{ margin: '12px 0 0', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 18 }}>
               {s.title}
@@ -146,13 +112,13 @@ export function ListYourCarScreen() {
       {view === 'guest' && (
         <Card style={{ marginTop: 28, textAlign: 'center' }}>
           <h2 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
-            Ready to list?
+            {t('listYourCar.readyTitle')}
           </h2>
           <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 6 }}>
-            Creating a provider account takes about two minutes.
+            {t('listYourCar.readySub')}
           </p>
           <Button style={{ marginTop: 14 }} onClick={() => navigate('/auth', { state: { from: '/vendor' } })}>
-            Create a provider account
+            {t('listYourCar.createAccount')}
           </Button>
         </Card>
       )}
@@ -162,6 +128,7 @@ export function ListYourCarScreen() {
 
 /** An existing customer upgrading their account, without signing up again. */
 function ConvertToVendor() {
+  const { t } = useTranslation();
   const { refreshProfile } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ business_name: '', city: 'douala', contact_phone: '' });
@@ -187,11 +154,10 @@ function ConvertToVendor() {
     <div id="convert">
     <Card style={{ marginTop: 28 }}>
       <h2 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
-        Register your business
+        {t('listYourCar.registerBusiness')}
       </h2>
       <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 6 }}>
-        You&rsquo;re already signed in — this adds a provider side to your account. You can still
-        book cars as a customer.
+        {t('listYourCar.convertSub')}
       </p>
       <form
         className="karu-form-grid"
@@ -201,21 +167,21 @@ function ConvertToVendor() {
           register.mutate();
         }}
       >
-        <Field label="Business name">
+        <Field label={t('auth.businessName')}>
           <Input
             required
             value={form.business_name}
             onChange={(e) => setForm({ ...form, business_name: e.target.value })}
           />
         </Field>
-        <Field label="City">
+        <Field label={t('search.city')}>
           <Select value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })}>
-            <option value="douala">Douala</option>
-            <option value="yaounde">Yaoundé</option>
+            <option value="douala">{t('city.douala')}</option>
+            <option value="yaounde">{t('city.yaounde')}</option>
             <option value="other">Elsewhere in Cameroon</option>
           </Select>
         </Field>
-        <Field label="Business phone" style={{ gridColumn: '1 / -1' }}>
+        <Field label={t('auth.businessPhone')} style={{ gridColumn: '1 / -1' }}>
           <Input
             value={form.contact_phone}
             onChange={(e) => setForm({ ...form, contact_phone: e.target.value })}
@@ -229,7 +195,7 @@ function ConvertToVendor() {
             </div>
           )}
           <Button type="submit" disabled={register.isPending}>
-            {register.isPending ? 'Registering…' : 'Register as a provider'}
+            {register.isPending ? t('listYourCar.registering') : t('listYourCar.registerCta')}
           </Button>
         </div>
       </form>

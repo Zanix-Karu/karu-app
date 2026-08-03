@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { api } from '../lib/api';
@@ -32,29 +33,8 @@ function domainSuggestion(email: string): string | null {
   return fix ? `${email.split('@')[0]}@${fix}` : null;
 }
 
-/** Why each audience should bother — shown beside the form. */
-const PITCH: Record<Account, { title: string; sub: string; points: string[] }> = {
-  customer: {
-    title: 'Rent the right car, right where you are.',
-    sub: 'One account to book verified cars across Douala and Yaoundé.',
-    points: [
-      'Every provider document-verified before they can list',
-      'Total price up front — no hidden fees at the counter',
-      'Cancel any time before pick-up at no cost',
-    ],
-  },
-  vendor: {
-    title: 'List your fleet and reach renters across Cameroon.',
-    sub: 'Karu brings you booking requests. You choose which to accept.',
-    points: [
-      'You set the price and the availability — always',
-      'We verify every renter, and handle the customer conversation',
-      'No listing fee: you only hear from us when there is a booking',
-    ],
-  },
-};
-
 export function AuthScreen() {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<Mode>('login');
   const [account, setAccount] = useState<Account>('customer');
   const [email, setEmail] = useState('');
@@ -73,7 +53,11 @@ export function AuthScreen() {
   const location = useLocation();
   const from = (location.state as { from?: string } | null)?.from ?? null;
   const suggestion = domainSuggestion(email);
-  const pitch = PITCH[account];
+  const pitch = {
+    title: t(`auth.${account}Title`),
+    sub: t(`auth.${account}Sub`),
+    points: t(`auth.${account}Points`, { returnObjects: true }) as unknown as string[],
+  };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -88,7 +72,7 @@ export function AuthScreen() {
         navigate(from ?? '/', { replace: true });
       } else if (mode === 'signup') {
         if (email.trim().toLowerCase() !== confirmEmail.trim().toLowerCase()) {
-          throw new Error("Those email addresses don't match — please check both.");
+          throw new Error(t('auth.emailsDontMatch'));
         }
         const { data, error } = await supabase.auth.signUp({
           email,
@@ -105,7 +89,7 @@ export function AuthScreen() {
         });
         if (error) throw error;
         if (!data.session) {
-          setNotice('Check your inbox — confirm your email, then sign in.');
+          setNotice(t('auth.checkInbox'));
           return;
         }
         // A vendor also needs their business record before the area is usable.
@@ -127,7 +111,7 @@ export function AuthScreen() {
           redirectTo: window.location.origin + '/auth/reset',
         });
         if (error) throw error;
-        setNotice('If that address has an account, a reset link is on its way.');
+        setNotice(t('auth.resetSent'));
       }
     } catch (err) {
       setError((err as Error).message);
@@ -192,11 +176,11 @@ export function AuthScreen() {
         </ul>
         {account === 'vendor' && (
           <div className="mt-6 rounded-xl bg-karu-cream p-4 text-sm">
-            <p className="font-semibold">What happens after you sign up</p>
+            <p className="font-semibold">{t('auth.afterSignup')}</p>
             <ol className="mt-2 list-decimal space-y-1 pl-4 text-karu-mute">
-              <li>Upload your RCCM, carte grise and insurance</li>
-              <li>We verify them — usually within one business day</li>
-              <li>Add your cars and start receiving requests</li>
+              {(t('auth.afterSignupSteps', { returnObjects: true }) as unknown as string[]).map((step) => (
+                <li key={step}>{step}</li>
+              ))}
             </ol>
           </div>
         )}
@@ -204,19 +188,19 @@ export function AuthScreen() {
 
       <Card className="order-1 p-6 lg:order-2">
         <div className="mb-5 flex gap-2">
-          {tab('login', 'Sign in')}
-          {tab('signup', 'Create account')}
-          {tab('reset', 'Reset password')}
+          {tab('login', t('common.signIn'))}
+          {tab('signup', t('auth.createAccount'))}
+          {tab('reset', t('auth.resetPassword'))}
         </div>
 
         {mode === 'signup' && (
           <div className="mb-5">
             <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-karu-mute">
-              Account type
+              {t('auth.accountType')}
             </span>
             <div className="flex gap-2">
-              {accountTab('customer', "I'm renting a car", 'Book verified cars')}
-              {accountTab('vendor', "I'm a provider", 'List your fleet')}
+              {accountTab('customer', t('auth.imRenting'), t('auth.imRentingSub'))}
+              {accountTab('vendor', t('auth.imProvider'), t('auth.imProviderSub'))}
             </div>
           </div>
         )}
@@ -226,7 +210,7 @@ export function AuthScreen() {
             <>
               {account === 'vendor' && (
                 <>
-                  <Field label="Business name">
+                  <Field label={t('auth.businessName')}>
                     <Input
                       value={businessName}
                       onChange={(e) => setBusinessName(e.target.value)}
@@ -234,14 +218,14 @@ export function AuthScreen() {
                       placeholder="e.g. Douala Prestige Rentals"
                     />
                   </Field>
-                  <Field label="City you operate in">
+                  <Field label={t('auth.cityOperate')}>
                     <Select value={city} onChange={(e) => setCity(e.target.value)}>
-                      <option value="douala">Douala</option>
-                      <option value="yaounde">Yaoundé</option>
+                      <option value="douala">{t('city.douala')}</option>
+                      <option value="yaounde">{t('city.yaounde')}</option>
                       <option value="other">Elsewhere in Cameroon</option>
                     </Select>
                   </Field>
-                  <Field label="Business phone">
+                  <Field label={t('auth.businessPhone')}>
                     <Input
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
@@ -250,7 +234,7 @@ export function AuthScreen() {
                   </Field>
                 </>
               )}
-              <Field label={account === 'vendor' ? 'Contact name' : 'Full name'}>
+              <Field label={account === 'vendor' ? t('auth.contactName') : t('auth.fullName')}>
                 <Input
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
@@ -258,7 +242,7 @@ export function AuthScreen() {
                   autoComplete="name"
                 />
               </Field>
-              <Field label="Preferred language">
+              <Field label={t('auth.preferredLanguage')}>
                 <Select value={locale} onChange={(e) => setLocale(e.target.value as 'en' | 'fr')}>
                   <option value="en">English</option>
                   <option value="fr">Français</option>
@@ -267,7 +251,7 @@ export function AuthScreen() {
             </>
           )}
 
-          <Field label="Email">
+          <Field label={t('auth.email')}>
             <Input
               type="email"
               value={email}
@@ -279,7 +263,7 @@ export function AuthScreen() {
 
           {suggestion && (
             <p className="-mt-2 text-sm text-karu-brown">
-              Did you mean{' '}
+              {t('auth.didYouMean')}{' '}
               <button
                 type="button"
                 className="font-semibold underline"
@@ -295,7 +279,7 @@ export function AuthScreen() {
           )}
 
           {mode === 'signup' && (
-            <Field label="Confirm email">
+            <Field label={t('auth.confirmEmail')}>
               <Input
                 type="email"
                 value={confirmEmail}
@@ -308,7 +292,7 @@ export function AuthScreen() {
           )}
 
           {mode !== 'reset' && (
-            <Field label="Password">
+            <Field label={t('auth.password')}>
               <Input
                 type="password"
                 value={password}
@@ -318,7 +302,7 @@ export function AuthScreen() {
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               />
               {mode === 'signup' && (
-                <span className="mt-1 block text-xs text-karu-mute">At least 8 characters.</span>
+                <span className="mt-1 block text-xs text-karu-mute">{t('auth.passwordHint')}</span>
               )}
             </Field>
           )}
@@ -334,7 +318,7 @@ export function AuthScreen() {
                 style={{ accentColor: 'var(--gold-600)' }}
               />
               <span className="text-karu-mute">
-                I agree to Karu&rsquo;s Terms of Service and Privacy Policy.
+                {t('auth.agree')}
               </span>
             </label>
           )}
@@ -348,29 +332,29 @@ export function AuthScreen() {
 
           <Button type="submit" disabled={busy || (mode === 'signup' && !agreed)} className="w-full">
             {busy
-              ? 'One moment…'
+              ? t('common.oneMoment')
               : mode === 'login'
-                ? 'Sign in'
+                ? t('common.signIn')
                 : mode === 'signup'
                   ? account === 'vendor'
-                    ? 'Create provider account'
-                    : 'Create account'
-                  : 'Send reset link'}
+                    ? t('auth.createProviderAccount')
+                    : t('auth.createAccount')
+                  : t('auth.sendResetLink')}
           </Button>
 
           <p className="text-center text-xs text-karu-mute">
             {mode === 'login' ? (
               <>
-                Don&rsquo;t have an account?{' '}
+                {t('auth.noAccount')}{' '}
                 <button type="button" className="font-semibold underline" onClick={() => setMode('signup')}>
-                  Sign up
+                  {t('auth.signUp')}
                 </button>
               </>
             ) : mode === 'signup' ? (
               <>
-                Already have an account?{' '}
+                {t('auth.haveAccount')}{' '}
                 <button type="button" className="font-semibold underline" onClick={() => setMode('login')}>
-                  Sign in
+                  {t('common.signIn')}
                 </button>
               </>
             ) : null}

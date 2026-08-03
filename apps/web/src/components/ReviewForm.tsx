@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Review } from '@karu/shared';
 import { api } from '../lib/api';
@@ -6,10 +7,11 @@ import { Button, Card, ErrorNote } from '../ui';
 
 /** Clickable 1–5 stars. */
 function StarPicker({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  const { t } = useTranslation();
   const [hover, setHover] = useState(0);
   const shown = hover || value;
   return (
-    <div className="flex gap-1" role="radiogroup" aria-label="Rating">
+    <div className="flex gap-1" role="radiogroup" aria-label={t('review.rating')}>
       {[1, 2, 3, 4, 5].map((n) => (
         <button
           key={n}
@@ -43,6 +45,7 @@ export function ReviewForm({
   prompt: string;
   onDone?: () => void;
 }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
@@ -62,7 +65,7 @@ export function ReviewForm({
 
   if (submit.isSuccess) {
     return (
-      <p className="text-sm font-semibold text-green-700">Thanks — your review is published ✓</p>
+      <p className="text-sm font-semibold text-green-700">{t('review.thanks')}</p>
     );
   }
 
@@ -82,12 +85,12 @@ export function ReviewForm({
           onChange={(e) => setComment(e.target.value)}
           maxLength={1000}
           rows={3}
-          placeholder="How did it go? (optional)"
+          placeholder={t('review.placeholder')}
           className="w-full rounded-lg border border-karu-ink/15 px-3 py-2 text-sm focus:border-karu-gold focus:outline-none"
         />
         {submit.isError && <ErrorNote>{(submit.error as Error).message}</ErrorNote>}
         <Button type="submit" disabled={rating === 0 || submit.isPending}>
-          {submit.isPending ? 'Publishing…' : 'Publish review'}
+          {submit.isPending ? t('review.publishing') : t('review.publish')}
         </Button>
       </form>
     </Card>

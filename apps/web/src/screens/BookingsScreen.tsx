@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import type { Booking, BookingStatus, Review } from '@karu/shared';
@@ -18,6 +19,7 @@ const CUSTOMER_ACTIONS: Partial<Record<BookingStatus, { label: string; confirm: 
 };
 
 export function BookingsScreen() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const { data, isLoading, error } = useQuery({
     queryKey: ['my-bookings'],
@@ -46,7 +48,7 @@ export function BookingsScreen() {
   if (isLoading) {
     return (
       <div className="mx-auto max-w-3xl">
-        <h1 className="font-display text-3xl font-bold">My bookings</h1>
+        <h1 className="font-display text-3xl font-bold">{t('booking.myBookings')}</h1>
         <div className="mt-6 space-y-4">
           <SkeletonCard lines={3} />
           <SkeletonCard lines={3} />
@@ -58,10 +60,10 @@ export function BookingsScreen() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <h1 className="font-display text-3xl font-bold">My bookings</h1>
+      <h1 className="font-display text-3xl font-bold">{t('booking.myBookings')}</h1>
 
       {data && data.length === 0 && (
-        <EmptyState title="No bookings yet" hint="Find a car and send your first request." />
+        <EmptyState title={t('booking.noneTitle')} hint={t('booking.noneHint')} />
       )}
 
       <div className="mt-6 space-y-4">
@@ -83,7 +85,7 @@ export function BookingsScreen() {
                     to={`/bookings/${b.id}`}
                     className="mt-1 inline-block text-xs font-semibold text-karu-brown underline"
                   >
-                    View details
+                    {t('common.viewDetails')}
                   </Link>
                 </div>
                 <div className="flex items-center gap-3">
@@ -93,7 +95,7 @@ export function BookingsScreen() {
                       variant="danger"
                       disabled={cancel.isPending}
                       onClick={() => {
-                        if (window.confirm(action.confirm)) cancel.mutate(b.id);
+                        if (window.confirm(t('booking.cancelConfirm'))) cancel.mutate(b.id);
                       }}
                     >
                       {action.label}
@@ -103,7 +105,7 @@ export function BookingsScreen() {
               </div>
 
               {b.status === 'completed' && !reviewed.has(b.id) && (
-                <ReviewForm bookingId={b.id} prompt="How was this rental? Rate the provider." />
+                <ReviewForm bookingId={b.id} prompt={t('review.ratePrompt')} />
               )}
             </Card>
           );
