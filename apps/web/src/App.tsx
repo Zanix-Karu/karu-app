@@ -28,16 +28,18 @@ function Header() {
   const { session, profile, signOut } = useAuth();
   const navigate = useNavigate();
 
+  // px-3 on mobile so the row fits a 375px viewport without overflowing.
   const nav = ({ isActive }: { isActive: boolean }) =>
-    `rounded-full px-4 py-1.5 text-sm font-semibold transition ${
+    `whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-semibold transition sm:px-4 ${
       isActive ? 'bg-karu-yellow text-karu-ink' : 'text-karu-cream/80 hover:text-karu-yellow'
     }`;
 
   return (
     <header className="sticky top-0 z-20 bg-karu-ink">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 py-3 sm:justify-between sm:gap-4">
         <Link
           to="/search"
+          className="shrink-0"
           style={{
             fontFamily: 'var(--font-display)',
             fontWeight: 700,
@@ -48,7 +50,7 @@ function Header() {
         >
           KARU
         </Link>
-        <nav className="flex items-center gap-1">
+        <nav className="flex flex-wrap items-center justify-center gap-1">
           <NavLink to="/search" className={nav}>
             Find a car
           </NavLink>
@@ -71,7 +73,7 @@ function Header() {
             </NavLink>
           )}
         </nav>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-center gap-2">
           {session ? (
             <>
               <NavLink to="/profile" className={nav}>
@@ -79,7 +81,7 @@ function Header() {
               </NavLink>
               <Button
                 variant="ghost"
-                className="text-karu-cream/70 hover:bg-white/10"
+                className="whitespace-nowrap px-3 text-karu-cream/70 hover:bg-white/10 sm:px-5"
                 onClick={async () => {
                   await signOut();
                   navigate('/search');

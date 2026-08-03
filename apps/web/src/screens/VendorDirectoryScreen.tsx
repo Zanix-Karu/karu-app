@@ -52,7 +52,7 @@ export function VendorDirectoryScreen() {
 /** One provider's page: profile + their bookable fleet. */
 export function VendorProfileScreen() {
   const { id = '' } = useParams();
-  const { data: vendors } = useQuery({
+  const { data: vendors, isLoading: loadingVendors } = useQuery({
     queryKey: ['vendors-public'],
     queryFn: () => api<Vendor[]>('/vendors'),
   });
@@ -62,6 +62,17 @@ export function VendorProfileScreen() {
     queryKey: ['vendor-cars', id],
     queryFn: () => api<Vehicle[]>(`/vehicles?vendor_id=${id}`),
   });
+
+  if (loadingVendors) return <Spinner label="Loading provider…" />;
+  // An unknown id must say so, not render an empty fleet as if the provider existed.
+  if (!vendor) {
+    return (
+      <EmptyState
+        title="Provider not found"
+        hint="This provider may have been removed, or is no longer verified."
+      />
+    );
+  }
 
   return (
     <div>
