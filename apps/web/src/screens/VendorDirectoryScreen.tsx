@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { CATEGORY_LABEL, CITY_LABEL } from '../lib/format';
 import { Badge, Card, CarCard, Rating } from '../ds';
 import { EmptyState, ErrorNote, Spinner } from '../ui';
+import { SkeletonCard } from '../components/Skeleton';
 
 type VendorWithRating = Vendor & { rating: RatingSummary };
 
@@ -15,7 +16,19 @@ export function VendorDirectoryScreen() {
     queryFn: () => api<VendorWithRating[]>('/vendors'),
   });
 
-  if (isLoading) return <Spinner label="Loading providers…" />;
+  if (isLoading) {
+    return (
+      <div>
+        <h1 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 40 }}>
+          Verified providers
+        </h1>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 18, marginTop: 24 }}>
+          <SkeletonCard lines={3} />
+          <SkeletonCard lines={3} />
+        </div>
+      </div>
+    );
+  }
   if (error) return <ErrorNote>{(error as Error).message}</ErrorNote>;
 
   return (

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import type { Booking, BookingStatus, Vehicle, Vendor } from '@karu/shared';
 import { api } from '../lib/api';
 import { CATEGORY_LABEL, CITY_LABEL, prettyDate, xaf } from '../lib/format';
@@ -586,6 +586,9 @@ function Bookings() {
                 {prettyDate(b.start_date)} → {prettyDate(b.end_date)} · {xaf(b.total_xaf)}
               </p>
               {b.customer_note && <p className="text-xs text-karu-mute">“{b.customer_note}”</p>}
+              <Link to={`/bookings/${b.id}`} className="mt-1 inline-block text-xs font-semibold text-karu-brown underline">
+                View details
+              </Link>
             </div>
             <div className="flex items-center gap-2">
               <StatusBadge status={b.status} />

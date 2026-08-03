@@ -6,6 +6,7 @@ import { api } from '../lib/api';
 import { CATEGORY_LABEL, CITY_LABEL, prettyDate, xaf } from '../lib/format';
 import { Badge, Button, Card, Field, Input, Rating, Select, SidebarNav, StatCard, StepNav } from '../ds';
 import { EarningsChart } from '../components/EarningsChart';
+import { Skeleton, SkeletonCard, SkeletonStats } from '../components/Skeleton';
 import { EmptyState, ErrorNote, Spinner, StatusBadge } from '../ui';
 
 interface VendorStats {
@@ -103,7 +104,16 @@ function Dashboard({ vendor }: { vendor: Vendor }) {
     queryFn: () => api<Review[]>(`/vendors/${vendor.id}/reviews`),
   });
 
-  if (isLoading || !stats) return <Spinner label="Loading your dashboard…" />;
+  if (isLoading || !stats) {
+    return (
+      <div>
+        <Skeleton width="45%" height={32} />
+        <div style={{ marginTop: 20 }}>
+          <SkeletonStats />
+        </div>
+      </div>
+    );
+  }
 
   const upcoming = (bookings ?? [])
     .filter((b) => b.status === 'confirmed' || b.status === 'in_progress')
@@ -264,7 +274,14 @@ function VendorBookings() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['my-bookings'] }),
   });
 
-  if (isLoading) return <Spinner label="Loading booking requests…" />;
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <SkeletonCard lines={3} />
+        <SkeletonCard lines={3} />
+      </div>
+    );
+  }
   if (error) return <ErrorNote>{(error as Error).message}</ErrorNote>;
 
   return (
@@ -299,6 +316,12 @@ function VendorBookings() {
                   &ldquo;{b.customer_note}&rdquo;
                 </div>
               )}
+              <Link
+                to={`/bookings/${b.id}`}
+                style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 13, color: 'var(--gold-600)', textDecoration: 'underline', display: 'inline-block', marginTop: 6 }}
+              >
+                View details
+              </Link>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <StatusBadge status={b.status} />

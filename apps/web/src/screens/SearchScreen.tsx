@@ -5,7 +5,8 @@ import type { Vehicle } from '@karu/shared';
 import { api } from '../lib/api';
 import { CATEGORY_LABEL, CITY_LABEL, todayISO } from '../lib/format';
 import { Button, CarCard, Card, Field, Input, Select } from '../ds';
-import { EmptyState, ErrorNote, Spinner } from '../ui';
+import { EmptyState, ErrorNote } from '../ui';
+import { SkeletonCarCard } from '../components/Skeleton';
 
 interface Filters {
   city: string;
@@ -173,7 +174,13 @@ export function SearchScreen() {
             </Select>
           </div>
 
-          {isLoading && <Spinner label="Finding cars…" />}
+          {isLoading && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <SkeletonCarCard />
+              <SkeletonCarCard />
+              <SkeletonCarCard />
+            </div>
+          )}
           {error && (
             <ErrorNote>
               We couldn&rsquo;t load cars just now. Please check your connection and try again — if

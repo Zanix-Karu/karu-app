@@ -15,6 +15,7 @@ import { SearchScreen } from './screens/SearchScreen';
 import { CarDetailScreen } from './screens/CarDetailScreen';
 import { ConfirmationScreen } from './screens/ConfirmationScreen';
 import { BookingsScreen } from './screens/BookingsScreen';
+import { BookingDetailScreen } from './screens/BookingDetailScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { AdminScreen } from './screens/AdminScreen';
 import { VendorAreaScreen } from './screens/VendorAreaScreen';
@@ -162,6 +163,16 @@ export default function App() {
                 element={
                   <RequireView views={['admin']}>
                     <AdminScreen />
+                  </RequireView>
+                }
+              />
+
+              {/* Booking detail — one screen, shaped per role by the API. */}
+              <Route
+                path="/bookings/:id"
+                element={
+                  <RequireView views={['customer', 'vendor', 'admin']}>
+                    <BookingDetailScreen />
                   </RequireView>
                 }
               />
