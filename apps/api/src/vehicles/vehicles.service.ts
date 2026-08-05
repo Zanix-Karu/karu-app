@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import type { UserRole, Vehicle } from '@karu/shared';
+import type { UserRole, Vehicle, VehicleDetail } from '@karu/shared';
 import { SupabaseService } from '../supabase/supabase.service';
 import { VendorsService } from '../vendors/vendors.service';
 import { BrowseVehiclesQuery, CreateVehicleDto } from './dto';
@@ -61,6 +61,9 @@ export class VehiclesService {
     if (query.category) q = q.eq('category', query.category);
     if (query.vendor_id) q = q.eq('vendor_id', query.vendor_id);
     if (query.transmission) q = q.eq('transmission', query.transmission);
+    // 'optional' and 'required' both mean "a driver can be had"; only 'none'
+    // is excluded.
+    if (query.with_driver) q = q.neq('driver_option', 'none');
     if (query.seats !== undefined) q = q.gte('seats', query.seats);
     if (query.min_price !== undefined) q = q.gte('daily_rate_xaf', query.min_price);
     if (query.max_price !== undefined) q = q.lte('daily_rate_xaf', query.max_price);
@@ -137,6 +140,23 @@ export class VehiclesService {
     if (blocked.error) throw new BadRequestException(blocked.error.message);
     const ids = [...(booked.data ?? []), ...(blocked.data ?? [])].map((r) => r.vehicle_id);
     return [...new Set(ids)];
+  }
+
+  /**
+   * The car page's payload: the listing plus exactly enough of the provider to
+   * quote delivery — never their phone or email.
+   */
+  async getPublicDetail(id: string): Promise<VehicleDetail> {
+    const { data, error } = await this.supabase.db
+      .from('vehicles')
+      .select(
+        '*, vendors!inner(id, business_name, city, status, delivery_fee_xaf, airport_fee_xaf)',
+      )
+      .eq('id', id)
+      .single();
+    if (error || !data) throw new NotFoundException('Vehicle not found');
+    const { vendors, ...vehicle } = data as Record<string, unknown> & { vendors: unknown };
+    return { ...vehicle, vendor: vendors } as VehicleDetail;
   }
 
   async getById(id: string): Promise<Vehicle> {

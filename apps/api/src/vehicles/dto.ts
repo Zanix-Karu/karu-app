@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsDateString,
   IsIn,
   IsInt,
@@ -11,7 +12,14 @@ import {
   Min,
   MaxLength,
 } from 'class-validator';
-import type { City, Transmission, VehicleCategory, VehicleStatus } from '@karu/shared';
+import {
+  DRIVER_OPTIONS,
+  type City,
+  type DriverOption,
+  type Transmission,
+  type VehicleCategory,
+  type VehicleStatus,
+} from '@karu/shared';
 
 const CATEGORIES: VehicleCategory[] = ['economy', 'sedan', 'suv', 'pickup', 'van', 'luxury'];
 const CITIES: City[] = ['douala', 'yaounde', 'other'];
@@ -33,6 +41,13 @@ export class CreateVehicleDto {
 
   @IsIn(CITIES) city!: City;
 
+  /**
+   * Most cars in Douala and Yaounde are rented with a driver, so this is a
+   * first-class listing attribute rather than a note in the description.
+   */
+  @IsOptional() @IsIn(DRIVER_OPTIONS) driver_option?: DriverOption;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) driver_daily_rate_xaf?: number;
+
   @IsOptional() @IsArray() @IsString({ each: true }) pickup_locations?: string[];
   @IsOptional() @IsArray() @IsString({ each: true }) photos?: string[];
   @IsOptional() @IsString() description?: string;
@@ -48,6 +63,16 @@ export class BrowseVehiclesQuery {
 
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) min_price?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) max_price?: number;
+
+  /**
+   * Only cars that can be rented with a driver. For a customer booking from
+   * abroad for family at home this is usually the first filter applied, not
+   * an afterthought.
+   */
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  with_driver?: boolean;
 
   /** Both required together to filter by availability window (inclusive). */
   @IsOptional() @IsDateString() from?: string;
@@ -77,6 +102,8 @@ export class UpdateVehicleDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) seats?: number;
   @IsOptional() @IsIn(TRANSMISSIONS) transmission?: Transmission;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) daily_rate_xaf?: number;
+  @IsOptional() @IsIn(DRIVER_OPTIONS) driver_option?: DriverOption;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) driver_daily_rate_xaf?: number;
   @IsOptional() @IsIn(CITIES) city?: City;
   @IsOptional() @IsArray() @IsString({ each: true }) pickup_locations?: string[];
   @IsOptional() @IsArray() @IsString({ each: true }) photos?: string[];

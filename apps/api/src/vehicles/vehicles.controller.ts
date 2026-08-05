@@ -33,7 +33,7 @@ export class VehiclesController {
   @Public()
   @Get(':id')
   getOne(@Param('id') id: string) {
-    return this.vehicles.getById(id);
+    return this.vehicles.getPublicDetail(id);
   }
 
   /** Is this car free for [from, to]? Public — powers the booking widget. */

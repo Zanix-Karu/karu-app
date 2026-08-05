@@ -22,26 +22,30 @@ UPDATE profiles SET role = 'admin'
 WHERE id = (SELECT id FROM auth.users WHERE email = 'mnfalahahamad@gmail.com');
 
 -- 3. Vendor rows — hand-vetted, so verified immediately.
-INSERT INTO vendors (profile_id, business_name, city, contact_email, contact_phone, status, verified_at)
-SELECT u.id, v.business_name, v.city::city, u.email, v.phone, 'verified', now()
+-- Both deliver: airport meets are what diaspora customers ask for first.
+INSERT INTO vendors (profile_id, business_name, city, contact_email, contact_phone, delivery_fee_xaf, airport_fee_xaf, status, verified_at)
+SELECT u.id, v.business_name, v.city::city, u.email, v.phone, v.delivery_fee, v.airport_fee, 'verified', now()
 FROM (VALUES
-  ('ahamadfalah.fin@gmail.com',       'Douala Prestige Rentals', 'douala',  '+237 6 70 00 00 01'),
-  ('vendor-yaounde@seed.karuapp.com', 'Yaounde Auto Services',   'yaounde', '+237 6 70 00 00 02')
-) AS v(email, business_name, city, phone)
+  ('ahamadfalah.fin@gmail.com',       'Douala Prestige Rentals', 'douala',  '+237 6 70 00 00 01', 5000, 10000),
+  ('vendor-yaounde@seed.karuapp.com', 'Yaounde Auto Services',   'yaounde', '+237 6 70 00 00 02', 5000, 12000)
+) AS v(email, business_name, city, phone, delivery_fee, airport_fee)
 JOIN auth.users u ON u.email = v.email
 ON CONFLICT (profile_id) DO NOTHING;
 
 -- 4. Six active cars (photos attached later via the API).
-INSERT INTO vehicles (vendor_id, make, model, year, category, seats, transmission, daily_rate_xaf, city, pickup_locations, description, status)
-SELECT ven.id, c.make, c.model, c.year, c.category::vehicle_category, c.seats, c.transmission::transmission, c.rate, c.city::city, c.pickups, c.description, 'active'
+-- Driver pricing is set per car: the C-Class is chauffeur-only (nobody rents
+-- an executive saloon in Yaounde to drive themselves), the Swift and Hilux are
+-- self-drive, the rest let the customer choose.
+INSERT INTO vehicles (vendor_id, make, model, year, category, seats, transmission, daily_rate_xaf, driver_option, driver_daily_rate_xaf, city, pickup_locations, description, status)
+SELECT ven.id, c.make, c.model, c.year, c.category::vehicle_category, c.seats, c.transmission::transmission, c.rate, c.driver::driver_option, c.driver_rate, c.city::city, c.pickups, c.description, 'active'
 FROM (VALUES
-  ('ahamadfalah.fin@gmail.com',  'Toyota',        'Corolla', 2019, 'sedan',   5, 'automatic', 35000, 'douala',  ARRAY['Douala International Airport','Akwa'],   'Reliable, air-conditioned sedan. Ideal for city trips and airport pickups.'),
-  ('ahamadfalah.fin@gmail.com',  'Toyota',        'RAV4',    2021, 'suv',     5, 'automatic', 55000, 'douala',  ARRAY['Douala International Airport','Bonanjo'], 'Comfortable SUV, good clearance for out-of-town roads.'),
-  ('ahamadfalah.fin@gmail.com',  'Suzuki',        'Swift',   2018, 'economy', 4, 'manual',    25000, 'douala',  ARRAY['Akwa','Bonapriso'],                       'Economical city runabout. Cheapest way to get around Douala.'),
-  ('vendor-yaounde@seed.karuapp.com', 'Toyota',        'Hilux',   2020, 'pickup',  5, 'manual',    65000, 'yaounde', ARRAY['Yaounde Nsimalen Airport','Bastos'],      'Double-cab pickup, built for upcountry travel.'),
-  ('vendor-yaounde@seed.karuapp.com', 'Mercedes-Benz', 'C-Class', 2019, 'luxury',  5, 'automatic', 85000, 'yaounde', ARRAY['Yaounde Nsimalen Airport','Hilton'],      'Executive saloon with driver option. Business-ready.'),
-  ('vendor-yaounde@seed.karuapp.com', 'Toyota',        'HiAce',   2019, 'van',    12, 'manual',    70000, 'yaounde', ARRAY['Yaounde Nsimalen Airport'],               '12-seater van for groups and events.')
-) AS c(vendor_email, make, model, year, category, seats, transmission, rate, city, pickups, description)
+  ('ahamadfalah.fin@gmail.com',  'Toyota',        'Corolla', 2019, 'sedan',   5, 'automatic', 35000, 'optional', 15000, 'douala',  ARRAY['Douala International Airport','Akwa'],   'Reliable, air-conditioned sedan. Ideal for city trips and airport pickups.'),
+  ('ahamadfalah.fin@gmail.com',  'Toyota',        'RAV4',    2021, 'suv',     5, 'automatic', 55000, 'optional', 20000, 'douala',  ARRAY['Douala International Airport','Bonanjo'], 'Comfortable SUV, good clearance for out-of-town roads.'),
+  ('ahamadfalah.fin@gmail.com',  'Suzuki',        'Swift',   2018, 'economy', 4, 'manual',    25000, 'none',      NULL, 'douala',  ARRAY['Akwa','Bonapriso'],                       'Economical city runabout. Cheapest way to get around Douala.'),
+  ('vendor-yaounde@seed.karuapp.com', 'Toyota',        'Hilux',   2020, 'pickup',  5, 'manual',    65000, 'none',      NULL, 'yaounde', ARRAY['Yaounde Nsimalen Airport','Bastos'],      'Double-cab pickup, built for upcountry travel.'),
+  ('vendor-yaounde@seed.karuapp.com', 'Mercedes-Benz', 'C-Class', 2019, 'luxury',  5, 'automatic', 85000, 'required', 20000, 'yaounde', ARRAY['Yaounde Nsimalen Airport','Hilton'],      'Executive saloon, chauffeur-driven. Business-ready.'),
+  ('vendor-yaounde@seed.karuapp.com', 'Toyota',        'HiAce',   2019, 'van',    12, 'manual',    70000, 'optional', 20000, 'yaounde', ARRAY['Yaounde Nsimalen Airport'],               '12-seater van for groups and events.')
+) AS c(vendor_email, make, model, year, category, seats, transmission, rate, driver, driver_rate, city, pickups, description)
 JOIN auth.users u ON u.email = c.vendor_email
 JOIN vendors ven ON ven.profile_id = u.id
 WHERE NOT EXISTS (

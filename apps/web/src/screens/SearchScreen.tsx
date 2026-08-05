@@ -14,6 +14,7 @@ interface Filters {
   city: string;
   category: string;
   transmission: string;
+  with_driver: string;
   seats: string;
   max_price: string;
   from: string;
@@ -25,6 +26,7 @@ const EMPTY: Filters = {
   city: '',
   category: '',
   transmission: '',
+  with_driver: '',
   seats: '',
   max_price: '',
   from: '',
@@ -153,6 +155,15 @@ export function SearchScreen() {
               {l}
             </label>
           ))}
+
+          {/* Placed above transmission on purpose: for someone booking from
+              abroad for family at home, "with a driver" is the first question,
+              and gearbox is often not a question at all. */}
+          <div style={{ ...label, marginTop: 24 }}>{t('search.driver')}</div>
+          <Select value={draft.with_driver} onChange={set('with_driver')}>
+            <option value="">{t('search.any')}</option>
+            <option value="true">{t('search.withDriverOnly')}</option>
+          </Select>
 
           <div style={{ ...label, marginTop: 24 }}>{t('search.transmission')}</div>
           <Select value={draft.transmission} onChange={set('transmission')}>

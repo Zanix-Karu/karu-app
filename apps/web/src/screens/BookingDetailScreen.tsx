@@ -149,7 +149,16 @@ export function BookingDetailScreen() {
             {row('Pick-up', prettyDate(b.start_date))}
             {row('Return', prettyDate(b.end_date))}
             {row('Duration', `${days} day${days > 1 ? 's' : ''}`)}
-            {row('Pick-up point', b.pickup_location ?? 'To be arranged')}
+            {row(
+              'Collection',
+              b.delivery_type === 'airport'
+                ? `Airport meet${b.delivery_address ? ` · ${b.delivery_address}` : ''}`
+                : b.delivery_type === 'address'
+                  ? `Delivery · ${b.delivery_address}`
+                  : (b.pickup_location ?? 'To be arranged'),
+            )}
+            {b.pickup_time ? row('Time', b.pickup_time.slice(0, 5)) : null}
+            {row('Driver', b.with_driver ? 'With a driver' : 'Self-drive')}
           </div>
         </Card>
 
@@ -157,7 +166,16 @@ export function BookingDetailScreen() {
           <h2 className="font-display text-lg font-bold">Price</h2>
           <div className="mt-2">
             {row('Daily rate', xaf(b.daily_rate_xaf))}
-            {row(`${days} day${days > 1 ? 's' : ''}`, xaf(b.total_xaf))}
+            {/* The vehicle line is the total less the extras — with a driver
+                or a delivery, days x daily rate is no longer the total. */}
+            {row(
+              `${days} day${days > 1 ? 's' : ''}`,
+              xaf(b.total_xaf - b.driver_fee_xaf - b.delivery_fee_xaf),
+            )}
+            {b.driver_fee_xaf > 0 ? row('Driver', xaf(b.driver_fee_xaf)) : null}
+            {b.delivery_fee_xaf > 0
+              ? row(b.delivery_type === 'airport' ? 'Airport meet' : 'Delivery', xaf(b.delivery_fee_xaf))
+              : null}
             {row(
               'Total (all fees in)',
               <>
