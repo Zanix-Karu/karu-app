@@ -44,6 +44,36 @@ export class VendorsService {
     return data as Vendor;
   }
 
+  /**
+   * Edit the calling provider's own record. Status is deliberately absent:
+   * verification is Karu's decision, never the provider's.
+   */
+  async updateByProfile(profileId: string, patch: Record<string, unknown>): Promise<Vendor> {
+    const vendor = await this.getByProfile(profileId);
+    if (Object.keys(patch).length === 0) {
+      throw new BadRequestException('Nothing to update');
+    }
+    const { data, error } = await this.supabase.db
+      .from('vendors')
+      .update(patch)
+      .eq('id', vendor.id)
+      .select('*')
+      .single();
+    if (error || !data) throw new BadRequestException(error?.message ?? 'Could not update vendor');
+    return data as Vendor;
+  }
+
+  /** The vendor behind a vehicle — used when pricing driver and delivery. */
+  async getById(vendorId: string): Promise<Vendor> {
+    const { data, error } = await this.supabase.db
+      .from('vendors')
+      .select('*')
+      .eq('id', vendorId)
+      .maybeSingle();
+    if (error || !data) throw new NotFoundException('Vendor not found');
+    return data as Vendor;
+  }
+
   async getByProfile(profileId: string): Promise<Vendor> {
     const { data, error } = await this.supabase.db
       .from('vendors')

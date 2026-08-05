@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
 import { CurrentUser, Public, Roles } from '../auth/decorators';
 import { VendorsService } from './vendors.service';
-import { CreateVendorDto, UploadDocumentDto } from './dto';
+import { CreateVendorDto, UpdateVendorDto, UploadDocumentDto } from './dto';
 
 @Controller('vendors')
 export class VendorsController {
@@ -23,6 +23,13 @@ export class VendorsController {
   @Get('me')
   me(@CurrentUser('id') profileId: string) {
     return this.vendors.getByProfile(profileId);
+  }
+
+  /** A provider edits their own record — contact details and delivery pricing. */
+  @Roles('vendor')
+  @Patch('me')
+  updateMe(@CurrentUser('id') profileId: string, @Body() dto: UpdateVendorDto) {
+    return this.vendors.updateByProfile(profileId, { ...dto });
   }
 
   /** Dashboard figures — all derived from real bookings, cars and blocks. */

@@ -5,10 +5,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { canTransitionBooking, computeDepositXaf } from '@karu/shared';
+import { canTransitionBooking, quoteBooking } from '@karu/shared';
 import type { Booking, BookingStatus, UserRole } from '@karu/shared';
 import { SupabaseService } from '../supabase/supabase.service';
 import { VehiclesService } from '../vehicles/vehicles.service';
+import { VendorsService } from '../vendors/vendors.service';
 import { assertValidWindow } from '../vehicles/dates';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateBookingDto } from './dto';
@@ -36,6 +37,7 @@ export class BookingsService {
   constructor(
     private readonly supabase: SupabaseService,
     private readonly vehicles: VehiclesService,
+    private readonly vendors: VendorsService,
     private readonly notifications: NotificationsService,
   ) {}
 
@@ -68,8 +70,40 @@ export class BookingsService {
       throw new ConflictException('Vehicle is already booked or blocked for those dates');
     }
 
-    const days = this.rentalDays(dto.start_date, dto.end_date);
-    const total = vehicle.daily_rate_xaf * days;
+    // Driver and delivery are both the vendor's to offer, so both are checked
+    // against what the vendor actually sells rather than taken from the client.
+    const vendor = await this.vendors.getById(vehicle.vendor_id);
+    const withDriver = dto.with_driver ?? vehicle.driver_option === 'required';
+    if (withDriver && vehicle.driver_option === 'none') {
+      throw new BadRequestException('This car is not offered with a driver');
+    }
+    if (!withDriver && vehicle.driver_option === 'required') {
+      throw new BadRequestException('This car is only offered with a driver');
+    }
+
+    const deliveryType = dto.delivery_type ?? 'pickup_point';
+    if (deliveryType === 'address' && vendor.delivery_fee_xaf === null) {
+      throw new BadRequestException('This provider does not deliver to an address');
+    }
+    if (deliveryType === 'airport' && vendor.airport_fee_xaf === null) {
+      throw new BadRequestException('This provider does not offer airport pickup');
+    }
+    if (deliveryType === 'address' && !dto.delivery_address?.trim()) {
+      throw new BadRequestException('An address is required for delivery');
+    }
+
+    // One shared quote function, so what the customer was shown before
+    // committing is arithmetically the same as what is stored.
+    const quote = quoteBooking({
+      startDate: dto.start_date,
+      endDate: dto.end_date,
+      dailyRateXaf: vehicle.daily_rate_xaf,
+      withDriver,
+      driverDailyRateXaf: vehicle.driver_daily_rate_xaf,
+      deliveryType,
+      deliveryFeeXaf: vendor.delivery_fee_xaf,
+      airportFeeXaf: vendor.airport_fee_xaf,
+    });
 
     const { data: reference, error: refError } = await this.supabase.db.rpc(
       'next_booking_reference',
@@ -88,9 +122,15 @@ export class BookingsService {
         end_date: dto.end_date,
         pickup_location: dto.pickup_location ?? null,
         customer_note: dto.customer_note ?? null,
+        with_driver: withDriver,
+        driver_fee_xaf: quote.driverXaf,
+        delivery_type: deliveryType,
+        delivery_address: dto.delivery_address?.trim() || null,
+        delivery_fee_xaf: quote.deliveryXaf,
+        pickup_time: dto.pickup_time ?? null,
         daily_rate_xaf: vehicle.daily_rate_xaf,
-        total_xaf: total,
-        deposit_xaf: computeDepositXaf(total),
+        total_xaf: quote.totalXaf,
+        deposit_xaf: quote.depositXaf,
         reference,
         status: 'requested',
       })

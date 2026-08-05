@@ -233,6 +233,73 @@ function Onboarding({ vendor, onGo }: { vendor: Vendor; onGo: (to: string) => vo
 
 // --- Dashboard ----------------------------------------------------------------
 
+/**
+ * Delivery pricing, set once by the provider rather than per car.
+ *
+ * A blank fee means the service isn't offered, and the car page hides that
+ * option entirely — so an empty field here is a real answer, not missing data.
+ */
+function DeliverySettings({ vendor }: { vendor: Vendor }) {
+  const qc = useQueryClient();
+  const [delivery, setDelivery] = useState(vendor.delivery_fee_xaf?.toString() ?? '');
+  const [airport, setAirport] = useState(vendor.airport_fee_xaf?.toString() ?? '');
+
+  const save = useMutation({
+    mutationFn: () =>
+      api<Vendor>('/vendors/me', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          delivery_fee_xaf: delivery === '' ? null : Number(delivery),
+          airport_fee_xaf: airport === '' ? null : Number(airport),
+        }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['vendor-me'] }),
+  });
+
+  return (
+    <>
+      <h2 style={{ margin: '32px 0 14px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
+        Delivery
+      </h2>
+      <Card>
+        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', margin: '0 0 14px' }}>
+          Most customers booking from abroad want the car brought to the airport.
+          Leave a field blank if you don&rsquo;t offer it.
+        </p>
+        <div className="karu-form-grid">
+          <Field label="Airport meet-and-greet (XAF)">
+            <Input
+              type="number"
+              min={0}
+              value={airport}
+              onChange={(e) => setAirport(e.target.value)}
+              placeholder="Not offered"
+            />
+          </Field>
+          <Field label="Delivery to an address (XAF)">
+            <Input
+              type="number"
+              min={0}
+              value={delivery}
+              onChange={(e) => setDelivery(e.target.value)}
+              placeholder="Not offered"
+            />
+          </Field>
+        </div>
+        <Button size="sm" style={{ marginTop: 14 }} disabled={save.isPending} onClick={() => save.mutate()}>
+          {save.isPending ? 'Saving…' : 'Save delivery pricing'}
+        </Button>
+        {save.isError && <div style={{ marginTop: 10 }}><ErrorNote>{(save.error as Error).message}</ErrorNote></div>}
+        {save.isSuccess && (
+          <span style={{ marginLeft: 12, fontFamily: 'var(--font-ui)', fontSize: 14, fontWeight: 600, color: 'var(--success)' }}>
+            Saved ✓
+          </span>
+        )}
+      </Card>
+    </>
+  );
+}
+
 function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: boolean }) {
   const { data: stats, isLoading } = useQuery({
     queryKey: ['vendor-stats', vendor.id, asAdmin],
@@ -367,6 +434,8 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
           </Card>
         ))}
       </div>
+
+      {!asAdmin && <DeliverySettings vendor={vendor} />}
 
       <h2 style={{ margin: '32px 0 14px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
         Recent reviews
@@ -801,6 +870,8 @@ function AddCarWizard({ onDone }: { onDone: () => void }) {
     seats: '',
     transmission: 'manual',
     daily_rate_xaf: '',
+    driver_option: 'none',
+    driver_daily_rate_xaf: '',
     city: 'douala',
     pickup_locations: '',
     description: '',
@@ -818,6 +889,9 @@ function AddCarWizard({ onDone }: { onDone: () => void }) {
           seats: form.seats ? Number(form.seats) : undefined,
           transmission: form.transmission,
           daily_rate_xaf: Number(form.daily_rate_xaf),
+          driver_option: form.driver_option,
+          driver_daily_rate_xaf:
+            form.driver_option === 'none' ? undefined : Number(form.driver_daily_rate_xaf),
           city: form.city,
           pickup_locations: form.pickup_locations ? form.pickup_locations.split(',').map((s) => s.trim()) : [],
           description: form.description || undefined,
@@ -827,7 +901,11 @@ function AddCarWizard({ onDone }: { onDone: () => void }) {
   });
 
   const detailsOk = form.make && form.model;
-  const pricingOk = Number(form.daily_rate_xaf) > 0;
+  const pricingOk =
+    Number(form.daily_rate_xaf) > 0 &&
+    // A car offered with a driver but no driver rate can't be quoted, and the
+    // DB constraint would reject it anyway.
+    (form.driver_option === 'none' || Number(form.driver_daily_rate_xaf) > 0);
 
   return (
     <Card style={{ marginTop: 20 }}>
@@ -868,6 +946,28 @@ function AddCarWizard({ onDone }: { onDone: () => void }) {
               <option value="other">Other</option>
             </Select>
           </Field>
+          <Field label="Driver">
+            <Select
+              value={form.driver_option}
+              onChange={(e) => setForm({ ...form, driver_option: e.target.value })}
+            >
+              <option value="none">Self-drive only</option>
+              <option value="optional">Driver available (customer chooses)</option>
+              <option value="required">Always with a driver</option>
+            </Select>
+          </Field>
+          {form.driver_option !== 'none' && (
+            <Field label="Driver rate per day (XAF)">
+              <Input
+                type="number"
+                min={1}
+                required
+                value={form.driver_daily_rate_xaf}
+                onChange={(e) => setForm({ ...form, driver_daily_rate_xaf: e.target.value })}
+                placeholder="20000"
+              />
+            </Field>
+          )}
           <Field label="Pick-up points (comma-separated)" style={{ gridColumn: '1 / -1' }}>
             <Input value={form.pickup_locations} onChange={(e) => setForm({ ...form, pickup_locations: e.target.value })} placeholder="Douala International Airport, Akwa" />
           </Field>

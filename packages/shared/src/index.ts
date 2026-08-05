@@ -65,6 +65,63 @@ export function computeDepositXaf(totalXaf: number): number {
   return Math.ceil(totalXaf * DEPOSIT_RATE);
 }
 
+/** Nights are irrelevant here — a rental is charged per calendar day, inclusive. */
+export function rentalDays(startDate: string, endDate: string): number {
+  const ms = Date.parse(`${endDate}T00:00:00Z`) - Date.parse(`${startDate}T00:00:00Z`);
+  return Math.max(1, Math.round(ms / 86_400_000) + 1);
+}
+
+export interface BookingQuoteInput {
+  startDate: string;
+  endDate: string;
+  dailyRateXaf: number;
+  withDriver: boolean;
+  driverDailyRateXaf: number | null;
+  deliveryType: DeliveryType;
+  /** Vendor's address-delivery fee; null when they don't deliver. */
+  deliveryFeeXaf: number | null;
+  /** Vendor's airport fee; null when they don't do airport meets. */
+  airportFeeXaf: number | null;
+}
+
+export interface BookingQuote {
+  days: number;
+  vehicleXaf: number;
+  driverXaf: number;
+  deliveryXaf: number;
+  totalXaf: number;
+  depositXaf: number;
+}
+
+/**
+ * The price of a rental, in one place.
+ *
+ * The server computes this authoritatively and never trusts a client total,
+ * but the customer has to see the same breakdown *before* they commit — a
+ * quote that doesn't match the confirmation is how a marketplace loses trust.
+ * Sharing the function is what keeps the two honest.
+ */
+export function quoteBooking(input: BookingQuoteInput): BookingQuote {
+  const days = rentalDays(input.startDate, input.endDate);
+  const vehicleXaf = input.dailyRateXaf * days;
+  const driverXaf = input.withDriver ? (input.driverDailyRateXaf ?? 0) * days : 0;
+  const deliveryXaf =
+    input.deliveryType === 'airport'
+      ? (input.airportFeeXaf ?? 0)
+      : input.deliveryType === 'address'
+        ? (input.deliveryFeeXaf ?? 0)
+        : 0;
+  const totalXaf = vehicleXaf + driverXaf + deliveryXaf;
+  return {
+    days,
+    vehicleXaf,
+    driverXaf,
+    deliveryXaf,
+    totalXaf,
+    depositXaf: computeDepositXaf(totalXaf),
+  };
+}
+
 // ---- Entity shapes (the columns the API returns to clients) ---------------
 
 export interface Profile {
@@ -86,6 +143,10 @@ export interface Vendor {
   city: City;
   contact_phone: string | null;
   contact_email: string | null;
+  /** Fee to deliver a car to an address. Null when delivery isn't offered. */
+  delivery_fee_xaf: number | null;
+  /** Fee to meet a customer at the airport. Null when not offered. */
+  airport_fee_xaf: number | null;
   status: VendorStatus;
   verified_at: string | null;
   created_at: string;
@@ -104,6 +165,15 @@ export interface VendorDocument {
   created_at: string;
 }
 
+/** Whether a car can be rented with a driver — and whether it must be. */
+export type DriverOption = 'none' | 'optional' | 'required';
+
+/** Where the customer takes delivery of the car. */
+export type DeliveryType = 'pickup_point' | 'airport' | 'address';
+
+export const DRIVER_OPTIONS: DriverOption[] = ['none', 'optional', 'required'];
+export const DELIVERY_TYPES: DeliveryType[] = ['pickup_point', 'airport', 'address'];
+
 export interface Vehicle {
   id: string;
   vendor_id: string;
@@ -114,6 +184,13 @@ export interface Vehicle {
   seats: number | null;
   transmission: Transmission;
   daily_rate_xaf: number;
+  /**
+   * Most rentals in Douala and Yaounde are chauffeur-driven, so a car that
+   * cannot be booked with a driver is the exception rather than the default.
+   */
+  driver_option: DriverOption;
+  /** Driver cost per day, on top of daily_rate_xaf. Null when driver_option is 'none'. */
+  driver_daily_rate_xaf: number | null;
   city: City;
   pickup_locations: string[];
   photos: string[];
@@ -121,6 +198,24 @@ export interface Vehicle {
   status: VehicleStatus;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * A car page needs the provider's delivery pricing to quote a total, but must
+ * never leak their phone or email — contact isolation is the point of the
+ * marketplace. This is the safe subset.
+ */
+export interface VehicleVendorSummary {
+  id: string;
+  business_name: string;
+  city: City;
+  status: VendorStatus;
+  delivery_fee_xaf: number | null;
+  airport_fee_xaf: number | null;
+}
+
+export interface VehicleDetail extends Vehicle {
+  vendor: VehicleVendorSummary;
 }
 
 export interface Booking {
@@ -131,6 +226,16 @@ export interface Booking {
   start_date: string;
   end_date: string;
   pickup_location: string | null;
+  with_driver: boolean;
+  /** Driver cost for the whole rental, frozen at request time. Included in total_xaf. */
+  driver_fee_xaf: number;
+  delivery_type: DeliveryType;
+  /** Street address, or the terminal/flight detail for an airport meet. */
+  delivery_address: string | null;
+  /** Delivery or airport fee, frozen at request time. Included in total_xaf. */
+  delivery_fee_xaf: number;
+  /** HH:MM — a flight lands at a time, not a date. */
+  pickup_time: string | null;
   status: BookingStatus;
   daily_rate_xaf: number;
   total_xaf: number;
