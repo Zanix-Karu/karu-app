@@ -100,6 +100,9 @@ export function AuthScreen() {
               business_name: businessName,
               city,
               contact_phone: phone || undefined,
+              // The account email doubles as the business contact email until
+              // the provider sets a different one from their dashboard.
+              contact_email: email,
             }),
           });
           navigate('/vendor', { replace: true });

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import type { Booking, BookingStatus, Vehicle, Vendor } from '@karu/shared';
-import { api, type Page } from '../lib/api';
+import { api } from '../lib/api';
 import { CATEGORY_LABEL, CITY_LABEL, prettyDate, xaf } from '../lib/format';
 import {
   Button,
@@ -346,13 +346,22 @@ function Documents() {
 
 function Cars() {
   const qc = useQueryClient();
+  // Every vendor can hold cars now — verification is a badge, not a gate.
   const { data: vendors } = useQuery({
-    queryKey: ['admin-vendors', 'verified'],
-    queryFn: () => api<Vendor[]>('/admin/vendors?status=verified'),
+    queryKey: ['admin-vendors', ''],
+    queryFn: () => api<Vendor[]>('/admin/vendors'),
   });
+  // The whole fleet, drafts included — the public browse would hide exactly
+  // the listings an admin needs to publish.
   const { data: cars, isLoading } = useQuery({
     queryKey: ['admin-cars'],
-    queryFn: () => api<Page<Vehicle>>('/vehicles?sort=newest&limit=50').then((p) => p.items),
+    queryFn: () => api<Vehicle[]>('/vehicles/mine'),
+  });
+
+  const setStatus = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: Vehicle['status'] }) =>
+      api<Vehicle>(`/vehicles/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-cars'] }),
   });
 
   const [form, setForm] = useState({
@@ -424,23 +433,42 @@ function Cars() {
                   {c.make} {c.model} {c.year ?? ''}
                 </p>
                 <p className="text-xs text-karu-mute">
+                  {vendors?.find((v) => v.id === c.vendor_id)?.business_name ?? '—'} ·{' '}
                   {CITY_LABEL[c.city]} · {CATEGORY_LABEL[c.category]} · {xaf(c.daily_rate_xaf)}/day ·{' '}
                   {c.photos.length} photo{c.photos.length === 1 ? '' : 's'}
                 </p>
               </div>
-              <label className="cursor-pointer rounded-full border-[1.5px] border-karu-ink px-4 py-1.5 text-sm font-semibold hover:bg-karu-ink hover:text-karu-cream">
-                {uploadPhoto.isPending ? 'Uploading…' : '+ Photo'}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) uploadPhoto.mutate({ vehicleId: c.id, file });
-                    e.target.value = '';
-                  }}
-                />
-              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${
+                    c.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-karu-ink/5 text-karu-mute'
+                  }`}
+                >
+                  {c.status}
+                </span>
+                <Button
+                  variant={c.status === 'active' ? 'outline' : 'primary'}
+                  disabled={setStatus.isPending}
+                  onClick={() =>
+                    setStatus.mutate({ id: c.id, status: c.status === 'active' ? 'inactive' : 'active' })
+                  }
+                >
+                  {c.status === 'active' ? 'Take offline' : 'Publish'}
+                </Button>
+                <label className="cursor-pointer rounded-full border-[1.5px] border-karu-ink px-4 py-1.5 text-sm font-semibold hover:bg-karu-ink hover:text-karu-cream">
+                  {uploadPhoto.isPending ? 'Uploading…' : '+ Photo'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) uploadPhoto.mutate({ vehicleId: c.id, file });
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+              </div>
             </Card>
           ))}
         </div>
@@ -470,6 +498,7 @@ function Cars() {
               {vendors?.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.business_name}
+                  {v.status !== 'verified' ? ` (${v.status})` : ''}
                 </option>
               ))}
             </Select>

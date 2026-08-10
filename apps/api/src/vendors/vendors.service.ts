@@ -33,9 +33,18 @@ export class VendorsService {
       .maybeSingle();
     if (existing.data) throw new ConflictException('Vendor already registered');
 
+    // The signup forms don't ask for a contact email — the person registering
+    // already typed one to create the account. Defaulting here is what keeps
+    // vendor rows from silently ending up with no email at all.
+    let contactEmail = dto.contact_email ?? null;
+    if (!contactEmail) {
+      const { data: authUser } = await this.supabase.db.auth.admin.getUserById(profileId);
+      contactEmail = authUser?.user?.email ?? null;
+    }
+
     const { data, error } = await this.supabase.db
       .from('vendors')
-      .insert({ ...dto, profile_id: profileId })
+      .insert({ ...dto, contact_email: contactEmail, profile_id: profileId })
       .select('*')
       .single();
     if (error || !data) throw new ConflictException(error?.message ?? 'Could not create vendor');
@@ -93,6 +102,16 @@ export class VendorsService {
    */
   async createDocumentUpload(profileId: string, type: DocumentType) {
     const vendor = await this.getByProfile(profileId);
+    return this.createDocumentUploadForVendor(vendor.id, type);
+  }
+
+  /**
+   * Same flow keyed by vendor id — the admin path. The team collects paperwork
+   * over WhatsApp and by hand during onboarding, so an admin must be able to
+   * file it against the vendor's record themselves.
+   */
+  async createDocumentUploadForVendor(vendorId: string, type: DocumentType) {
+    const vendor = await this.getById(vendorId); // 404 for unknown vendors
     const path = `${vendor.id}/${type}-${randomUUID()}`;
 
     const { data: upload, error: storageError } = await this.supabase.db.storage
@@ -224,12 +243,16 @@ export class VendorsService {
     };
   }
 
-  /** Public directory of verified vendors, each with its aggregate rating. */
-  async listVerified(): Promise<Array<Vendor & { rating: RatingSummary }>> {
+  /**
+   * Public directory of operating vendors (verified and pending — the badge
+   * marks verification, it doesn't gate operating), each with its aggregate
+   * rating. Rejected and suspended vendors stay out.
+   */
+  async listPublic(): Promise<Array<Vendor & { rating: RatingSummary }>> {
     const { data, error } = await this.supabase.db
       .from('vendors')
       .select('*')
-      .eq('status', 'verified')
+      .in('status', ['verified', 'pending'])
       .order('created_at', { ascending: false });
     if (error) throw new NotFoundException(error.message);
 

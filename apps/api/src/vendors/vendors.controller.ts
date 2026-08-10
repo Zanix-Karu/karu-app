@@ -7,11 +7,11 @@ import { CreateVendorDto, UpdateVendorDto, UploadDocumentDto } from './dto';
 export class VendorsController {
   constructor(private readonly vendors: VendorsService) {}
 
-  /** Public directory of verified vendors. */
+  /** Public directory of operating vendors (verified + pending). */
   @Public()
   @Get()
-  listVerified() {
-    return this.vendors.listVerified();
+  listPublic() {
+    return this.vendors.listPublic();
   }
 
   /** Any authenticated user can register as a vendor. */

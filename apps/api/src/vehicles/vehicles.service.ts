@@ -43,10 +43,13 @@ export class VehiclesService {
   }
 
   /**
-   * Public browse: active vehicles of verified vendors only, filterable by
+   * Public browse: active vehicles of operating vendors, filterable by
    * city / category / transmission / seats / price, and — when a date window
    * is given — excluding vehicles that are booked (confirmed/in_progress) or
    * blocked for any overlapping day.
+   *
+   * Pending vendors operate too: verification earns the badge, it does not
+   * gate the marketplace. Only rejected and suspended vendors are hidden.
    */
   async browse(query: BrowseVehiclesQuery): Promise<BrowseResult> {
     let q = this.supabase.db
@@ -55,7 +58,7 @@ export class VehiclesService {
       .from('vehicles')
       .select('*, vendors!inner(status)', { count: 'exact' })
       .eq('status', 'active')
-      .eq('vendors.status', 'verified');
+      .in('vendors.status', ['verified', 'pending']);
 
     if (query.city) q = q.eq('city', query.city);
     if (query.category) q = q.eq('category', query.category);

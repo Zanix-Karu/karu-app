@@ -19,6 +19,7 @@ import {
   ReviewDocumentDto,
   SetVendorStatusDto,
 } from './dto';
+import { UploadDocumentDto } from '../vendors/dto';
 
 /** The MVP internal ops screen backend. Every route is admin-only. */
 @Roles('admin')
@@ -50,6 +51,16 @@ export class AdminController {
   @Patch('vendors/:id/status')
   setVendorStatus(@Param('id') id: string, @Body() dto: SetVendorStatusDto) {
     return this.admin.setVendorStatus(id, dto);
+  }
+
+  /**
+   * Upload a verification document on a vendor's behalf. Onboarding happens
+   * over WhatsApp and in person, so the team often holds the paperwork —
+   * this returns the same signed upload URL the vendor flow uses.
+   */
+  @Post('vendors/:id/documents')
+  uploadVendorDocument(@Param('id') id: string, @Body() dto: UploadDocumentDto) {
+    return this.vendors.createDocumentUploadForVendor(id, dto.type);
   }
 
   @Get('documents')
