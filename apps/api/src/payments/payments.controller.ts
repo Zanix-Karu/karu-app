@@ -56,7 +56,9 @@ export class PaymentsController {
   @Public()
   @Post('payments/webhook')
   webhook(@Req() req: Request, @Headers() headers: Record<string, string | undefined>) {
-    const raw = (req as Request & { rawBody?: string }).rawBody ?? JSON.stringify(req.body ?? {});
+    // The HMAC is over the exact bytes Stripe sent — never a re-serialisation.
+    const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
+    const raw = rawBody ? rawBody.toString('utf8') : JSON.stringify(req.body ?? {});
     return this.payments.handleWebhook(raw, headers);
   }
 }

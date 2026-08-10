@@ -66,7 +66,7 @@ export function VendorDirectoryScreen() {
                     )}
                   </div>
                 </div>
-                <Badge variant="success">{t('providers.verified')}</Badge>
+                {v.status === 'verified' && <Badge variant="success">{t('providers.verified')}</Badge>}
               </div>
             </Card>
           </Link>
@@ -136,7 +136,9 @@ export function VendorProfileScreen() {
               )}
             </div>
           </div>
-          <Badge variant="solid">{t('providers.verifiedProvider')}</Badge>
+          {vendor.status === 'verified' && (
+            <Badge variant="solid">{t('providers.verifiedProvider')}</Badge>
+          )}
         </div>
       )}
 

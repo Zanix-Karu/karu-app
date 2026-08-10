@@ -114,7 +114,9 @@ export function CarDetailScreen() {
           {[
             car.transmission === 'automatic' ? t('common.automatic') : t('common.manual'),
             ...(car.seats ? [t('common.seats', { count: car.seats })] : []),
-            t('car.verifiedProvider'),
+            // Pending vendors operate too — the badge only appears once the
+            // paperwork has actually been approved.
+            ...(car.vendor.status === 'verified' ? [t('car.verifiedProvider')] : []),
           ].map((f) => (
             <span
               key={f}

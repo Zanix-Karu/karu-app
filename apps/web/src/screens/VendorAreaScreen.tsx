@@ -7,6 +7,7 @@ import { useView } from '../lib/auth';
 import { CATEGORY_LABEL, CITY_LABEL, prettyDate, xaf } from '../lib/format';
 import { Badge, Button, Card, Field, Input, Rating, Select, SidebarNav, StatCard, StepNav } from '../ds';
 import { EarningsChart } from '../components/EarningsChart';
+import { ConfirmButton } from '../components/ConfirmButton';
 import { Skeleton, SkeletonCard, SkeletonStats } from '../components/Skeleton';
 import { EmptyState, ErrorNote, Spinner, StatusBadge } from '../ui';
 
@@ -174,8 +175,8 @@ function Onboarding({ vendor, onGo }: { vendor: Vendor; onGo: (to: string) => vo
       title: 'Add your first car',
       body:
         (cars?.length ?? 0) > 0
-          ? `${cars!.length} car${cars!.length === 1 ? '' : 's'} added — they go live once you are verified.`
-          : 'You can add cars now; they stay drafts until verification completes.',
+          ? `${cars!.length} car${cars!.length === 1 ? '' : 's'} added — set a listing to Active and it goes live.`
+          : 'Add a car now — it starts as a draft, and goes live the moment you set it to Active.',
       action: { label: 'Add a car', to: '/vendor/cars' },
     },
   ];
@@ -188,7 +189,7 @@ function Onboarding({ vendor, onGo }: { vendor: Vendor; onGo: (to: string) => vo
       <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 6 }}>
         {rejected
           ? `Verification is currently ${vendor.status}. Send us a message and we will help sort it out.`
-          : 'Your listings stay hidden from customers until verification completes.'}
+          : 'You can list cars and take bookings right away — verification earns the ✓ Verified badge customers look for.'}
       </p>
 
       <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -546,20 +547,31 @@ function VendorBookings({ asVendorId }: { asVendorId?: string }) {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <StatusBadge status={b.status} />
-              {VENDOR_ACTIONS[b.status]?.map((a) => (
-                <Button
-                  key={a.to}
-                  size="sm"
-                  variant={a.danger ? 'danger' : 'primary'}
-                  disabled={transition.isPending}
-                  onClick={() => {
-                    if (a.confirm && !window.confirm(a.confirm)) return;
-                    transition.mutate({ id: b.id, to: a.to });
-                  }}
-                >
-                  {a.label}
-                </Button>
-              ))}
+              {VENDOR_ACTIONS[b.status]?.map((a) =>
+                a.confirm ? (
+                  <ConfirmButton
+                    key={a.to}
+                    as={Button}
+                    size="sm"
+                    variant={a.danger ? 'danger' : 'primary'}
+                    disabled={transition.isPending}
+                    confirmLabel={a.confirm}
+                    onConfirm={() => transition.mutate({ id: b.id, to: a.to })}
+                  >
+                    {a.label}
+                  </ConfirmButton>
+                ) : (
+                  <Button
+                    key={a.to}
+                    size="sm"
+                    variant={a.danger ? 'danger' : 'primary'}
+                    disabled={transition.isPending}
+                    onClick={() => transition.mutate({ id: b.id, to: a.to })}
+                  >
+                    {a.label}
+                  </Button>
+                ),
+              )}
             </div>
           </Card>
         ))}
@@ -602,7 +614,8 @@ function Cars({ vendorVerified, asVendorId }: { vendorVerified: boolean; asVendo
       </div>
       {!vendorVerified && (
         <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gold-600)', marginTop: 8 }}>
-          Your account is awaiting verification — new listings stay drafts until you're verified.
+          Your account is awaiting verification — you can still activate listings and take
+          bookings; the ✓ Verified badge appears once your documents are approved.
         </p>
       )}
 
@@ -690,18 +703,16 @@ function CarRow({ car }: { car: Vehicle }) {
           <Button variant="outline" size="sm" onClick={() => setOpen((v) => !v)}>
             {open ? 'Hide availability' : 'Availability'}
           </Button>
-          <Button
+          <ConfirmButton
+            as={Button}
             variant="danger"
             size="sm"
             disabled={retire.isPending}
-            onClick={() => {
-              if (window.confirm('Retire this car? If it has bookings it is taken off the marketplace, otherwise removed entirely.')) {
-                retire.mutate();
-              }
-            }}
+            confirmLabel="Retire this car?"
+            onConfirm={() => retire.mutate()}
           >
             {retire.isPending ? 'Working…' : 'Retire'}
-          </Button>
+          </ConfirmButton>
         </div>
       </div>
       {retire.isSuccess && (
@@ -985,7 +996,7 @@ function AddCarWizard({ onDone }: { onDone: () => void }) {
           {form.daily_rate_xaf ? xaf(Number(form.daily_rate_xaf)) : '—'} per day
           {form.pickup_locations && <><br />Pick-up: {form.pickup_locations}</>}
           <p style={{ color: 'var(--gray-500)', fontSize: 13 }}>
-            The listing is created as a draft if your account isn't verified yet; photos can be added right after.
+            The listing is created as a draft — add photos, then set it to Active from My cars to go live.
           </p>
         </div>
       )}
@@ -1033,17 +1044,22 @@ function Documents({ asVendor }: { asVendor?: Vendor }) {
     enabled: !!asVendor,
   });
 
+  // The vendor uploads their own paperwork; an admin files it on the
+  // vendor's behalf — same signed-URL flow, different endpoint.
   const upload = useMutation({
     mutationFn: async ({ type, file }: { type: string; file: File }) => {
       const res = await api<{ document: VendorDocument; upload: { signedUrl: string; path: string } }>(
-        '/vendors/me/documents',
+        asVendor ? `/admin/vendors/${asVendor.id}/documents` : '/vendors/me/documents',
         { method: 'POST', body: JSON.stringify({ type }) },
       );
       const put = await fetch(res.upload.signedUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
       if (!put.ok) throw new Error(`Upload failed: ${put.status}`);
       return res.document;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['vendor-me'] }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['vendor-me'] });
+      void qc.invalidateQueries({ queryKey: ['vendor-docs'] });
+    },
   });
 
   if (asVendor) {
@@ -1051,7 +1067,8 @@ function Documents({ asVendor }: { asVendor?: Vendor }) {
       <div>
         <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 32 }}>Verification documents</h1>
         <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 6 }}>
-          {asVendor.business_name}&rsquo;s paperwork, as submitted. Approve or reject in{' '}
+          {asVendor.business_name}&rsquo;s paperwork. Upload what the team has collected, then
+          approve or reject in{' '}
           <Link to="/admin/documents" style={{ color: 'var(--gold-600)', fontWeight: 600 }}>the review queue</Link>.
         </p>
         {isLoading && <Spinner />}
@@ -1061,13 +1078,45 @@ function Documents({ asVendor }: { asVendor?: Vendor }) {
             return (
               <Card key={d.type} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
                 <span style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 15 }}>{d.label}</span>
-                <span style={{ fontFamily: 'var(--font-ui)', fontSize: 13, fontWeight: 700, color: doc ? 'var(--gold-600)' : 'var(--gray-400)' }}>
-                  {doc ? doc.status : 'not uploaded'}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ fontFamily: 'var(--font-ui)', fontSize: 13, fontWeight: 700, color: doc ? 'var(--gold-600)' : 'var(--gray-400)' }}>
+                    {doc ? doc.status : 'not uploaded'}
+                  </span>
+                  <label
+                    style={{
+                      cursor: 'pointer',
+                      fontFamily: 'var(--font-ui)',
+                      fontWeight: 600,
+                      fontSize: 13,
+                      padding: '8px 14px',
+                      borderRadius: 'var(--radius-md)',
+                      background: 'var(--yellow)',
+                      color: 'var(--ink)',
+                    }}
+                  >
+                    {upload.isPending ? 'Uploading…' : doc ? 'Replace' : 'Upload'}
+                    <input
+                      type="file"
+                      accept="image/*,.pdf"
+                      style={{ display: 'none' }}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) upload.mutate({ type: d.type, file: f });
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                </div>
               </Card>
             );
           })}
         </div>
+        {upload.isError && <div style={{ marginTop: 12 }}><ErrorNote>{(upload.error as Error).message}</ErrorNote></div>}
+        {upload.isSuccess && (
+          <p style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 14, color: 'var(--success)', marginTop: 12 }}>
+            Document filed — pending review ✓
+          </p>
+        )}
       </div>
     );
   }

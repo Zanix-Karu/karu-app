@@ -7,6 +7,7 @@ import { useAuth } from '../lib/auth';
 import { prettyDate, xaf } from '../lib/format';
 import { ReviewForm } from '../components/ReviewForm';
 import { SkeletonCard } from '../components/Skeleton';
+import { ConfirmButton } from '../components/ConfirmButton';
 import { Button, Card, EmptyState, ErrorNote, StatusBadge } from '../ui';
 
 /**
@@ -102,15 +103,15 @@ export function BookingsScreen() {
                 <div className="flex items-center gap-3">
                   <StatusBadge status={b.status} />
                   {action && (
-                    <Button
+                    <ConfirmButton
+                      as={Button}
                       variant="danger"
                       disabled={cancel.isPending}
-                      onClick={() => {
-                        if (window.confirm(t('booking.cancelConfirm'))) cancel.mutate(b.id);
-                      }}
+                      confirmLabel={t('booking.cancelConfirm')}
+                      onConfirm={() => cancel.mutate(b.id)}
                     >
                       {action.label}
-                    </Button>
+                    </ConfirmButton>
                   )}
                 </div>
               </div>
