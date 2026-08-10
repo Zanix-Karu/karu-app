@@ -5,7 +5,9 @@ import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // rawBody: webhook signatures (Stripe) are HMACs over the exact bytes sent;
+  // a re-serialised req.body would fail verification on any key reordering.
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const config = app.get(ConfigService);
 
   app.setGlobalPrefix('api');

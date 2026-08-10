@@ -4,11 +4,17 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { computeDepositXaf } from '@karu/shared';
 import type { Booking, PaymentStatus, UserRole } from '@karu/shared';
 import { SupabaseService } from '../supabase/supabase.service';
 import { BookingsService } from '../bookings/bookings.service';
-import { ManualPaymentProvider, type DepositIntent, type PaymentProviderAdapter } from './provider';
+import {
+  ManualPaymentProvider,
+  StripeCardProvider,
+  type DepositIntent,
+  type PaymentProviderAdapter,
+} from './provider';
 
 export interface PaymentRow {
   id: string;
@@ -24,15 +30,41 @@ export interface PaymentRow {
 @Injectable()
 export class PaymentsService {
   /**
-   * Swap this for a real adapter once Gate A is answered and an account
-   * exists. Everything else in the app is written against the interface.
+   * Chosen from config at boot: with Stripe keys present, card deposits are
+   * real; without them, the manual placeholder that never lies ships.
+   * Everything else in the app is written against the interface.
    */
-  private readonly adapter: PaymentProviderAdapter = new ManualPaymentProvider();
+  private readonly adapter: PaymentProviderAdapter;
 
   constructor(
+    config: ConfigService,
     private readonly supabase: SupabaseService,
     private readonly bookings: BookingsService,
-  ) {}
+  ) {
+    const secretKey = config.get<string>('STRIPE_SECRET_KEY');
+    const webhookSecret = config.get<string>('STRIPE_WEBHOOK_SECRET');
+
+    // Half a configuration is the dangerous kind: charging without a webhook
+    // secret means money could be taken but never marked received. Refuse to
+    // boot rather than run like that.
+    if (Boolean(secretKey) !== Boolean(webhookSecret)) {
+      throw new Error(
+        'STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET must be set together (or neither)',
+      );
+    }
+
+    this.adapter =
+      secretKey && webhookSecret
+        ? new StripeCardProvider({
+            secretKey,
+            webhookSecret,
+            webAppUrl:
+              config.get<string>('WEB_APP_URL') ??
+              config.get<string>('CORS_ORIGIN')?.split(',')[0]?.trim() ??
+              'http://localhost:5173',
+          })
+        : new ManualPaymentProvider();
+  }
 
   /** Is a real provider wired up? Screens use this to avoid over-promising. */
   get canCharge(): boolean {
@@ -153,6 +185,10 @@ export class PaymentsService {
     } catch (e) {
       throw new BadRequestException((e as Error).message);
     }
+
+    // Signature checked out but the event isn't one we act on — acknowledge
+    // it so the provider stops retrying, and touch nothing.
+    if (!event) return { updated: false, ignored: true };
 
     const { data, error } = await this.supabase.db
       .from('payments')
