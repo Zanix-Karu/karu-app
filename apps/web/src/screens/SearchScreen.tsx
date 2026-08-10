@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { Vehicle } from '@karu/shared';
 import { api, type Page } from '../lib/api';
 import { CATEGORY_LABEL, CITY_LABEL, todayISO } from '../lib/format';
@@ -45,11 +45,43 @@ const label: React.CSSProperties = {
 export function SearchScreen() {
   const { t } = useTranslation();
   const { secondary } = useCurrency();
-  const [draft, setDraft] = useState<Filters>(EMPTY);
-  const [applied, setApplied] = useState<Filters>(EMPTY);
-  const [offset, setOffset] = useState(0);
   const PAGE = 12;
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  /**
+   * The URL is the source of truth for what has been applied.
+   *
+   * Keeping it in component state meant a search could not be shared or
+   * bookmarked, and the browser's own Back button walked out of the page
+   * instead of back through the results. Anything a customer would send to
+   * the family member who is actually travelling belongs in the address bar.
+   */
+  const applied = useMemo<Filters>(() => {
+    const f = { ...EMPTY };
+    for (const k of Object.keys(EMPTY) as (keyof Filters)[]) {
+      const v = searchParams.get(k);
+      if (v) f[k] = v;
+    }
+    return f;
+  }, [searchParams]);
+  const offset = Math.max(0, Number(searchParams.get('offset')) || 0);
+
+  // The form holds the un-applied edits; the URL holds what's in effect.
+  const [draft, setDraft] = useState<Filters>(applied);
+  // Re-sync when the URL changes underneath — going Back has to move the
+  // controls too, not just the results.
+  useEffect(() => setDraft(applied), [applied]);
+
+  /** Write a filter set to the URL; defaults are omitted to keep links short. */
+  const commit = (next: Filters, nextOffset = 0) => {
+    const p = new URLSearchParams();
+    for (const [k, v] of Object.entries(next)) {
+      if (v && v !== EMPTY[k as keyof Filters]) p.set(k, v);
+    }
+    if (nextOffset > 0) p.set('offset', String(nextOffset));
+    setSearchParams(p);
+  };
 
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(applied)) if (v) params.set(k, v);
@@ -69,10 +101,7 @@ export function SearchScreen() {
 
   const datesHalfSet = Boolean(draft.from) !== Boolean(draft.to);
   const apply = () => {
-    if (!datesHalfSet) {
-      setApplied(draft);
-      setOffset(0); // a new filter set starts at page 1
-    }
+    if (!datesHalfSet) commit(draft); // a new filter set starts at page 1
   };
 
   return (
@@ -190,7 +219,7 @@ export function SearchScreen() {
             </span>
             <Select
               value={applied.sort}
-              onChange={(e) => { setApplied((a) => ({ ...a, sort: e.target.value })); setOffset(0); }}
+              onChange={(e) => commit({ ...applied, sort: e.target.value })}
               style={{ width: 220, padding: '10px 14px' }}
             >
               <option value="price_asc">{t('search.sortPriceAsc')}</option>
@@ -238,19 +267,22 @@ export function SearchScreen() {
             ))}
           </div>
 
-          {total > PAGE && (
+          {/* Also shown when offset > 0 even if everything fits one page: now
+              that offset lives in the URL, a shared deep link could otherwise
+              strand someone on a partial page with no control to get back. */}
+          {(total > PAGE || offset > 0) && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 24 }}>
               <Button
                 variant="outline"
                 size="sm"
                 disabled={offset === 0}
-                onClick={() => setOffset(Math.max(0, offset - PAGE))}
+                onClick={() => commit(applied, Math.max(0, offset - PAGE))}
               >
                 ← {t('search.prev')}
               </Button>
               <span style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)' }}>
                 {t('search.showing', {
-                  from: offset + 1,
+                  from: Math.min(offset + 1, total),
                   to: Math.min(offset + PAGE, total),
                   total,
                 })}
@@ -259,7 +291,7 @@ export function SearchScreen() {
                 variant="outline"
                 size="sm"
                 disabled={offset + PAGE >= total}
-                onClick={() => setOffset(offset + PAGE)}
+                onClick={() => commit(applied, offset + PAGE)}
               >
                 {t('search.next')} →
               </Button>
