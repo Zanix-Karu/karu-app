@@ -10,6 +10,7 @@ import { ErrorNote, StatusBadge } from '../ui';
 import { Skeleton, SkeletonCard } from '../components/Skeleton';
 import { useCurrency } from '../lib/currency';
 import { ReviewForm } from '../components/ReviewForm';
+import { ConfirmButton } from '../components/ConfirmButton';
 
 interface BookingDetail extends Booking {
   vehicle: Pick<
@@ -256,19 +257,29 @@ export function BookingDetailScreen() {
         <Card style={{ marginTop: 16 }}>
           <h2 className="font-display text-lg font-bold">Actions</h2>
           <div className="mt-3 flex flex-wrap gap-2">
-            {actions.map((a) => (
-              <Button
-                key={a.to}
-                variant={a.danger ? 'danger' : 'primary'}
-                disabled={transition.isPending}
-                onClick={() => {
-                  if (a.danger && !window.confirm(`${a.label}?`)) return;
-                  transition.mutate(a.to);
-                }}
-              >
-                {transition.isPending ? 'Working…' : a.label}
-              </Button>
-            ))}
+            {actions.map((a) =>
+              a.danger ? (
+                <ConfirmButton
+                  key={a.to}
+                  as={Button}
+                  variant="danger"
+                  disabled={transition.isPending}
+                  confirmLabel={`${a.label}?`}
+                  onConfirm={() => transition.mutate(a.to)}
+                >
+                  {transition.isPending ? 'Working…' : a.label}
+                </ConfirmButton>
+              ) : (
+                <Button
+                  key={a.to}
+                  variant="primary"
+                  disabled={transition.isPending}
+                  onClick={() => transition.mutate(a.to)}
+                >
+                  {transition.isPending ? 'Working…' : a.label}
+                </Button>
+              ),
+            )}
           </div>
           {transition.isError && (
             <div className="mt-3">
