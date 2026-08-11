@@ -17,7 +17,7 @@ import {
   StatusBadge,
 } from '../ui';
 
-type Tab = 'overview' | 'vendors' | 'documents' | 'cars' | 'bookings';
+type Tab = 'overview' | 'vendors' | 'documents' | 'cars' | 'bookings' | 'chats';
 
 const TAB_PATH: Record<Tab, string> = {
   overview: '/admin',
@@ -25,12 +25,17 @@ const TAB_PATH: Record<Tab, string> = {
   documents: '/admin/documents',
   cars: '/admin/cars',
   bookings: '/admin/bookings',
+  chats: '/admin/chats',
 };
 
 /** Tab comes from the URL so the header nav and the console agree. */
 function tabFromPath(pathname: string): Tab {
   const rest = pathname.replace(/^\/admin\/?/, '');
-  return (['vendors', 'documents', 'cars', 'bookings'] as Tab[]).find((t) => rest.startsWith(t)) ?? 'overview';
+  return (
+    (['vendors', 'documents', 'cars', 'bookings', 'chats'] as Tab[]).find((t) =>
+      rest.startsWith(t),
+    ) ?? 'overview'
+  );
 }
 
 export function AdminScreen() {
@@ -59,6 +64,7 @@ export function AdminScreen() {
         {tabBtn('documents', 'Documents')}
         {tabBtn('cars', 'Cars')}
         {tabBtn('bookings', 'Bookings')}
+        {tabBtn('chats', 'Chats')}
       </div>
       <div className="mt-6">
         {tab === 'overview' && <Overview />}
@@ -66,6 +72,7 @@ export function AdminScreen() {
         {tab === 'documents' && <Documents />}
         {tab === 'cars' && <Cars />}
         {tab === 'bookings' && <Bookings />}
+        {tab === 'chats' && <Chats />}
       </div>
     </div>
   );
@@ -597,6 +604,90 @@ const NEXT_ACTIONS: Partial<Record<BookingStatus, Array<{ to: BookingStatus; lab
   ],
   in_progress: [{ to: 'completed', label: 'Complete' }],
 };
+
+// --- Chats ------------------------------------------------------------------
+
+interface Conversation {
+  booking_id: string;
+  reference: string | null;
+  booking_status: BookingStatus;
+  customer_name: string;
+  vendor_name: string;
+  message_count: number;
+  unread_count: number;
+  any_redacted: boolean;
+  last_message: { sender_role: string; body: string; created_at: string } | null;
+}
+
+const SENDER_LABEL: Record<string, string> = {
+  customer: 'Customer',
+  vendor: 'Provider',
+  admin: 'Karu Support',
+};
+
+/**
+ * Every conversation on the platform — the oversight half of admin
+ * intervention. Opening one lands on the booking detail, where the admin
+ * posts into the same thread as Karu Support.
+ */
+function Chats() {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['admin-conversations'],
+    queryFn: () => api<Conversation[]>('/admin/conversations'),
+    refetchInterval: 10000,
+    // Keep the oversight list live even when the console window isn't focused.
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
+  });
+
+  if (isLoading) return <Spinner />;
+  if (error) return <ErrorNote>{(error as Error).message}</ErrorNote>;
+  if (!data || data.length === 0) {
+    return <EmptyState title="No conversations yet" />;
+  }
+
+  return (
+    <div className="space-y-3">
+      {data.map((c) => (
+        <Link key={c.booking_id} to={`/bookings/${c.booking_id}`} className="block">
+          <Card className="flex flex-wrap items-center justify-between gap-3 p-4 transition hover:bg-karu-ink/5">
+            <div className="min-w-0">
+              <p className="font-mono text-xs text-karu-mute">{c.reference ?? c.booking_id}</p>
+              <p className="mt-0.5 font-semibold">
+                {c.customer_name} ↔ {c.vendor_name}
+              </p>
+              {c.last_message && (
+                <p className="mt-0.5 max-w-xl truncate text-sm text-karu-mute">
+                  {SENDER_LABEL[c.last_message.sender_role] ?? c.last_message.sender_role}:{' '}
+                  {c.last_message.body}
+                </p>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {c.unread_count > 0 && (
+                <span className="rounded-full bg-karu-terracotta px-2.5 py-0.5 text-xs font-bold text-white">
+                  {c.unread_count} new
+                </span>
+              )}
+              {c.any_redacted && (
+                <span
+                  className="rounded-full bg-karu-yellow/40 px-2.5 py-0.5 text-xs font-semibold text-karu-brown"
+                  title="Contact details were removed from at least one message in this thread"
+                >
+                  redactions
+                </span>
+              )}
+              <span className="text-xs text-karu-mute">
+                {c.message_count} message{c.message_count === 1 ? '' : 's'}
+              </span>
+              <StatusBadge status={c.booking_status} />
+            </div>
+          </Card>
+        </Link>
+      ))}
+    </div>
+  );
+}
 
 function Bookings() {
   const { t } = useTranslation();

@@ -8,6 +8,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { PaymentsModule } from './payments/payments.module';
+import { MessagesModule } from './messages/messages.module';
 import { AdminModule } from './admin/admin.module';
 import { HealthController } from './health.controller';
 
@@ -23,6 +24,7 @@ import { HealthController } from './health.controller';
     BookingsModule,
     ReviewsModule,
     PaymentsModule,
+    MessagesModule,
     AdminModule,
   ],
   controllers: [HealthController],

@@ -10,8 +10,17 @@ Two subdomains, two deploy targets:
 The database is the existing Supabase project `karu-app`
 (`zxvshmicnufitxquogsw`, eu-west-3) — nothing to deploy there beyond
 migrations: run `supabase db push` against it so the hosted schema matches
-`supabase/migrations/` (it was last pushed at 0013; 0014–0015 add role
-grants and driver/delivery).
+`supabase/migrations/` (it was last pushed at 0013; 0014–0017 add the
+signup-trigger fix, role grants, driver/delivery, and booking chat).
+
+> **Migration renumbering (2026-08-12):** two files used to share version
+> `0014`, which breaks `db push` with a duplicate-key error on
+> `schema_migrations`. They are now `0014_fix_signup_trigger_search_path`,
+> `0015_role_grants`, `0016_driver_and_delivery`, `0017_booking_messages`.
+> Production never applied any of them, so a plain `supabase db push` works.
+> Any environment that applied role grants or driver/delivery out-of-band
+> needs `supabase migration repair --status applied 0015 0016` first (the
+> local dev DB has already been repaired).
 
 ## 1. API → api.getkaru.io
 
@@ -106,6 +115,34 @@ instead — nothing is charged and nothing pretends to be. To turn it on:
 Mobile Money (MTN MoMo / Orange Money) is the next adapter behind the same
 seam once an aggregator is chosen — nothing outside `payments/provider.ts`
 changes.
+
+## 6. Booking chat (in-app messages)
+
+Migration 0017 adds `booking_messages` + `booking_message_reads` and ships
+the in-app chat between customer and vendor, replacing the support-email
+relay as the primary channel (the `/bookings/:id/message` relay endpoint
+still exists).
+
+The mechanisms that keep the marketplace's contact-isolation rule intact:
+
+- **Server-side redaction** — phone numbers, emails and WhatsApp/Telegram
+  links are stripped from customer/vendor messages *before storage*
+  (`apps/api/src/messages/redact.ts`); the `redacted` flag on the row tells
+  both the sender and the admin console it happened. Dates, times and XAF
+  prices pass through untouched.
+- **Admin oversight** — Operations → Chats lists every conversation with
+  unread counts and a "redactions" badge; opening one lands on the booking,
+  where the admin posts into the same thread as **Karu Support**.
+- **Email nudges** — the other party gets a "new message" email via Resend,
+  throttled to one per recipient per booking per hour (checked against
+  `email_log`, template `chat_message_notice`). No Resend key → logged as
+  `failed`, chat unaffected.
+- **RLS defense in depth** — thread reads are limited to the booking's
+  parties; there is no client INSERT policy, so writes only happen through
+  the API (where redaction lives).
+
+Nothing to configure at go-live beyond pushing the migration; the email
+nudges reuse `RESEND_API_KEY`/`EMAIL_FROM` and link to `WEB_APP_URL`.
 
 ## CI
 

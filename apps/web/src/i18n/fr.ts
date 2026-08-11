@@ -40,6 +40,7 @@ export const fr = {
     viewMarketplace: 'Voir le site',
     operations: 'Opérations',
     bookings: 'Réservations',
+    chats: 'Messages',
   },
   city: { douala: 'Douala', yaounde: 'Yaoundé', other: 'Autre' },
   category: {
