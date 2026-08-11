@@ -1,6 +1,6 @@
-// Generated from the live Supabase schema (project zxvshmicnufitxquogsw) via
-// `supabase gen types typescript` on 2026-07-23. Regenerate after applying a
-// migration — do not edit by hand.
+// Generated from the local Supabase schema (matches migrations through 0017)
+// via `supabase gen types typescript --local` on 2026-08-12. Regenerate after
+// applying a migration — do not edit by hand.
 
 export type Json =
   | string
@@ -11,10 +11,30 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -33,6 +53,84 @@ export type Database = {
         }
         Relationships: []
       }
+      booking_message_reads: {
+        Row: {
+          booking_id: string
+          last_read_at: string
+          profile_id: string
+        }
+        Insert: {
+          booking_id: string
+          last_read_at?: string
+          profile_id: string
+        }
+        Update: {
+          booking_id?: string
+          last_read_at?: string
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_message_reads_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_message_reads_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_messages: {
+        Row: {
+          body: string
+          booking_id: string
+          created_at: string
+          id: string
+          redacted: boolean
+          sender_id: string
+          sender_role: Database["public"]["Enums"]["user_role"]
+        }
+        Insert: {
+          body: string
+          booking_id: string
+          created_at?: string
+          id?: string
+          redacted?: boolean
+          sender_id: string
+          sender_role: Database["public"]["Enums"]["user_role"]
+        }
+        Update: {
+          body?: string
+          booking_id?: string
+          created_at?: string
+          id?: string
+          redacted?: boolean
+          sender_id?: string
+          sender_role?: Database["public"]["Enums"]["user_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_messages_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookings: {
         Row: {
           confirmed_at: string | null
@@ -41,10 +139,15 @@ export type Database = {
           customer_id: string
           customer_note: string | null
           daily_rate_xaf: number
+          delivery_address: string | null
+          delivery_fee_xaf: number
+          delivery_type: Database["public"]["Enums"]["delivery_type"]
           deposit_xaf: number | null
+          driver_fee_xaf: number
           end_date: string
           id: string
           pickup_location: string | null
+          pickup_time: string | null
           reference: string | null
           requested_at: string
           start_date: string
@@ -54,6 +157,7 @@ export type Database = {
           vehicle_id: string
           vendor_id: string
           vendor_note: string | null
+          with_driver: boolean
         }
         Insert: {
           confirmed_at?: string | null
@@ -62,10 +166,15 @@ export type Database = {
           customer_id: string
           customer_note?: string | null
           daily_rate_xaf: number
+          delivery_address?: string | null
+          delivery_fee_xaf?: number
+          delivery_type?: Database["public"]["Enums"]["delivery_type"]
           deposit_xaf?: number | null
+          driver_fee_xaf?: number
           end_date: string
           id?: string
           pickup_location?: string | null
+          pickup_time?: string | null
           reference?: string | null
           requested_at?: string
           start_date: string
@@ -75,6 +184,7 @@ export type Database = {
           vehicle_id: string
           vendor_id: string
           vendor_note?: string | null
+          with_driver?: boolean
         }
         Update: {
           confirmed_at?: string | null
@@ -83,10 +193,15 @@ export type Database = {
           customer_id?: string
           customer_note?: string | null
           daily_rate_xaf?: number
+          delivery_address?: string | null
+          delivery_fee_xaf?: number
+          delivery_type?: Database["public"]["Enums"]["delivery_type"]
           deposit_xaf?: number | null
+          driver_fee_xaf?: number
           end_date?: string
           id?: string
           pickup_location?: string | null
+          pickup_time?: string | null
           reference?: string | null
           requested_at?: string
           start_date?: string
@@ -96,6 +211,7 @@ export type Database = {
           vehicle_id?: string
           vendor_id?: string
           vendor_note?: string | null
+          with_driver?: boolean
         }
         Relationships: [
           {
@@ -336,6 +452,8 @@ export type Database = {
           created_at: string
           daily_rate_xaf: number
           description: string | null
+          driver_daily_rate_xaf: number | null
+          driver_option: Database["public"]["Enums"]["driver_option"]
           id: string
           make: string
           model: string
@@ -354,6 +472,8 @@ export type Database = {
           created_at?: string
           daily_rate_xaf: number
           description?: string | null
+          driver_daily_rate_xaf?: number | null
+          driver_option?: Database["public"]["Enums"]["driver_option"]
           id?: string
           make: string
           model: string
@@ -372,6 +492,8 @@ export type Database = {
           created_at?: string
           daily_rate_xaf?: number
           description?: string | null
+          driver_daily_rate_xaf?: number | null
+          driver_option?: Database["public"]["Enums"]["driver_option"]
           id?: string
           make?: string
           model?: string
@@ -447,11 +569,13 @@ export type Database = {
       }
       vendors: {
         Row: {
+          airport_fee_xaf: number | null
           business_name: string
           city: Database["public"]["Enums"]["city"]
           contact_email: string | null
           contact_phone: string | null
           created_at: string
+          delivery_fee_xaf: number | null
           id: string
           profile_id: string
           rccm_number: string | null
@@ -460,11 +584,13 @@ export type Database = {
           verified_at: string | null
         }
         Insert: {
+          airport_fee_xaf?: number | null
           business_name: string
           city: Database["public"]["Enums"]["city"]
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
+          delivery_fee_xaf?: number | null
           id?: string
           profile_id: string
           rccm_number?: string | null
@@ -473,11 +599,13 @@ export type Database = {
           verified_at?: string | null
         }
         Update: {
+          airport_fee_xaf?: number | null
           business_name?: string
           city?: Database["public"]["Enums"]["city"]
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
+          delivery_fee_xaf?: number | null
           id?: string
           profile_id?: string
           rccm_number?: string | null
@@ -516,8 +644,10 @@ export type Database = {
         | "in_progress"
         | "completed"
       city: "douala" | "yaounde" | "other"
+      delivery_type: "pickup_point" | "airport" | "address"
       document_status: "pending" | "approved" | "rejected"
       document_type: "rccm" | "carte_grise" | "insurance" | "roadworthiness"
+      driver_option: "none" | "optional" | "required"
       payment_provider: "mtn_momo" | "orange_money" | "card" | "manual"
       payment_status: "pending" | "held" | "released" | "refunded" | "failed"
       review_target: "customer" | "vendor"
@@ -657,6 +787,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       booking_status: [
@@ -668,8 +801,10 @@ export const Constants = {
         "completed",
       ],
       city: ["douala", "yaounde", "other"],
+      delivery_type: ["pickup_point", "airport", "address"],
       document_status: ["pending", "approved", "rejected"],
       document_type: ["rccm", "carte_grise", "insurance", "roadworthiness"],
+      driver_option: ["none", "optional", "required"],
       payment_provider: ["mtn_momo", "orange_money", "card", "manual"],
       payment_status: ["pending", "held", "released", "refunded", "failed"],
       review_target: ["customer", "vendor"],
@@ -681,3 +816,4 @@ export const Constants = {
     },
   },
 } as const
+

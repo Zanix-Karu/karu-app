@@ -11,6 +11,7 @@ import { Skeleton, SkeletonCard } from '../components/Skeleton';
 import { useCurrency } from '../lib/currency';
 import { ReviewForm } from '../components/ReviewForm';
 import { ConfirmButton } from '../components/ConfirmButton';
+import { BookingChat } from '../components/BookingChat';
 
 interface BookingDetail extends Booking {
   vehicle: Pick<
@@ -220,8 +221,8 @@ export function BookingDetailScreen() {
             </div>
             {view === 'vendor' && (
               <p className="mt-3 text-xs text-karu-mute">
-                Customer contact details stay with Karu. Use the message box below and we&rsquo;ll
-                pass it on.
+                Customer contact details stay with Karu. Use the chat below — messages go
+                straight to the customer, with Karu in the room.
               </p>
             )}
           </Card>
@@ -291,7 +292,7 @@ export function BookingDetailScreen() {
 
       {view === 'admin' && <RecordDeposit bookingId={b.id} />}
 
-      <MessageKaru bookingId={b.id} reference={b.reference} />
+      <BookingChat bookingId={b.id} view={view} />
 
       {b.status === 'completed' && view !== 'admin' && (
         <div className="mt-4">
@@ -307,62 +308,6 @@ export function BookingDetailScreen() {
         {b.confirmed_at && <Badge variant="success">Confirmed {prettyDate(b.confirmed_at.slice(0, 10))}</Badge>}
       </div>
     </div>
-  );
-}
-
-/**
- * The communication channel for a booking. Customer contact details never
- * reach vendors, and in-app chat is deferred in the MVP plan, so the Karu
- * team relays messages. This is a real send, logged in email_log — not a
- * mailto: that pretends.
- */
-function MessageKaru({ bookingId, reference }: { bookingId: string; reference: string | null }) {
-  const [message, setMessage] = useState('');
-
-  const send = useMutation({
-    mutationFn: () =>
-      api<{ delivered: boolean }>(`/bookings/${bookingId}/message`, {
-        method: 'POST',
-        body: JSON.stringify({ message }),
-      }),
-    onSuccess: () => setMessage(''),
-  });
-
-  return (
-    <Card style={{ marginTop: 16 }}>
-      <h2 className="font-display text-lg font-bold">Message Karu about this booking</h2>
-      <p className="mt-1 text-sm text-karu-mute">
-        We pass messages between you and the other party, so nobody&rsquo;s contact details are
-        shared. Quote {reference ?? 'this booking'} in any reply.
-      </p>
-      <form
-        className="mt-3 space-y-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (message.trim()) send.mutate();
-        }}
-      >
-        <textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          rows={3}
-          maxLength={2000}
-          placeholder="e.g. Can we move the pick-up to 10am?"
-          className="w-full rounded-lg border border-karu-ink/15 px-3 py-2 text-sm focus:border-karu-gold focus:outline-none"
-        />
-        {send.isError && <ErrorNote>{(send.error as Error).message}</ErrorNote>}
-        {send.isSuccess && (
-          <p className="text-sm font-semibold text-green-700">
-            {send.data?.delivered
-              ? 'Sent — the Karu team will pick this up.'
-              : 'Saved. Email delivery is not configured yet, so the team will see it in the log.'}
-          </p>
-        )}
-        <Button type="submit" disabled={!message.trim() || send.isPending}>
-          {send.isPending ? 'Sending…' : 'Send to Karu'}
-        </Button>
-      </form>
-    </Card>
   );
 }
 

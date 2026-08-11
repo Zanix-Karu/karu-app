@@ -70,6 +70,79 @@ export class NotificationsService {
     }
   }
 
+  /**
+   * Nudge the other party of a booking that a chat message is waiting.
+   *
+   * Chat lives in the app; email is only the doorbell. Throttled to one mail
+   * per recipient per booking per hour (checked against email_log) so a
+   * back-and-forth conversation doesn't turn into an inbox flood. Best-effort
+   * like all mail here — a failed send never fails the message.
+   */
+  async notifyChatMessage(params: {
+    booking: Booking;
+    recipients: Array<{ email: string; locale: 'en' | 'fr' }>;
+    preview: string;
+  }): Promise<void> {
+    const { booking, preview } = params;
+    const base = (this.config.get<string>('WEB_APP_URL') ?? 'https://app.getkaru.io').replace(/\/$/, '');
+    const ref = booking.reference ?? booking.id;
+
+    for (const { email, locale } of params.recipients) {
+      try {
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        const { data: recent } = await this.supabase.db
+          .from('email_log')
+          .select('id')
+          .eq('booking_id', booking.id)
+          .eq('recipient', email)
+          .eq('template', 'chat_message_notice')
+          .eq('status', 'sent')
+          .gte('created_at', oneHourAgo)
+          .limit(1);
+        if (recent && recent.length > 0) continue;
+
+        const subject =
+          locale === 'fr'
+            ? `Karu — nouveau message concernant ${ref}`
+            : `Karu — new message about ${ref}`;
+        const body =
+          locale === 'fr'
+            ? `Vous avez un nouveau message concernant la réservation ${ref} :\n\n« ${preview} »\n\nRépondez dans l'application : ${base}/bookings/${booking.id}\n\nToute la communication passe par Karu — merci de ne pas partager de coordonnées.`
+            : `You have a new message about booking ${ref}:\n\n"${preview}"\n\nReply in the app: ${base}/bookings/${booking.id}\n\nAll communication runs through Karu — please don't share contact details.`;
+
+        let providerId: string | null = null;
+        let error: string | null = null;
+        try {
+          const apiKey = this.config.get<string>('RESEND_API_KEY');
+          if (!apiKey) throw new Error('RESEND_API_KEY not configured');
+          const from = this.config.get<string>('EMAIL_FROM') ?? 'Karu <onboarding@resend.dev>';
+          const res = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ from, to: email, subject, text: body }),
+          });
+          if (!res.ok) throw new Error(`Resend ${res.status}: ${await res.text()}`);
+          providerId = ((await res.json()) as { id?: string }).id ?? null;
+        } catch (e) {
+          error = (e as Error).message;
+          this.logger.warn(`Chat notice for ${booking.id} to ${email} failed: ${error}`);
+        }
+
+        await this.supabase.db.from('email_log').insert({
+          booking_id: booking.id,
+          recipient: email,
+          template: 'chat_message_notice',
+          locale,
+          provider_id: providerId,
+          status: error ? 'failed' : 'sent',
+          error,
+        });
+      } catch (e) {
+        this.logger.warn(`notifyChatMessage(${booking.id}) failed: ${(e as Error).message}`);
+      }
+    }
+  }
+
   /** Render, send via Resend, and log the attempt. Never throws. */
   /**
    * Relay a message about a booking to the Karu team.

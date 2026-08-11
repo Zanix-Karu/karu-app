@@ -35,6 +35,7 @@ export const en = {
     viewMarketplace: 'View marketplace',
     operations: 'Operations',
     bookings: 'Bookings',
+    chats: 'Chats',
   },
   city: { douala: 'Douala', yaounde: 'Yaoundé', other: 'Other' },
   category: {

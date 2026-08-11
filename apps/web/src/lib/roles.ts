@@ -71,6 +71,7 @@ export const NAV: Record<View, NavItem[]> = {
   admin: [
     { to: '/admin', label: 'nav.operations' },
     { to: '/admin/bookings', label: 'nav.bookings' },
+    { to: '/admin/chats', label: 'nav.chats' },
     { to: '/search', label: 'nav.findCar' },
     { to: '/bookings', label: 'nav.myBookings' },
     { to: '/vendor', label: 'nav.dashboard' },

@@ -252,6 +252,24 @@ export interface Booking {
   updated_at: string;
 }
 
+/**
+ * One message in a booking's chat thread. All customer↔vendor communication
+ * runs through Karu: the API strips contact details from non-admin messages
+ * before storing them (`redacted` records that it happened), and admins can
+ * read and join any thread.
+ */
+export interface BookingMessage {
+  id: string;
+  booking_id: string;
+  sender_id: string;
+  /** Snapshotted at send time; 'admin' renders as Karu Support. */
+  sender_role: UserRole;
+  body: string;
+  /** True when contact details were removed from the original text. */
+  redacted: boolean;
+  created_at: string;
+}
+
 export interface Review {
   id: string;
   booking_id: string;
