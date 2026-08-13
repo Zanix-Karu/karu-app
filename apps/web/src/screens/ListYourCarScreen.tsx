@@ -131,7 +131,15 @@ function ConvertToVendor() {
   const { t } = useTranslation();
   const { refreshProfile } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ business_name: '', city: 'douala', contact_phone: '' });
+  const [form, setForm] = useState({
+    business_name: '',
+    city: 'douala',
+    contact_phone: '',
+    whatsapp_number: '',
+    address: '',
+    rccm_number: '',
+  });
+  const [declared, setDeclared] = useState(false);
 
   // If they already registered a business, don't offer it twice.
   const { data: existing } = useQuery({
@@ -141,7 +149,19 @@ function ConvertToVendor() {
   });
 
   const register = useMutation({
-    mutationFn: () => api<Vendor>('/vendors', { method: 'POST', body: JSON.stringify(form) }),
+    mutationFn: () =>
+      api<Vendor>('/vendors', {
+        method: 'POST',
+        body: JSON.stringify({
+          business_name: form.business_name,
+          city: form.city,
+          contact_phone: form.contact_phone || undefined,
+          whatsapp_number: form.whatsapp_number || undefined,
+          address: form.address || undefined,
+          rccm_number: form.rccm_number || undefined,
+          declaration_accepted: declared,
+        }),
+      }),
     onSuccess: async () => {
       await refreshProfile();
       navigate('/vendor');
@@ -181,13 +201,53 @@ function ConvertToVendor() {
             <option value="other">Elsewhere in Cameroon</option>
           </Select>
         </Field>
-        <Field label={t('auth.businessPhone')} style={{ gridColumn: '1 / -1' }}>
+        <Field label={t('auth.businessPhone')}>
           <Input
             value={form.contact_phone}
             onChange={(e) => setForm({ ...form, contact_phone: e.target.value })}
             placeholder="+237 6 XX XX XX XX"
           />
         </Field>
+        <Field label={t('auth.whatsapp')}>
+          <Input
+            value={form.whatsapp_number}
+            onChange={(e) => setForm({ ...form, whatsapp_number: e.target.value })}
+            placeholder="+237 6 XX XX XX XX"
+          />
+        </Field>
+        <Field label={t('auth.businessAddress')}>
+          <Input
+            value={form.address}
+            onChange={(e) => setForm({ ...form, address: e.target.value })}
+          />
+        </Field>
+        <Field label={t('auth.rccm')}>
+          <Input
+            value={form.rccm_number}
+            onChange={(e) => setForm({ ...form, rccm_number: e.target.value })}
+          />
+        </Field>
+        <label
+          style={{
+            gridColumn: '1 / -1',
+            display: 'flex',
+            gap: 8,
+            alignItems: 'flex-start',
+            cursor: 'pointer',
+            fontFamily: 'var(--font-ui)',
+            fontSize: 13,
+            color: 'var(--gray-500)',
+          }}
+        >
+          <input
+            type="checkbox"
+            required
+            checked={declared}
+            onChange={(e) => setDeclared(e.target.checked)}
+            style={{ marginTop: 2, accentColor: 'var(--gold-600)' }}
+          />
+          <span>{t('auth.vendorDeclaration')}</span>
+        </label>
         <div style={{ gridColumn: '1 / -1' }}>
           {register.isError && (
             <div style={{ marginBottom: 10 }}>

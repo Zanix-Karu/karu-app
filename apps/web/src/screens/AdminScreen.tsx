@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import type { Booking, BookingStatus, Vehicle, Vendor } from '@karu/shared';
 import { api } from '../lib/api';
+import { PhotoStrip } from '../components/PhotoStrip';
+import { PhotoSlots, extraPhotos } from '../components/PhotoSlots';
 import { CATEGORY_LABEL, CITY_LABEL, prettyDate, xaf } from '../lib/format';
 import {
   Button,
@@ -131,16 +133,36 @@ function Vendors() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-vendors'] }),
   });
 
-  const [form, setForm] = useState({
+  const emptyForm = {
     business_name: '',
+    full_name: '',
     contact_email: '',
     contact_phone: '',
+    whatsapp_number: '',
+    address: '',
+    rccm_number: '',
     city: 'douala',
-  });
+    locale: 'fr',
+  };
+  const [form, setForm] = useState(emptyForm);
   const createVendor = useMutation({
-    mutationFn: () => api<Vendor>('/admin/vendors', { method: 'POST', body: JSON.stringify(form) }),
+    mutationFn: () =>
+      api<Vendor>('/admin/vendors', {
+        method: 'POST',
+        body: JSON.stringify({
+          business_name: form.business_name,
+          contact_email: form.contact_email,
+          city: form.city,
+          locale: form.locale,
+          full_name: form.full_name || undefined,
+          contact_phone: form.contact_phone || undefined,
+          whatsapp_number: form.whatsapp_number || undefined,
+          address: form.address || undefined,
+          rccm_number: form.rccm_number || undefined,
+        }),
+      }),
     onSuccess: () => {
-      setForm({ business_name: '', contact_email: '', contact_phone: '', city: 'douala' });
+      setForm(emptyForm);
       void qc.invalidateQueries({ queryKey: ['admin-vendors'] });
     },
   });
@@ -220,6 +242,12 @@ function Vendors() {
               onChange={(e) => setForm({ ...form, business_name: e.target.value })}
             />
           </Field>
+          <Field label="Contact person">
+            <Input
+              value={form.full_name}
+              onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+            />
+          </Field>
           <Field label="Contact email">
             <Input
               type="email"
@@ -234,11 +262,35 @@ function Vendors() {
               onChange={(e) => setForm({ ...form, contact_phone: e.target.value })}
             />
           </Field>
+          <Field label="WhatsApp">
+            <Input
+              value={form.whatsapp_number}
+              onChange={(e) => setForm({ ...form, whatsapp_number: e.target.value })}
+            />
+          </Field>
+          <Field label="Address (street / quarter)">
+            <Input
+              value={form.address}
+              onChange={(e) => setForm({ ...form, address: e.target.value })}
+            />
+          </Field>
+          <Field label="RCCM number (blank if not registered)">
+            <Input
+              value={form.rccm_number}
+              onChange={(e) => setForm({ ...form, rccm_number: e.target.value })}
+            />
+          </Field>
           <Field label="City">
             <Select value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })}>
               <option value="douala">Douala</option>
               <option value="yaounde">Yaoundé</option>
               <option value="other">Other</option>
+            </Select>
+          </Field>
+          <Field label="Language">
+            <Select value={form.locale} onChange={(e) => setForm({ ...form, locale: e.target.value })}>
+              <option value="fr">Français</option>
+              <option value="en">English</option>
             </Select>
           </Field>
           {createVendor.isError && <ErrorNote>{(createVendor.error as Error).message}</ErrorNote>}
@@ -259,11 +311,16 @@ type AdminDocument = {
   status: 'pending' | 'approved' | 'rejected';
   file_path: string;
   created_at: string;
+  expires_at: string | null;
+  notes: string | null;
   vendors: { business_name: string } | null;
+  vehicles: { make: string; model: string; registration_number: string | null } | null;
 };
 
 const DOC_LABEL: Record<string, string> = {
   rccm: 'RCCM',
+  national_id: 'National ID',
+  passport: 'Passport',
   carte_grise: 'Carte grise',
   insurance: 'Insurance',
   roadworthiness: 'Roadworthiness',
@@ -273,15 +330,26 @@ function Documents() {
   const qc = useQueryClient();
   const [status, setStatus] = useState('pending');
   const [opening, setOpening] = useState<string | null>(null);
+  // Rejections carry a note back to the vendor — armed per card so the
+  // reviewer types the reason right where they clicked.
+  const [rejecting, setRejecting] = useState<string | null>(null);
+  const [note, setNote] = useState('');
   const { data, isLoading } = useQuery({
     queryKey: ['admin-documents', status],
     queryFn: () => api<AdminDocument[]>(`/admin/documents${status ? `?status=${status}` : ''}`),
   });
 
   const review = useMutation({
-    mutationFn: ({ id, decision }: { id: string; decision: 'approved' | 'rejected' }) =>
-      api(`/admin/documents/${id}`, { method: 'PATCH', body: JSON.stringify({ status: decision }) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-documents'] }),
+    mutationFn: ({ id, decision, notes }: { id: string; decision: 'approved' | 'rejected'; notes?: string }) =>
+      api(`/admin/documents/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: decision, notes: notes || undefined }),
+      }),
+    onSuccess: () => {
+      setRejecting(null);
+      setNote('');
+      void qc.invalidateQueries({ queryKey: ['admin-documents'] });
+    },
   });
 
   return (
@@ -306,10 +374,17 @@ function Documents() {
                 {DOC_LABEL[d.type] ?? d.type} — {d.vendors?.business_name ?? 'unknown vendor'}
               </p>
               <p className="text-xs text-karu-mute">
+                {d.vehicles && (
+                  <>
+                    {d.vehicles.make} {d.vehicles.model}
+                    {d.vehicles.registration_number ? ` · ${d.vehicles.registration_number}` : ''} ·{' '}
+                  </>
+                )}
                 {new Date(d.created_at).toLocaleString()} · <span className="capitalize">{d.status}</span>
+                {d.expires_at && <> · expires {new Date(d.expires_at).toLocaleDateString()}</>}
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {/* Reviewing blind is not reviewing — open the file first. */}
               <Button
                 variant="outline"
@@ -328,11 +403,38 @@ function Documents() {
               >
                 {opening === d.id ? 'Opening…' : 'View document'}
               </Button>
-              {d.status === 'pending' && (
+              {d.status === 'pending' && rejecting !== d.id && (
                 <>
                   <Button onClick={() => review.mutate({ id: d.id, decision: 'approved' })}>Approve</Button>
-                  <Button variant="danger" onClick={() => review.mutate({ id: d.id, decision: 'rejected' })}>
+                  <Button
+                    variant="danger"
+                    onClick={() => {
+                      setRejecting(d.id);
+                      setNote('');
+                    }}
+                  >
                     Reject
+                  </Button>
+                </>
+              )}
+              {rejecting === d.id && (
+                <>
+                  <Input
+                    autoFocus
+                    placeholder="Reason the vendor will see"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    className="w-56"
+                  />
+                  <Button
+                    variant="danger"
+                    disabled={review.isPending}
+                    onClick={() => review.mutate({ id: d.id, decision: 'rejected', notes: note })}
+                  >
+                    Confirm reject
+                  </Button>
+                  <Button variant="outline" onClick={() => setRejecting(null)}>
+                    Cancel
                   </Button>
                 </>
               )}
@@ -353,7 +455,7 @@ function Documents() {
 
 function Cars() {
   const qc = useQueryClient();
-  // Every vendor can hold cars now — verification is a badge, not a gate.
+  // Every vendor can hold cars; only verified vendors' cars reach customers.
   const { data: vendors } = useQuery({
     queryKey: ['admin-vendors', ''],
     queryFn: () => api<Vendor[]>('/admin/vendors'),
@@ -379,7 +481,13 @@ function Cars() {
     category: 'sedan',
     seats: '',
     transmission: 'manual',
+    registration_number: '',
+    fuel_type: 'petrol',
     daily_rate_xaf: '',
+    weekly_rate_xaf: '',
+    monthly_rate_xaf: '',
+    driver_option: 'none',
+    driver_daily_rate_xaf: '',
     city: 'douala',
     pickup_locations: '',
     description: '',
@@ -393,11 +501,18 @@ function Cars() {
           vendor_id: form.vendor_id,
           make: form.make,
           model: form.model,
-          year: form.year ? Number(form.year) : undefined,
+          year: Number(form.year),
           category: form.category,
-          seats: form.seats ? Number(form.seats) : undefined,
+          seats: Number(form.seats),
           transmission: form.transmission,
+          registration_number: form.registration_number,
+          fuel_type: form.fuel_type,
           daily_rate_xaf: Number(form.daily_rate_xaf),
+          weekly_rate_xaf: form.weekly_rate_xaf ? Number(form.weekly_rate_xaf) : undefined,
+          monthly_rate_xaf: form.monthly_rate_xaf ? Number(form.monthly_rate_xaf) : undefined,
+          driver_option: form.driver_option,
+          driver_daily_rate_xaf:
+            form.driver_option === 'none' ? undefined : Number(form.driver_daily_rate_xaf),
           city: form.city,
           pickup_locations: form.pickup_locations
             ? form.pickup_locations.split(',').map((s) => s.trim())
@@ -476,6 +591,18 @@ function Cars() {
                   />
                 </label>
               </div>
+              <div className="w-full">
+                <PhotoSlots
+                  vehicleId={c.id}
+                  angles={c.photo_angles ?? {}}
+                  onChanged={() => qc.invalidateQueries({ queryKey: ['admin-cars'] })}
+                />
+                <PhotoStrip
+                  vehicleId={c.id}
+                  photos={extraPhotos(c)}
+                  onChanged={() => qc.invalidateQueries({ queryKey: ['admin-cars'] })}
+                />
+              </div>
             </Card>
           ))}
         </div>
@@ -521,6 +648,7 @@ function Cars() {
               <Input
                 type="number"
                 min={1980}
+                required
                 value={form.year}
                 onChange={(e) => setForm({ ...form, year: e.target.value })}
               />
@@ -529,9 +657,26 @@ function Cars() {
               <Input
                 type="number"
                 min={1}
+                required
                 value={form.seats}
                 onChange={(e) => setForm({ ...form, seats: e.target.value })}
               />
+            </Field>
+            <Field label="Number plate">
+              <Input
+                required
+                value={form.registration_number}
+                onChange={(e) => setForm({ ...form, registration_number: e.target.value })}
+                placeholder="LT 1234 AB"
+              />
+            </Field>
+            <Field label="Fuel">
+              <Select value={form.fuel_type} onChange={(e) => setForm({ ...form, fuel_type: e.target.value })}>
+                <option value="petrol">Petrol</option>
+                <option value="diesel">Diesel</option>
+                <option value="hybrid">Hybrid</option>
+                <option value="electric">Electric</option>
+              </Select>
             </Field>
             <Field label="Type">
               <Select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
@@ -567,6 +712,43 @@ function Cars() {
                 <option value="other">Other</option>
               </Select>
             </Field>
+            <Field label="Rate / week (XAF, opt.)">
+              <Input
+                type="number"
+                min={1}
+                value={form.weekly_rate_xaf}
+                onChange={(e) => setForm({ ...form, weekly_rate_xaf: e.target.value })}
+              />
+            </Field>
+            <Field label="Rate / month (XAF, opt.)">
+              <Input
+                type="number"
+                min={1}
+                value={form.monthly_rate_xaf}
+                onChange={(e) => setForm({ ...form, monthly_rate_xaf: e.target.value })}
+              />
+            </Field>
+            <Field label="Driver">
+              <Select
+                value={form.driver_option}
+                onChange={(e) => setForm({ ...form, driver_option: e.target.value })}
+              >
+                <option value="none">Self-drive only</option>
+                <option value="optional">Driver available</option>
+                <option value="required">Always with driver</option>
+              </Select>
+            </Field>
+            {form.driver_option !== 'none' && (
+              <Field label="Driver rate / day (XAF)">
+                <Input
+                  type="number"
+                  min={1}
+                  required
+                  value={form.driver_daily_rate_xaf}
+                  onChange={(e) => setForm({ ...form, driver_daily_rate_xaf: e.target.value })}
+                />
+              </Field>
+            )}
           </div>
           <Field label="Pick-up points (comma-separated)">
             <Input

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type CSSProperties, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import type { Booking, BookingStatus, Review, Vehicle, Vendor, VendorDocument } from '@karu/shared';
@@ -8,6 +8,8 @@ import { CATEGORY_LABEL, CITY_LABEL, prettyDate, xaf } from '../lib/format';
 import { Badge, Button, Card, Field, Input, Rating, Select, SidebarNav, StatCard, StepNav } from '../ds';
 import { EarningsChart } from '../components/EarningsChart';
 import { ConfirmButton } from '../components/ConfirmButton';
+import { PhotoStrip } from '../components/PhotoStrip';
+import { PhotoSlots, extraPhotos } from '../components/PhotoSlots';
 import { Skeleton, SkeletonCard, SkeletonStats } from '../components/Skeleton';
 import { EmptyState, ErrorNote, Spinner, StatusBadge } from '../ui';
 
@@ -155,6 +157,16 @@ function Onboarding({ vendor, onGo }: { vendor: Vendor; onGo: (to: string) => vo
     queryKey: ['my-cars'],
     queryFn: () => api<Vehicle[]>('/vehicles/mine'),
   });
+  const { data: myDocs } = useQuery({
+    queryKey: ['vendor-docs', 'me'],
+    queryFn: () => api<VendorDocument[]>('/vendors/me/documents'),
+  });
+
+  // One business/identity document unblocks review; car paperwork is asked
+  // for per car on the Documents page and doesn't hold this step hostage.
+  const identityTypes: VendorDocument['type'][] = ['rccm', 'national_id', 'passport'];
+  const docsUploaded = myDocs?.some((d) => identityTypes.includes(d.type)) ?? false;
+  const rejectedDocs = myDocs?.filter((d) => d.status === 'rejected') ?? [];
 
   const rejected = vendor.status === 'rejected' || vendor.status === 'suspended';
   const steps = [
@@ -165,10 +177,12 @@ function Onboarding({ vendor, onGo }: { vendor: Vendor; onGo: (to: string) => vo
       action: null as null | { label: string; to: string },
     },
     {
-      done: false,
+      done: docsUploaded && rejectedDocs.length === 0,
       title: 'Upload your documents',
-      body: 'RCCM, carte grise and insurance. We review within one business day.',
-      action: { label: 'Upload documents', to: '/vendor/documents' },
+      body: rejectedDocs.length
+        ? `${rejectedDocs.length} document${rejectedDocs.length === 1 ? ' was' : 's were'} rejected — see the reviewer's note and re-upload.`
+        : "RCCM — or a national ID / passport if the business isn't registered. We review within one business day.",
+      action: { label: rejectedDocs.length ? 'Fix documents' : 'Upload documents', to: '/vendor/documents' },
     },
     {
       done: (cars?.length ?? 0) > 0,
@@ -176,7 +190,7 @@ function Onboarding({ vendor, onGo }: { vendor: Vendor; onGo: (to: string) => vo
       body:
         (cars?.length ?? 0) > 0
           ? `${cars!.length} car${cars!.length === 1 ? '' : 's'} added — set a listing to Active and it goes live.`
-          : 'Add a car now — it starts as a draft, and goes live the moment you set it to Active.',
+          : 'Add a car now — it starts as a draft, and goes live once your account is verified and the listing is set to Active.',
       action: { label: 'Add a car', to: '/vendor/cars' },
     },
   ];
@@ -189,7 +203,7 @@ function Onboarding({ vendor, onGo }: { vendor: Vendor; onGo: (to: string) => vo
       <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 6 }}>
         {rejected
           ? `Verification is currently ${vendor.status}. Send us a message and we will help sort it out.`
-          : 'You can list cars and take bookings right away — verification earns the ✓ Verified badge customers look for.'}
+          : 'Add your cars and paperwork now — your listings go live to customers as soon as your account is verified.'}
       </p>
 
       <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -614,8 +628,8 @@ function Cars({ vendorVerified, asVendorId }: { vendorVerified: boolean; asVendo
       </div>
       {!vendorVerified && (
         <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gold-600)', marginTop: 8 }}>
-          Your account is awaiting verification — you can still activate listings and take
-          bookings; the ✓ Verified badge appears once your documents are approved.
+          Your account is awaiting verification — add your cars and paperwork now, but listings
+          stay hidden from customers until the Karu team approves your documents.
         </p>
       )}
 
@@ -722,6 +736,16 @@ function CarRow({ car }: { car: Vehicle }) {
             : 'Listing removed.'}
         </p>
       )}
+      <PhotoSlots
+        vehicleId={car.id}
+        angles={car.photo_angles ?? {}}
+        onChanged={() => qc.invalidateQueries({ queryKey: ['my-cars'] })}
+      />
+      <PhotoStrip
+        vehicleId={car.id}
+        photos={extraPhotos(car)}
+        onChanged={() => qc.invalidateQueries({ queryKey: ['my-cars'] })}
+      />
       {editing && <EditCar car={car} onDone={() => setEditing(false)} />}
       {uploadPhoto.isError && <div style={{ marginTop: 10 }}><ErrorNote>{(uploadPhoto.error as Error).message}</ErrorNote></div>}
       {open && <Blocks vehicleId={car.id} />}
@@ -795,6 +819,8 @@ function EditCar({ car, onDone }: { car: Vehicle; onDone: () => void }) {
   const qc = useQueryClient();
   const [form, setForm] = useState({
     daily_rate_xaf: String(car.daily_rate_xaf),
+    weekly_rate_xaf: car.weekly_rate_xaf ? String(car.weekly_rate_xaf) : '',
+    monthly_rate_xaf: car.monthly_rate_xaf ? String(car.monthly_rate_xaf) : '',
     description: car.description ?? '',
     pickup_locations: car.pickup_locations.join(', '),
     status: car.status,
@@ -806,6 +832,8 @@ function EditCar({ car, onDone }: { car: Vehicle; onDone: () => void }) {
         method: 'PATCH',
         body: JSON.stringify({
           daily_rate_xaf: Number(form.daily_rate_xaf),
+          weekly_rate_xaf: form.weekly_rate_xaf ? Number(form.weekly_rate_xaf) : null,
+          monthly_rate_xaf: form.monthly_rate_xaf ? Number(form.monthly_rate_xaf) : null,
           description: form.description || undefined,
           pickup_locations: form.pickup_locations
             ? form.pickup_locations.split(',').map((s) => s.trim()).filter(Boolean)
@@ -835,6 +863,22 @@ function EditCar({ car, onDone }: { car: Vehicle; onDone: () => void }) {
             required
             value={form.daily_rate_xaf}
             onChange={(e) => setForm({ ...form, daily_rate_xaf: e.target.value })}
+          />
+        </Field>
+        <Field label="Weekly rate (XAF, optional)">
+          <Input
+            type="number"
+            min={1}
+            value={form.weekly_rate_xaf}
+            onChange={(e) => setForm({ ...form, weekly_rate_xaf: e.target.value })}
+          />
+        </Field>
+        <Field label="Monthly rate (XAF, optional)">
+          <Input
+            type="number"
+            min={1}
+            value={form.monthly_rate_xaf}
+            onChange={(e) => setForm({ ...form, monthly_rate_xaf: e.target.value })}
           />
         </Field>
         <Field label="Listing status">
@@ -880,7 +924,11 @@ function AddCarWizard({ onDone }: { onDone: () => void }) {
     category: 'sedan',
     seats: '',
     transmission: 'manual',
+    registration_number: '',
+    fuel_type: 'petrol',
     daily_rate_xaf: '',
+    weekly_rate_xaf: '',
+    monthly_rate_xaf: '',
     driver_option: 'none',
     driver_daily_rate_xaf: '',
     city: 'douala',
@@ -895,11 +943,15 @@ function AddCarWizard({ onDone }: { onDone: () => void }) {
         body: JSON.stringify({
           make: form.make,
           model: form.model,
-          year: form.year ? Number(form.year) : undefined,
+          year: Number(form.year),
           category: form.category,
-          seats: form.seats ? Number(form.seats) : undefined,
+          seats: Number(form.seats),
           transmission: form.transmission,
+          registration_number: form.registration_number,
+          fuel_type: form.fuel_type,
           daily_rate_xaf: Number(form.daily_rate_xaf),
+          weekly_rate_xaf: form.weekly_rate_xaf ? Number(form.weekly_rate_xaf) : undefined,
+          monthly_rate_xaf: form.monthly_rate_xaf ? Number(form.monthly_rate_xaf) : undefined,
           driver_option: form.driver_option,
           driver_daily_rate_xaf:
             form.driver_option === 'none' ? undefined : Number(form.driver_daily_rate_xaf),
@@ -911,7 +963,12 @@ function AddCarWizard({ onDone }: { onDone: () => void }) {
     onSuccess: onDone,
   });
 
-  const detailsOk = form.make && form.model;
+  const detailsOk =
+    form.make &&
+    form.model &&
+    form.registration_number &&
+    Number(form.year) >= 1980 &&
+    Number(form.seats) >= 1;
   const pricingOk =
     Number(form.daily_rate_xaf) > 0 &&
     // A car offered with a driver but no driver rate can't be quoted, and the
@@ -926,8 +983,24 @@ function AddCarWizard({ onDone }: { onDone: () => void }) {
         <div className="karu-form-grid">
           <Field label="Make"><Input required value={form.make} onChange={(e) => setForm({ ...form, make: e.target.value })} /></Field>
           <Field label="Model"><Input required value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} /></Field>
-          <Field label="Year"><Input type="number" min={1980} value={form.year} onChange={(e) => setForm({ ...form, year: e.target.value })} /></Field>
-          <Field label="Seats"><Input type="number" min={1} value={form.seats} onChange={(e) => setForm({ ...form, seats: e.target.value })} /></Field>
+          <Field label="Year"><Input type="number" min={1980} required value={form.year} onChange={(e) => setForm({ ...form, year: e.target.value })} /></Field>
+          <Field label="Seats"><Input type="number" min={1} required value={form.seats} onChange={(e) => setForm({ ...form, seats: e.target.value })} /></Field>
+          <Field label="Number plate">
+            <Input
+              required
+              value={form.registration_number}
+              onChange={(e) => setForm({ ...form, registration_number: e.target.value })}
+              placeholder="LT 1234 AB"
+            />
+          </Field>
+          <Field label="Fuel">
+            <Select value={form.fuel_type} onChange={(e) => setForm({ ...form, fuel_type: e.target.value })}>
+              <option value="petrol">Petrol</option>
+              <option value="diesel">Diesel</option>
+              <option value="hybrid">Hybrid</option>
+              <option value="electric">Electric</option>
+            </Select>
+          </Field>
           <Field label="Type">
             <Select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
               {Object.entries(CATEGORY_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
@@ -956,6 +1029,12 @@ function AddCarWizard({ onDone }: { onDone: () => void }) {
               <option value="yaounde">Yaoundé</option>
               <option value="other">Other</option>
             </Select>
+          </Field>
+          <Field label="Weekly rate (XAF, optional)">
+            <Input type="number" min={1} value={form.weekly_rate_xaf} onChange={(e) => setForm({ ...form, weekly_rate_xaf: e.target.value })} placeholder="Leave blank for daily x 7" />
+          </Field>
+          <Field label="Monthly rate (XAF, optional)">
+            <Input type="number" min={1} value={form.monthly_rate_xaf} onChange={(e) => setForm({ ...form, monthly_rate_xaf: e.target.value })} placeholder="Leave blank for daily x 30" />
           </Field>
           <Field label="Driver">
             <Select
@@ -991,12 +1070,17 @@ function AddCarWizard({ onDone }: { onDone: () => void }) {
             {form.make} {form.model} {form.year}
           </strong>
           <br />
-          {CATEGORY_LABEL[form.category]} · {form.seats || '—'} seats · {form.transmission} · {CITY_LABEL[form.city]}
+          {CATEGORY_LABEL[form.category]} · {form.seats || '—'} seats · {form.transmission} · {form.fuel_type} · {CITY_LABEL[form.city]}
+          <br />
+          Plate: {form.registration_number || '—'}
           <br />
           {form.daily_rate_xaf ? xaf(Number(form.daily_rate_xaf)) : '—'} per day
+          {form.weekly_rate_xaf && <> · {xaf(Number(form.weekly_rate_xaf))} per week</>}
+          {form.monthly_rate_xaf && <> · {xaf(Number(form.monthly_rate_xaf))} per month</>}
           {form.pickup_locations && <><br />Pick-up: {form.pickup_locations}</>}
           <p style={{ color: 'var(--gray-500)', fontSize: 13 }}>
-            The listing is created as a draft — add photos, then set it to Active from My cars to go live.
+            The listing is created as a draft — add the six required photos (front, rear, left,
+            right, dashboard, seats), then set it to Active from My cars to go live.
           </p>
         </div>
       )}
@@ -1023,34 +1107,77 @@ function AddCarWizard({ onDone }: { onDone: () => void }) {
 
 // --- Documents -------------------------------------------------------------------
 
-const DOC_TYPES = [
+/** Business/identity paperwork — scoped to the vendor. One of these unblocks review. */
+const BUSINESS_DOCS = [
   { type: 'rccm', label: 'RCCM (business registration)' },
-  { type: 'carte_grise', label: 'Carte grise (vehicle registration)' },
-  { type: 'insurance', label: 'Insurance certificate' },
-  { type: 'roadworthiness', label: 'Roadworthiness inspection' },
+  { type: 'national_id', label: 'National ID — if the business is not registered' },
+  { type: 'passport', label: 'Passport — alternative identity document' },
 ] as const;
+
+/** Car paperwork — each certificate legally covers one car. */
+const VEHICLE_DOCS = [
+  { type: 'carte_grise', label: 'Carte grise (registration)', expires: false },
+  { type: 'insurance', label: 'Insurance certificate', expires: true },
+  { type: 'roadworthiness', label: 'Roadworthiness inspection', expires: true },
+] as const;
+
+const sectionTitle: CSSProperties = {
+  fontFamily: 'var(--font-sans)',
+  fontWeight: 700,
+  fontSize: 20,
+  margin: '28px 0 4px',
+};
 
 function Documents({ asVendor }: { asVendor?: Vendor }) {
   const qc = useQueryClient();
 
-  // An admin has no documents of their own to upload. What they need here is
-  // the provider's paperwork and where it stands in review — with a link
-  // straight to the queue where they can act on it.
+  // Both sides of the desk see the same paperwork: an admin reads it via the
+  // review queue's endpoint, the vendor via their own — either way each
+  // document arrives with its status and any reviewer note.
   const { data: docs, isLoading } = useQuery({
-    queryKey: ['vendor-docs', asVendor?.id],
-    queryFn: () => api<(VendorDocument & { vendors?: { business_name: string } })[]>(
-      `/admin/documents?vendor_id=${asVendor!.id}`,
-    ),
-    enabled: !!asVendor,
+    queryKey: ['vendor-docs', asVendor?.id ?? 'me'],
+    queryFn: () =>
+      asVendor
+        ? api<(VendorDocument & { vendors?: { business_name: string } })[]>(
+            `/admin/documents?vendor_id=${asVendor.id}`,
+          )
+        : api<VendorDocument[]>('/vendors/me/documents'),
+  });
+
+  // Car paperwork hangs off the car it covers, so the cars come too. An admin
+  // gets the whole fleet from /vehicles/mine — scope it to this provider.
+  const { data: cars } = useQuery({
+    queryKey: ['my-cars', asVendor?.id ?? 'self'],
+    queryFn: async () => {
+      const all = await api<Vehicle[]>('/vehicles/mine');
+      return asVendor ? all.filter((v) => v.vendor_id === asVendor.id) : all;
+    },
   });
 
   // The vendor uploads their own paperwork; an admin files it on the
   // vendor's behalf — same signed-URL flow, different endpoint.
   const upload = useMutation({
-    mutationFn: async ({ type, file }: { type: string; file: File }) => {
+    mutationFn: async ({
+      type,
+      file,
+      vehicleId,
+      expiresAt,
+    }: {
+      type: string;
+      file: File;
+      vehicleId?: string;
+      expiresAt?: string;
+    }) => {
       const res = await api<{ document: VendorDocument; upload: { signedUrl: string; path: string } }>(
         asVendor ? `/admin/vendors/${asVendor.id}/documents` : '/vendors/me/documents',
-        { method: 'POST', body: JSON.stringify({ type }) },
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            type,
+            vehicle_id: vehicleId,
+            expires_at: expiresAt || undefined,
+          }),
+        },
       );
       const put = await fetch(res.upload.signedUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
       if (!put.ok) throw new Error(`Upload failed: ${put.status}`);
@@ -1062,106 +1189,196 @@ function Documents({ asVendor }: { asVendor?: Vendor }) {
     },
   });
 
-  if (asVendor) {
-    return (
-      <div>
-        <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 32 }}>Verification documents</h1>
-        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 6 }}>
-          {asVendor.business_name}&rsquo;s paperwork. Upload what the team has collected, then
-          approve or reject in{' '}
-          <Link to="/admin/documents" style={{ color: 'var(--gold-600)', fontWeight: 600 }}>the review queue</Link>.
-        </p>
-        {isLoading && <Spinner />}
-        <div style={{ display: 'grid', gap: 14, marginTop: 20, maxWidth: 560 }}>
-          {DOC_TYPES.map((d) => {
-            const doc = docs?.find((x) => x.type === d.type);
-            return (
-              <Card key={d.type} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 15 }}>{d.label}</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <span style={{ fontFamily: 'var(--font-ui)', fontSize: 13, fontWeight: 700, color: doc ? 'var(--gold-600)' : 'var(--gray-400)' }}>
-                    {doc ? doc.status : 'not uploaded'}
-                  </span>
-                  <label
-                    style={{
-                      cursor: 'pointer',
-                      fontFamily: 'var(--font-ui)',
-                      fontWeight: 600,
-                      fontSize: 13,
-                      padding: '8px 14px',
-                      borderRadius: 'var(--radius-md)',
-                      background: 'var(--yellow)',
-                      color: 'var(--ink)',
-                    }}
-                  >
-                    {upload.isPending ? 'Uploading…' : doc ? 'Replace' : 'Upload'}
-                    <input
-                      type="file"
-                      accept="image/*,.pdf"
-                      style={{ display: 'none' }}
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) upload.mutate({ type: d.type, file: f });
-                        e.target.value = '';
-                      }}
-                    />
-                  </label>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-        {upload.isError && <div style={{ marginTop: 12 }}><ErrorNote>{(upload.error as Error).message}</ErrorNote></div>}
-        {upload.isSuccess && (
-          <p style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 14, color: 'var(--success)', marginTop: 12 }}>
-            Document filed — pending review ✓
-          </p>
-        )}
-      </div>
-    );
-  }
+  const findDoc = (type: string, vehicleId?: string) =>
+    docs?.find((d) => d.type === type && (vehicleId ? d.vehicle_id === vehicleId : !d.vehicle_id));
+
+  // Fleet-wide car paperwork from before documents were scoped per vehicle.
+  // Shown read-only so an already-verified vendor doesn't look undocumented.
+  const vehicleTypes = new Set<string>(VEHICLE_DOCS.map((d) => d.type));
+  const legacyDocs = docs?.filter((d) => !d.vehicle_id && vehicleTypes.has(d.type)) ?? [];
 
   return (
     <div>
       <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 32 }}>Verification documents</h1>
       <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 6 }}>
-        Upload each document — the Karu team reviews within one business day. Re-uploading restarts a review.
+        {asVendor ? (
+          <>
+            {asVendor.business_name}&rsquo;s paperwork. Upload what the team has collected, then
+            approve or reject in{' '}
+            <Link to="/admin/documents" style={{ color: 'var(--gold-600)', fontWeight: 600 }}>the review queue</Link>.
+          </>
+        ) : (
+          'Upload each document — the Karu team reviews within one business day. Re-uploading restarts a review.'
+        )}
       </p>
-      <div style={{ display: 'grid', gap: 14, marginTop: 20, maxWidth: 560 }}>
-        {DOC_TYPES.map((d) => (
-          <Card key={d.type} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 15 }}>{d.label}</span>
+      {isLoading && <Spinner />}
+
+      <h2 style={sectionTitle}>Business &amp; identity</h2>
+      <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-500)', margin: '0 0 12px' }}>
+        Provide the RCCM — or a national ID or passport if the business is not registered.
+      </p>
+      <Card style={{ maxWidth: 640 }}>
+        {BUSINESS_DOCS.map((d, i) => (
+          <DocRow
+            key={d.type}
+            first={i === 0}
+            label={d.label}
+            doc={findDoc(d.type)}
+            pending={upload.isPending}
+            onUpload={(file) => upload.mutate({ type: d.type, file })}
+          />
+        ))}
+      </Card>
+
+      <h2 style={sectionTitle}>Per-vehicle documents</h2>
+      <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-500)', margin: '0 0 12px' }}>
+        Each car needs its carte grise, a valid insurance certificate and a roadworthiness inspection.
+      </p>
+      {cars?.length === 0 && (
+        <EmptyState title="No cars yet" hint="Add a car first — its paperwork is uploaded here afterwards." />
+      )}
+      <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
+        {cars?.map((car) => (
+          <Card key={car.id}>
+            <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 17 }}>
+              {car.make} {car.model} {car.year ?? ''}
+              {car.registration_number && (
+                <span style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 13, color: 'var(--gray-500)', marginLeft: 10 }}>
+                  {car.registration_number}
+                </span>
+              )}
+            </div>
+            {VEHICLE_DOCS.map((d) => (
+              <DocRow
+                key={d.type}
+                label={d.label}
+                doc={findDoc(d.type, car.id)}
+                withExpiry={d.expires}
+                pending={upload.isPending}
+                onUpload={(file, expiresAt) =>
+                  upload.mutate({ type: d.type, file, vehicleId: car.id, expiresAt })
+                }
+              />
+            ))}
+          </Card>
+        ))}
+      </div>
+
+      {legacyDocs.length > 0 && (
+        <>
+          <h2 style={sectionTitle}>Fleet-wide documents (legacy)</h2>
+          <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-500)', margin: '0 0 12px' }}>
+            Uploaded before paperwork was tracked per car. New uploads go on the car they cover.
+          </p>
+          <Card style={{ maxWidth: 640 }}>
+            {legacyDocs.map((d, i) => (
+              <DocRow
+                key={d.id}
+                first={i === 0}
+                label={VEHICLE_DOCS.find((v) => v.type === d.type)?.label ?? d.type}
+                doc={d}
+                pending={false}
+              />
+            ))}
+          </Card>
+        </>
+      )}
+
+      {upload.isError && <div style={{ marginTop: 12 }}><ErrorNote>{(upload.error as Error).message}</ErrorNote></div>}
+      {upload.isSuccess && (
+        <p style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 14, color: 'var(--success)', marginTop: 12 }}>
+          Document received — pending review ✓
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * One document line: label, review status (with reviewer note on rejection),
+ * an expiry date for certificates that have one, and the upload control.
+ * Without onUpload the row is read-only (legacy fleet-wide paperwork).
+ */
+function DocRow({
+  label,
+  doc,
+  onUpload,
+  withExpiry = false,
+  pending,
+  first = false,
+}: {
+  label: string;
+  doc?: VendorDocument;
+  onUpload?: (file: File, expiresAt?: string) => void;
+  withExpiry?: boolean;
+  pending: boolean;
+  first?: boolean;
+}) {
+  const [expiresAt, setExpiresAt] = useState('');
+
+  const statusColor =
+    doc?.status === 'approved' ? 'var(--success)'
+    : doc?.status === 'rejected' ? 'var(--danger, #c0392b)'
+    : doc ? 'var(--gold-600)'
+    : 'var(--gray-400)';
+
+  return (
+    <div style={{ padding: '10px 0', borderTop: first ? 'none' : '1px solid var(--divider)', marginTop: first ? 0 : 4 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <span style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 14 }}>{label}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 13, fontWeight: 700, color: statusColor }}>
+            {doc ? doc.status : 'not uploaded'}
+            {doc?.expires_at && (
+              <span style={{ fontWeight: 500, color: 'var(--gray-500)' }}> · until {prettyDate(doc.expires_at)}</span>
+            )}
+          </span>
+          {onUpload && withExpiry && (
+            <input
+              type="date"
+              aria-label={`${label} expiry date`}
+              value={expiresAt}
+              onChange={(e) => setExpiresAt(e.target.value)}
+              style={{
+                fontFamily: 'var(--font-ui)',
+                fontSize: 13,
+                padding: '6px 8px',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--divider)',
+              }}
+            />
+          )}
+          {onUpload && (
             <label
               style={{
                 cursor: 'pointer',
                 fontFamily: 'var(--font-ui)',
                 fontWeight: 600,
-                fontSize: 14,
-                padding: '9px 16px',
+                fontSize: 13,
+                padding: '8px 14px',
                 borderRadius: 'var(--radius-md)',
                 background: 'var(--yellow)',
                 color: 'var(--ink)',
               }}
             >
-              {upload.isPending ? 'Uploading…' : 'Upload'}
+              {pending ? 'Uploading…' : doc?.status === 'rejected' ? 'Re-upload' : doc ? 'Replace' : 'Upload'}
               <input
                 type="file"
                 accept="image/*,.pdf"
                 style={{ display: 'none' }}
                 onChange={(e) => {
                   const f = e.target.files?.[0];
-                  if (f) upload.mutate({ type: d.type, file: f });
+                  if (f) onUpload(f, expiresAt || undefined);
                   e.target.value = '';
                 }}
               />
             </label>
-          </Card>
-        ))}
+          )}
+        </div>
       </div>
-      {upload.isError && <div style={{ marginTop: 12 }}><ErrorNote>{(upload.error as Error).message}</ErrorNote></div>}
-      {upload.isSuccess && (
-        <p style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 14, color: 'var(--success)', marginTop: 12 }}>
-          Document received — pending review ✓
+      {doc?.status === 'rejected' && (
+        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--danger, #c0392b)', marginTop: 6, marginBottom: 0 }}>
+          {doc.notes ? <>Reviewer&rsquo;s note: {doc.notes}</> : 'Rejected — upload a clearer or more recent document.'}
         </p>
       )}
     </div>

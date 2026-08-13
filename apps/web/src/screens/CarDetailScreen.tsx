@@ -82,6 +82,8 @@ export function CarDetailScreen() {
     startDate: from || todayISO(),
     endDate: to || from || todayISO(),
     dailyRateXaf: car.daily_rate_xaf,
+    weeklyRateXaf: car.weekly_rate_xaf,
+    monthlyRateXaf: car.monthly_rate_xaf,
     withDriver: driverChosen,
     driverDailyRateXaf: car.driver_daily_rate_xaf,
     deliveryType,
@@ -113,6 +115,7 @@ export function CarDetailScreen() {
         <div className="mt-4 flex flex-wrap gap-2">
           {[
             car.transmission === 'automatic' ? t('common.automatic') : t('common.manual'),
+            ...(car.fuel_type ? [t(`common.fuel.${car.fuel_type}`)] : []),
             ...(car.seats ? [t('common.seats', { count: car.seats })] : []),
             // Pending vendors operate too — the badge only appears once the
             // paperwork has actually been approved.

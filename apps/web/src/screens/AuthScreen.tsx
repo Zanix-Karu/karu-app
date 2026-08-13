@@ -45,6 +45,10 @@ export function AuthScreen() {
   const [businessName, setBusinessName] = useState('');
   const [city, setCity] = useState('douala');
   const [phone, setPhone] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
+  const [address, setAddress] = useState('');
+  const [rccm, setRccm] = useState('');
+  const [declared, setDeclared] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -99,7 +103,12 @@ export function AuthScreen() {
             body: JSON.stringify({
               business_name: businessName,
               city,
+              contact_person: fullName || undefined,
               contact_phone: phone || undefined,
+              whatsapp_number: whatsapp || undefined,
+              address: address || undefined,
+              rccm_number: rccm || undefined,
+              declaration_accepted: declared,
               // The account email doubles as the business contact email until
               // the provider sets a different one from their dashboard.
               contact_email: email,
@@ -235,6 +244,25 @@ export function AuthScreen() {
                       placeholder="+237 6 XX XX XX XX"
                     />
                   </Field>
+                  <Field label={t('auth.whatsapp')}>
+                    <Input
+                      value={whatsapp}
+                      onChange={(e) => setWhatsapp(e.target.value)}
+                      placeholder="+237 6 XX XX XX XX"
+                    />
+                    <span className="mt-1 block text-xs text-karu-mute">{t('auth.whatsappHint')}</span>
+                  </Field>
+                  <Field label={t('auth.businessAddress')}>
+                    <Input
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      placeholder="e.g. Akwa, Rue Joffre"
+                    />
+                  </Field>
+                  <Field label={t('auth.rccm')}>
+                    <Input value={rccm} onChange={(e) => setRccm(e.target.value)} />
+                    <span className="mt-1 block text-xs text-karu-mute">{t('auth.rccmHint')}</span>
+                  </Field>
                 </>
               )}
               <Field label={account === 'vendor' ? t('auth.contactName') : t('auth.fullName')}>
@@ -310,6 +338,22 @@ export function AuthScreen() {
             </Field>
           )}
 
+          {mode === 'signup' && account === 'vendor' && (
+            <label className="flex cursor-pointer items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={declared}
+                onChange={(e) => setDeclared(e.target.checked)}
+                required
+                className="mt-0.5"
+                style={{ accentColor: 'var(--gold-600)' }}
+              />
+              <span className="text-karu-mute">
+                {t('auth.vendorDeclaration')}
+              </span>
+            </label>
+          )}
+
           {mode === 'signup' && (
             <label className="flex cursor-pointer items-start gap-2 text-sm">
               <input
@@ -333,7 +377,11 @@ export function AuthScreen() {
             </div>
           )}
 
-          <Button type="submit" disabled={busy || (mode === 'signup' && !agreed)} className="w-full">
+          <Button
+            type="submit"
+            disabled={busy || (mode === 'signup' && (!agreed || (account === 'vendor' && !declared)))}
+            className="w-full"
+          >
             {busy
               ? t('common.oneMoment')
               : mode === 'login'
