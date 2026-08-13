@@ -159,6 +159,26 @@ describe('AdminService.createBlock', () => {
 });
 
 describe('AdminService.createVehicleOnBehalf', () => {
+  it('refuses to create a listing straight to active — photos come first', async () => {
+    const { service: supabase } = makeSupabase({ vendorRow: { id: 'v1' } });
+    const admin = new AdminService(supabase);
+    await expect(
+      admin.createVehicleOnBehalf({
+        vendor_id: 'v1',
+        make: 'Toyota',
+        model: 'RAV4',
+        year: 2020,
+        seats: 5,
+        registration_number: 'LT 123 AB',
+        fuel_type: 'petrol',
+        category: 'suv',
+        daily_rate_xaf: 45000,
+        city: 'douala',
+        status: 'active',
+      }),
+    ).rejects.toThrow(/photos/);
+  });
+
   it('404s when the target vendor does not exist', async () => {
     const { service: supabase } = makeSupabase({ vendorRow: null });
     const admin = new AdminService(supabase);

@@ -79,7 +79,7 @@ export class AdminCreateVendorDto {
   locale?: 'en' | 'fr';
 }
 
-/** Team-added car for an existing vendor; goes live immediately by default. */
+/** Team-added car for an existing vendor; drafts until its photos are in. */
 export class AdminCreateVehicleDto extends CreateVehicleDto {
   @IsUUID()
   vendor_id!: string;

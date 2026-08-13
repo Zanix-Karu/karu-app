@@ -1,7 +1,15 @@
 import { useState, type CSSProperties, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import type { Booking, BookingStatus, Review, Vehicle, Vendor, VendorDocument } from '@karu/shared';
+import {
+  missingPhotoAngles,
+  type Booking,
+  type BookingStatus,
+  type Review,
+  type Vehicle,
+  type Vendor,
+  type VendorDocument,
+} from '@karu/shared';
 import { api } from '../lib/api';
 import { useView } from '../lib/auth';
 import { CATEGORY_LABEL, CITY_LABEL, prettyDate, xaf } from '../lib/format';
@@ -1213,6 +1221,10 @@ function Documents({ asVendor }: { asVendor?: Vendor }) {
       </p>
       {isLoading && <Spinner />}
 
+      {asVendor && docs && cars && (
+        <VerificationChecklist vendor={asVendor} docs={docs} cars={cars} />
+      )}
+
       <h2 style={sectionTitle}>Business &amp; identity</h2>
       <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-500)', margin: '0 0 12px' }}>
         Provide the RCCM — or a national ID or passport if the business is not registered.
@@ -1291,6 +1303,90 @@ function Documents({ asVendor }: { asVendor?: Vendor }) {
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * The onboarding doc's §12 "Karu Verification Status" box, derived live from
+ * document approvals, photo slots and the vendor's status — no separate
+ * booleans to keep in sync. Internal use: rendered only for admins.
+ */
+function VerificationChecklist({
+  vendor,
+  docs,
+  cars,
+}: {
+  vendor: Vendor;
+  docs: VendorDocument[];
+  cars: Vehicle[];
+}) {
+  // A fleet-wide (legacy, pre-per-vehicle) approval counts for every car.
+  const approved = (type: VendorDocument['type'], vehicleId?: string) =>
+    docs.some(
+      (d) =>
+        d.type === type &&
+        d.status === 'approved' &&
+        (vehicleId ? d.vehicle_id === vehicleId || !d.vehicle_id : !d.vehicle_id),
+    );
+
+  const identityVerified = approved('national_id') || approved('passport') || approved('rccm');
+  const businessVerified = approved('rccm');
+
+  const tick = (done: boolean) => (
+    <span aria-hidden="true" style={{ fontWeight: 700, color: done ? 'var(--success)' : 'var(--gray-400)' }}>
+      {done ? '✓' : '☐'}
+    </span>
+  );
+  const row: CSSProperties = {
+    display: 'flex',
+    gap: 8,
+    alignItems: 'baseline',
+    fontFamily: 'var(--font-ui)',
+    fontSize: 14,
+    padding: '3px 0',
+  };
+
+  return (
+    <Card style={{ maxWidth: 640, marginTop: 16, borderLeft: '4px solid var(--yellow)' }}>
+      <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 17 }}>
+        Verification status <span style={{ fontWeight: 400, fontSize: 13, color: 'var(--gray-500)' }}>(internal)</span>
+      </div>
+      <div style={{ marginTop: 8 }}>
+        <div style={row}>{tick(identityVerified)} Identity verified</div>
+        <div style={row}>
+          {tick(businessVerified)} Business verified (RCCM)
+          {!businessVerified && identityVerified && (
+            <span style={{ fontSize: 12, color: 'var(--gray-500)' }}>— operating on an identity document</span>
+          )}
+        </div>
+        {cars.map((car) => {
+          const photosMissing = missingPhotoAngles(car.photo_angles ?? {}).length;
+          return (
+            <div key={car.id} style={{ ...row, flexWrap: 'wrap' }}>
+              {tick(
+                approved('carte_grise', car.id) &&
+                  approved('insurance', car.id) &&
+                  approved('roadworthiness', car.id) &&
+                  photosMissing === 0,
+              )}
+              <span>
+                {car.make} {car.model}
+                {car.registration_number ? ` (${car.registration_number})` : ''}:{' '}
+                <span style={{ color: 'var(--gray-500)' }}>
+                  registration {approved('carte_grise', car.id) ? '✓' : '☐'} · insurance{' '}
+                  {approved('insurance', car.id) ? '✓' : '☐'} · roadworthiness{' '}
+                  {approved('roadworthiness', car.id) ? '✓' : '☐'} · photos {6 - photosMissing}/6
+                </span>
+              </span>
+            </div>
+          );
+        })}
+        {cars.length === 0 && (
+          <div style={{ ...row, color: 'var(--gray-500)' }}>No cars yet — vehicle checks appear per car.</div>
+        )}
+        <div style={row}>{tick(vendor.status === 'verified')} Vendor approved</div>
+      </div>
+    </Card>
   );
 }
 

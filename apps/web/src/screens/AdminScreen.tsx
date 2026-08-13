@@ -765,7 +765,7 @@ function Cars() {
           </Field>
           {createCar.isError && <ErrorNote>{(createCar.error as Error).message}</ErrorNote>}
           <Button type="submit" disabled={createCar.isPending} className="w-full">
-            {createCar.isPending ? 'Adding…' : 'Add car (live immediately)'}
+            {createCar.isPending ? 'Adding…' : 'Add car (draft — publish after photos)'}
           </Button>
         </form>
       </Card>

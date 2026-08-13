@@ -190,9 +190,19 @@ export class AdminService {
     return data as Vendor;
   }
 
-  /** Team-added car for a vendor; defaults straight to 'active'. */
+  /**
+   * Team-added car for a vendor. Starts as a draft like every other listing —
+   * a brand-new row can't have its six required photos yet (spec §5), so
+   * publishing happens afterwards via PATCH, where the photo gate applies to
+   * admins and vendors alike.
+   */
   async createVehicleOnBehalf(dto: AdminCreateVehicleDto): Promise<Vehicle> {
     const { vendor_id, status, ...rest } = dto;
+    if (status === 'active') {
+      throw new BadRequestException(
+        'A new listing needs its six required photos before going live — create it, add the photos, then publish',
+      );
+    }
 
     const vendor = await this.supabase.db
       .from('vendors')
@@ -203,7 +213,7 @@ export class AdminService {
 
     const { data, error } = await this.supabase.db
       .from('vehicles')
-      .insert({ ...rest, vendor_id, status: status ?? 'active' })
+      .insert({ ...rest, vendor_id, status: status ?? 'draft' })
       .select('*')
       .single();
     if (error || !data) throw new BadRequestException(error?.message ?? 'Could not create vehicle');
