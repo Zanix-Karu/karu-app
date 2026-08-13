@@ -13,8 +13,23 @@ export type UserRole = 'customer' | 'vendor' | 'admin';
 export type City = 'douala' | 'yaounde' | 'other';
 
 export type VendorStatus = 'pending' | 'verified' | 'rejected' | 'suspended';
-export type DocumentType = 'rccm' | 'carte_grise' | 'insurance' | 'roadworthiness';
+// national_id / passport: identity verification for operators without an RCCM
+// (the onboarding doc's "non-registered business" branch).
+export type DocumentType =
+  | 'rccm'
+  | 'national_id'
+  | 'passport'
+  | 'carte_grise'
+  | 'insurance'
+  | 'roadworthiness';
 export type DocumentStatus = 'pending' | 'approved' | 'rejected';
+
+/** Document types that belong to one car rather than to the vendor. */
+export const VEHICLE_DOCUMENT_TYPES: DocumentType[] = [
+  'carte_grise',
+  'insurance',
+  'roadworthiness',
+];
 
 export type VehicleCategory = 'economy' | 'sedan' | 'suv' | 'pickup' | 'van' | 'luxury';
 export type Transmission = 'manual' | 'automatic';
@@ -54,6 +69,23 @@ export function canTransitionBooking(from: BookingStatus, to: BookingStatus): bo
 }
 
 /**
+ * Allowed vendor status transitions — same idea as BOOKING_TRANSITIONS, so a
+ * fat-fingered admin click can't drive a vendor into a state that makes no
+ * sense (e.g. rejected → suspended). Re-verification after a rejection or a
+ * suspension is deliberate: fixed paperwork gets the vendor back.
+ */
+export const VENDOR_TRANSITIONS: Record<VendorStatus, VendorStatus[]> = {
+  pending: ['verified', 'rejected'],
+  verified: ['suspended'],
+  rejected: ['verified'],
+  suspended: ['verified'],
+};
+
+export function canTransitionVendor(from: VendorStatus, to: VendorStatus): boolean {
+  return VENDOR_TRANSITIONS[from].includes(to);
+}
+
+/**
  * Deposit charged at booking time (MVP: the rest is settled at pick-up).
  * 15% — the top of the 10–15% band agreed in the MVP plan, pending the
  * final payment-provider decision.
@@ -75,6 +107,10 @@ export interface BookingQuoteInput {
   startDate: string;
   endDate: string;
   dailyRateXaf: number;
+  /** Vendor's weekly rate; null/absent = no weekly pricing. */
+  weeklyRateXaf?: number | null;
+  /** Vendor's monthly rate; null/absent = no monthly pricing. */
+  monthlyRateXaf?: number | null;
   withDriver: boolean;
   driverDailyRateXaf: number | null;
   deliveryType: DeliveryType;
@@ -94,6 +130,34 @@ export interface BookingQuote {
 }
 
 /**
+ * Vehicle cost for a stay of `days`, honouring the vendor's longer-term rates
+ * (spec: daily / weekly / monthly pricing). Greedy decomposition — months,
+ * then weeks, then days — but never more than plain daily x days, so a vendor
+ * whose weekly rate is *worse* than seven dailies can't accidentally overcharge.
+ */
+export function vehicleRentalCost(
+  days: number,
+  dailyRateXaf: number,
+  weeklyRateXaf?: number | null,
+  monthlyRateXaf?: number | null,
+): number {
+  let remaining = days;
+  let cost = 0;
+  if (monthlyRateXaf) {
+    const months = Math.floor(remaining / 30);
+    cost += months * monthlyRateXaf;
+    remaining -= months * 30;
+  }
+  if (weeklyRateXaf) {
+    const weeks = Math.floor(remaining / 7);
+    cost += weeks * weeklyRateXaf;
+    remaining -= weeks * 7;
+  }
+  cost += remaining * dailyRateXaf;
+  return Math.min(cost, days * dailyRateXaf);
+}
+
+/**
  * The price of a rental, in one place.
  *
  * The server computes this authoritatively and never trusts a client total,
@@ -103,7 +167,12 @@ export interface BookingQuote {
  */
 export function quoteBooking(input: BookingQuoteInput): BookingQuote {
   const days = rentalDays(input.startDate, input.endDate);
-  const vehicleXaf = input.dailyRateXaf * days;
+  const vehicleXaf = vehicleRentalCost(
+    days,
+    input.dailyRateXaf,
+    input.weeklyRateXaf,
+    input.monthlyRateXaf,
+  );
   const driverXaf = input.withDriver ? (input.driverDailyRateXaf ?? 0) * days : 0;
   const deliveryXaf =
     input.deliveryType === 'airport'
@@ -141,8 +210,15 @@ export interface Vendor {
   business_name: string;
   rccm_number: string | null;
   city: City;
+  contact_person: string | null;
   contact_phone: string | null;
+  /** Often not the number that answers calls — WhatsApp is the primary business channel. */
+  whatsapp_number: string | null;
   contact_email: string | null;
+  /** Free-text street / quarter; `city` stays the coarse search enum. */
+  address: string | null;
+  /** When the vendor accepted the onboarding declaration. Null for legacy vendors. */
+  declaration_accepted_at: string | null;
   /** Fee to deliver a car to an address. Null when delivery isn't offered. */
   delivery_fee_xaf: number | null;
   /** Fee to meet a customer at the airport. Null when not offered. */
@@ -156,13 +232,32 @@ export interface Vendor {
 export interface VendorDocument {
   id: string;
   vendor_id: string;
+  /** Null = vendor-scoped (RCCM, identity docs, and pre-0018 paperwork). */
+  vehicle_id: string | null;
   type: DocumentType;
   file_path: string;
   status: DocumentStatus;
+  /** Expiry date (insurance / roadworthiness). Null = does not expire or unknown. */
+  expires_at: string | null;
   reviewed_by: string | null;
   reviewed_at: string | null;
   notes: string | null;
   created_at: string;
+}
+
+export type FuelType = 'petrol' | 'diesel' | 'hybrid' | 'electric';
+export const FUEL_TYPES: FuelType[] = ['petrol', 'diesel', 'hybrid', 'electric'];
+
+/**
+ * The six photos every listing must have before it can go live (onboarding
+ * spec §5). Order here is display order.
+ */
+export type PhotoAngle = 'front' | 'rear' | 'left' | 'right' | 'dashboard' | 'seats';
+export const PHOTO_ANGLES: PhotoAngle[] = ['front', 'rear', 'left', 'right', 'dashboard', 'seats'];
+
+/** Angles a listing still needs before it may be activated. */
+export function missingPhotoAngles(angles: Partial<Record<PhotoAngle, string>>): PhotoAngle[] {
+  return PHOTO_ANGLES.filter((a) => !angles[a]);
 }
 
 /** Whether a car can be rented with a driver — and whether it must be. */
@@ -183,7 +278,13 @@ export interface Vehicle {
   category: VehicleCategory;
   seats: number | null;
   transmission: Transmission;
+  /** Number plate as printed; matched by admins against the carte grise. */
+  registration_number: string | null;
+  fuel_type: FuelType | null;
   daily_rate_xaf: number;
+  /** Optional longer-term rates. Null = the car simply charges daily x days. */
+  weekly_rate_xaf: number | null;
+  monthly_rate_xaf: number | null;
   /**
    * Most rentals in Douala and Yaounde are chauffeur-driven, so a car that
    * cannot be booked with a driver is the exception rather than the default.
@@ -193,7 +294,10 @@ export interface Vehicle {
   driver_daily_rate_xaf: number | null;
   city: City;
   pickup_locations: string[];
+  /** Ordered gallery — every photo on the listing, required angles included. */
   photos: string[];
+  /** Required-angle slots (spec §5). All six must be filled to activate. */
+  photo_angles: Partial<Record<PhotoAngle, string>>;
   description: string | null;
   status: VehicleStatus;
   created_at: string;

@@ -1,5 +1,5 @@
-// Generated from the local Supabase schema (matches migrations through 0017)
-// via `supabase gen types typescript --local` on 2026-08-12. Regenerate after
+// Generated from the local Supabase schema (matches migrations through 0019)
+// via `supabase gen types typescript --local` on 2026-08-13. Regenerate after
 // applying a migration — do not edit by hand.
 
 export type Json =
@@ -454,16 +454,21 @@ export type Database = {
           description: string | null
           driver_daily_rate_xaf: number | null
           driver_option: Database["public"]["Enums"]["driver_option"]
+          fuel_type: Database["public"]["Enums"]["fuel_type"] | null
           id: string
           make: string
           model: string
+          monthly_rate_xaf: number | null
+          photo_angles: Json
           photos: string[]
           pickup_locations: string[]
+          registration_number: string | null
           seats: number | null
           status: Database["public"]["Enums"]["vehicle_status"]
           transmission: Database["public"]["Enums"]["transmission"]
           updated_at: string
           vendor_id: string
+          weekly_rate_xaf: number | null
           year: number | null
         }
         Insert: {
@@ -474,16 +479,21 @@ export type Database = {
           description?: string | null
           driver_daily_rate_xaf?: number | null
           driver_option?: Database["public"]["Enums"]["driver_option"]
+          fuel_type?: Database["public"]["Enums"]["fuel_type"] | null
           id?: string
           make: string
           model: string
+          monthly_rate_xaf?: number | null
+          photo_angles?: Json
           photos?: string[]
           pickup_locations?: string[]
+          registration_number?: string | null
           seats?: number | null
           status?: Database["public"]["Enums"]["vehicle_status"]
           transmission?: Database["public"]["Enums"]["transmission"]
           updated_at?: string
           vendor_id: string
+          weekly_rate_xaf?: number | null
           year?: number | null
         }
         Update: {
@@ -494,16 +504,21 @@ export type Database = {
           description?: string | null
           driver_daily_rate_xaf?: number | null
           driver_option?: Database["public"]["Enums"]["driver_option"]
+          fuel_type?: Database["public"]["Enums"]["fuel_type"] | null
           id?: string
           make?: string
           model?: string
+          monthly_rate_xaf?: number | null
+          photo_angles?: Json
           photos?: string[]
           pickup_locations?: string[]
+          registration_number?: string | null
           seats?: number | null
           status?: Database["public"]["Enums"]["vehicle_status"]
           transmission?: Database["public"]["Enums"]["transmission"]
           updated_at?: string
           vendor_id?: string
+          weekly_rate_xaf?: number | null
           year?: number | null
         }
         Relationships: [
@@ -519,6 +534,7 @@ export type Database = {
       vendor_documents: {
         Row: {
           created_at: string
+          expires_at: string | null
           file_path: string
           id: string
           notes: string | null
@@ -526,10 +542,12 @@ export type Database = {
           reviewed_by: string | null
           status: Database["public"]["Enums"]["document_status"]
           type: Database["public"]["Enums"]["document_type"]
+          vehicle_id: string | null
           vendor_id: string
         }
         Insert: {
           created_at?: string
+          expires_at?: string | null
           file_path: string
           id?: string
           notes?: string | null
@@ -537,10 +555,12 @@ export type Database = {
           reviewed_by?: string | null
           status?: Database["public"]["Enums"]["document_status"]
           type: Database["public"]["Enums"]["document_type"]
+          vehicle_id?: string | null
           vendor_id: string
         }
         Update: {
           created_at?: string
+          expires_at?: string | null
           file_path?: string
           id?: string
           notes?: string | null
@@ -548,6 +568,7 @@ export type Database = {
           reviewed_by?: string | null
           status?: Database["public"]["Enums"]["document_status"]
           type?: Database["public"]["Enums"]["document_type"]
+          vehicle_id?: string | null
           vendor_id?: string
         }
         Relationships: [
@@ -556,6 +577,13 @@ export type Database = {
             columns: ["reviewed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_documents_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
             referencedColumns: ["id"]
           },
           {
@@ -569,12 +597,15 @@ export type Database = {
       }
       vendors: {
         Row: {
+          address: string | null
           airport_fee_xaf: number | null
           business_name: string
           city: Database["public"]["Enums"]["city"]
           contact_email: string | null
+          contact_person: string | null
           contact_phone: string | null
           created_at: string
+          declaration_accepted_at: string | null
           delivery_fee_xaf: number | null
           id: string
           profile_id: string
@@ -582,14 +613,18 @@ export type Database = {
           status: Database["public"]["Enums"]["vendor_status"]
           updated_at: string
           verified_at: string | null
+          whatsapp_number: string | null
         }
         Insert: {
+          address?: string | null
           airport_fee_xaf?: number | null
           business_name: string
           city: Database["public"]["Enums"]["city"]
           contact_email?: string | null
+          contact_person?: string | null
           contact_phone?: string | null
           created_at?: string
+          declaration_accepted_at?: string | null
           delivery_fee_xaf?: number | null
           id?: string
           profile_id: string
@@ -597,14 +632,18 @@ export type Database = {
           status?: Database["public"]["Enums"]["vendor_status"]
           updated_at?: string
           verified_at?: string | null
+          whatsapp_number?: string | null
         }
         Update: {
+          address?: string | null
           airport_fee_xaf?: number | null
           business_name?: string
           city?: Database["public"]["Enums"]["city"]
           contact_email?: string | null
+          contact_person?: string | null
           contact_phone?: string | null
           created_at?: string
+          declaration_accepted_at?: string | null
           delivery_fee_xaf?: number | null
           id?: string
           profile_id?: string
@@ -612,6 +651,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["vendor_status"]
           updated_at?: string
           verified_at?: string | null
+          whatsapp_number?: string | null
         }
         Relationships: [
           {
@@ -646,8 +686,15 @@ export type Database = {
       city: "douala" | "yaounde" | "other"
       delivery_type: "pickup_point" | "airport" | "address"
       document_status: "pending" | "approved" | "rejected"
-      document_type: "rccm" | "carte_grise" | "insurance" | "roadworthiness"
+      document_type:
+        | "rccm"
+        | "carte_grise"
+        | "insurance"
+        | "roadworthiness"
+        | "national_id"
+        | "passport"
       driver_option: "none" | "optional" | "required"
+      fuel_type: "petrol" | "diesel" | "hybrid" | "electric"
       payment_provider: "mtn_momo" | "orange_money" | "card" | "manual"
       payment_status: "pending" | "held" | "released" | "refunded" | "failed"
       review_target: "customer" | "vendor"
@@ -803,8 +850,16 @@ export const Constants = {
       city: ["douala", "yaounde", "other"],
       delivery_type: ["pickup_point", "airport", "address"],
       document_status: ["pending", "approved", "rejected"],
-      document_type: ["rccm", "carte_grise", "insurance", "roadworthiness"],
+      document_type: [
+        "rccm",
+        "carte_grise",
+        "insurance",
+        "roadworthiness",
+        "national_id",
+        "passport",
+      ],
       driver_option: ["none", "optional", "required"],
+      fuel_type: ["petrol", "diesel", "hybrid", "electric"],
       payment_provider: ["mtn_momo", "orange_money", "card", "manual"],
       payment_status: ["pending", "held", "released", "refunded", "failed"],
       review_target: ["customer", "vendor"],
