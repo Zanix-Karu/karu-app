@@ -6,7 +6,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import type { UserRole, Vehicle, VehicleDetail } from '@karu/shared';
+import {
+  missingPhotoAngles,
+  type PhotoAngle,
+  type UserRole,
+  type Vehicle,
+  type VehicleDetail,
+} from '@karu/shared';
 import { SupabaseService } from '../supabase/supabase.service';
 import { VendorsService } from '../vendors/vendors.service';
 import { BrowseVehiclesQuery, CreateVehicleDto } from './dto';
@@ -43,13 +49,13 @@ export class VehiclesService {
   }
 
   /**
-   * Public browse: active vehicles of operating vendors, filterable by
+   * Public browse: active vehicles of verified vendors, filterable by
    * city / category / transmission / seats / price, and — when a date window
    * is given — excluding vehicles that are booked (confirmed/in_progress) or
    * blocked for any overlapping day.
    *
-   * Pending vendors operate too: verification earns the badge, it does not
-   * gate the marketplace. Only rejected and suspended vendors are hidden.
+   * Verification is a gate (onboarding spec §12: vendor approved before going
+   * live): pending, rejected and suspended vendors are all hidden.
    */
   async browse(query: BrowseVehiclesQuery): Promise<BrowseResult> {
     let q = this.supabase.db
@@ -58,7 +64,7 @@ export class VehiclesService {
       .from('vehicles')
       .select('*, vendors!inner(status)', { count: 'exact' })
       .eq('status', 'active')
-      .in('vendors.status', ['verified', 'pending']);
+      .eq('vendors.status', 'verified');
 
     if (query.city) q = q.eq('city', query.city);
     if (query.category) q = q.eq('category', query.category);
@@ -190,24 +196,86 @@ export class VehiclesService {
     return { path: upload.path, token: upload.token, signedUrl: upload.signedUrl };
   }
 
-  /** Record an uploaded photo on the listing (appends its public URL). */
-  async attachPhoto(vehicleId: string, profileId: string, role: UserRole, path: string): Promise<Vehicle> {
+  /**
+   * Record an uploaded photo on the listing. With an angle it fills (or
+   * replaces) that required slot; without one it's an extra gallery shot.
+   */
+  async attachPhoto(
+    vehicleId: string,
+    profileId: string,
+    role: UserRole,
+    path: string,
+    angle?: PhotoAngle,
+  ): Promise<Vehicle> {
     const vehicle = await this.getOwnedVehicle(vehicleId, profileId, role);
     if (!path.startsWith(`${vehicleId}/`)) {
       throw new BadRequestException('Path does not belong to this vehicle');
     }
 
     const { data: pub } = this.supabase.db.storage.from(PHOTOS_BUCKET).getPublicUrl(path);
-    const photos = [...vehicle.photos, pub.publicUrl];
+    const angles = { ...(vehicle.photo_angles ?? {}) };
+    let photos = [...vehicle.photos];
+
+    if (angle) {
+      const replaced = angles[angle];
+      if (replaced) {
+        photos = photos.filter((p) => p !== replaced);
+        await this.deleteStoredPhoto(vehicleId, replaced);
+      }
+      angles[angle] = pub.publicUrl;
+    }
+    photos.push(pub.publicUrl);
 
     const { data, error } = await this.supabase.db
       .from('vehicles')
-      .update({ photos })
+      .update({ photos, photo_angles: angles })
       .eq('id', vehicleId)
       .select('*')
       .single();
     if (error || !data) throw new BadRequestException(error?.message ?? 'Could not attach photo');
     return data as Vehicle;
+  }
+
+  /**
+   * Take a photo off a listing. This is the only sanctioned removal path —
+   * PATCH deliberately does not accept `photos`, so listings can only carry
+   * URLs minted by the upload/attach flow.
+   */
+  async removePhoto(vehicleId: string, profileId: string, role: UserRole, url: string): Promise<Vehicle> {
+    const vehicle = await this.getOwnedVehicle(vehicleId, profileId, role);
+    if (!vehicle.photos.includes(url)) {
+      throw new NotFoundException('Photo not found on this vehicle');
+    }
+    const photos = vehicle.photos.filter((p) => p !== url);
+    // If the photo filled a required slot, the slot opens up again.
+    const angles = Object.fromEntries(
+      Object.entries(vehicle.photo_angles ?? {}).filter(([, u]) => u !== url),
+    );
+
+    const { data, error } = await this.supabase.db
+      .from('vehicles')
+      .update({ photos, photo_angles: angles })
+      .eq('id', vehicleId)
+      .select('*')
+      .single();
+    if (error || !data) throw new BadRequestException(error?.message ?? 'Could not remove photo');
+
+    await this.deleteStoredPhoto(vehicleId, url);
+    return data as Vehicle;
+  }
+
+  /**
+   * Best-effort deletion of a photo's stored object; the listing row is the
+   * source of truth, so a failed storage delete only leaves an orphaned file.
+   * Only paths under the vehicle's own prefix are ever touched.
+   */
+  private async deleteStoredPhoto(vehicleId: string, url: string): Promise<void> {
+    const marker = `/object/public/${PHOTOS_BUCKET}/`;
+    const markerAt = url.indexOf(marker);
+    if (markerAt === -1) return;
+    const path = decodeURIComponent(url.slice(markerAt + marker.length));
+    if (!path.startsWith(`${vehicleId}/`)) return;
+    await this.supabase.db.storage.from(PHOTOS_BUCKET).remove([path]);
   }
 
   /** Edit a listing. Ownership-checked; vendor_id can never be reassigned. */
@@ -217,9 +285,19 @@ export class VehiclesService {
     role: UserRole,
     patch: Record<string, unknown>,
   ): Promise<Vehicle> {
-    await this.getOwnedVehicle(vehicleId, profileId, role);
+    const vehicle = await this.getOwnedVehicle(vehicleId, profileId, role);
     if (Object.keys(patch).length === 0) {
       throw new BadRequestException('Nothing to update');
+    }
+
+    // Spec §5: a listing can't go live without its six required photos.
+    if (patch.status === 'active' && vehicle.status !== 'active') {
+      const missing = missingPhotoAngles(vehicle.photo_angles ?? {});
+      if (missing.length) {
+        throw new BadRequestException(
+          `Add the required photos before activating — missing: ${missing.join(', ')}`,
+        );
+      }
     }
 
     const { data, error } = await this.supabase.db

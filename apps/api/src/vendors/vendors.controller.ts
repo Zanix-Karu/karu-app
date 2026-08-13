@@ -39,10 +39,17 @@ export class VendorsController {
     return this.vendors.statsFor(profileId);
   }
 
+  /** The caller's documents with review status and reviewer notes. */
+  @Roles('vendor')
+  @Get('me/documents')
+  myDocuments(@CurrentUser('id') profileId: string) {
+    return this.vendors.listDocuments(profileId);
+  }
+
   /** Start a verification-document upload (returns a signed upload URL). */
   @Roles('vendor')
   @Post('me/documents')
   uploadDocument(@CurrentUser('id') profileId: string, @Body() dto: UploadDocumentDto) {
-    return this.vendors.createDocumentUpload(profileId, dto.type);
+    return this.vendors.createDocumentUpload(profileId, dto);
   }
 }

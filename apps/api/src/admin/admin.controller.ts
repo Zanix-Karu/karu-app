@@ -60,7 +60,7 @@ export class AdminController {
    */
   @Post('vendors/:id/documents')
   uploadVendorDocument(@Param('id') id: string, @Body() dto: UploadDocumentDto) {
-    return this.vendors.createDocumentUploadForVendor(id, dto.type);
+    return this.vendors.createDocumentUploadForVendor(id, dto);
   }
 
   @Get('documents')

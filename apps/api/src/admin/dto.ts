@@ -26,6 +26,11 @@ export class ReviewDocumentDto {
   @IsString()
   @MaxLength(500)
   notes?: string;
+
+  /** Reviewer-confirmed expiry date, read off the certificate itself. */
+  @IsOptional()
+  @IsDateString()
+  expires_at?: string;
 }
 
 /**
@@ -53,6 +58,16 @@ export class AdminCreateVendorDto {
   @IsString()
   @MaxLength(30)
   contact_phone?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  whatsapp_number?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(240)
+  address?: string;
 
   @IsOptional()
   @IsString()

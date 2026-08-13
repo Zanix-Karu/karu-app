@@ -172,6 +172,7 @@ describe('BookingsService.create — booking request flow', () => {
   /** A provider offering both a driver-capable fleet and delivery. */
   const fullServiceVendor = {
     id: 'vend-1',
+    status: 'verified',
     delivery_fee_xaf: 5000,
     airport_fee_xaf: 10000,
   };
@@ -193,6 +194,17 @@ describe('BookingsService.create — booking request flow', () => {
     const vendors = { getById: async () => vendorRow } as unknown as VendorsService;
     return new BookingsService(supabase, vehicles, vendors, noNotifications);
   };
+
+  it("refuses to book an unverified provider's car (verification is a gate)", async () => {
+    const svc = makeSvc(vehicle, true, { ...fullServiceVendor, status: 'pending' });
+    await expect(
+      svc.create('cust-1', {
+        vehicle_id: 'v1',
+        start_date: d('01'),
+        end_date: d('03'),
+      } as never),
+    ).rejects.toThrow(/not yet verified/);
+  });
 
   it('computes total, 15% deposit, and mints a reference server-side', async () => {
     const svc = makeSvc(vehicle);
@@ -274,7 +286,12 @@ describe('BookingsService.create — booking request flow', () => {
   });
 
   it('refuses airport pickup from a provider that does not offer it', async () => {
-    const svc = makeSvc(vehicle, true, { id: 'vend-1', delivery_fee_xaf: 5000, airport_fee_xaf: null });
+    const svc = makeSvc(vehicle, true, {
+      id: 'vend-1',
+      status: 'verified',
+      delivery_fee_xaf: 5000,
+      airport_fee_xaf: null,
+    });
     await expect(
       svc.create('cust-1', {
         vehicle_id: 'v1',
@@ -282,7 +299,7 @@ describe('BookingsService.create — booking request flow', () => {
         end_date: d('03'),
         delivery_type: 'airport',
       } as never),
-    ).rejects.toThrow(BadRequestException);
+    ).rejects.toThrow(/airport/);
   });
 
   it('refuses address delivery with no address', async () => {

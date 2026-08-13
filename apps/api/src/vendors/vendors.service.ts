@@ -5,10 +5,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import type { DocumentType, RatingSummary, Vendor } from '@karu/shared';
+import { VEHICLE_DOCUMENT_TYPES, type RatingSummary, type Vendor } from '@karu/shared';
 import { SupabaseService } from '../supabase/supabase.service';
 import { ReviewsService } from '../reviews/reviews.service';
-import { CreateVendorDto } from './dto';
+import { CreateVendorDto, UploadDocumentDto } from './dto';
 
 /** Private bucket for verification documents — access via signed URLs only. */
 const DOCUMENTS_BUCKET = 'vendor-documents';
@@ -42,9 +42,27 @@ export class VendorsService {
       contactEmail = authUser?.user?.email ?? null;
     }
 
+    // Same defaulting for the contact person: the account already has a name.
+    let contactPerson = dto.contact_person ?? null;
+    if (!contactPerson) {
+      const { data: profile } = await this.supabase.db
+        .from('profiles')
+        .select('full_name')
+        .eq('id', profileId)
+        .maybeSingle();
+      contactPerson = profile?.full_name ?? null;
+    }
+
+    const { declaration_accepted, ...fields } = dto;
     const { data, error } = await this.supabase.db
       .from('vendors')
-      .insert({ ...dto, contact_email: contactEmail, profile_id: profileId })
+      .insert({
+        ...fields,
+        contact_email: contactEmail,
+        contact_person: contactPerson,
+        declaration_accepted_at: declaration_accepted ? new Date().toISOString() : null,
+        profile_id: profileId,
+      })
       .select('*')
       .single();
     if (error || !data) throw new ConflictException(error?.message ?? 'Could not create vendor');
@@ -100,9 +118,9 @@ export class VendorsService {
    * file itself goes browser → storage directly; it never streams through
    * the API.
    */
-  async createDocumentUpload(profileId: string, type: DocumentType) {
+  async createDocumentUpload(profileId: string, dto: UploadDocumentDto) {
     const vendor = await this.getByProfile(profileId);
-    return this.createDocumentUploadForVendor(vendor.id, type);
+    return this.createDocumentUploadForVendor(vendor.id, dto);
   }
 
   /**
@@ -110,10 +128,26 @@ export class VendorsService {
    * over WhatsApp and by hand during onboarding, so an admin must be able to
    * file it against the vendor's record themselves.
    */
-  async createDocumentUploadForVendor(vendorId: string, type: DocumentType) {
+  async createDocumentUploadForVendor(vendorId: string, dto: UploadDocumentDto) {
     const vendor = await this.getById(vendorId); // 404 for unknown vendors
-    const path = `${vendor.id}/${type}-${randomUUID()}`;
 
+    // Car paperwork is scoped to a car; business/identity paperwork must not be.
+    const vehicleId = dto.vehicle_id ?? null;
+    if (vehicleId) {
+      if (!VEHICLE_DOCUMENT_TYPES.includes(dto.type)) {
+        throw new BadRequestException(`A ${dto.type} document belongs to the business, not to a car`);
+      }
+      const { data: vehicle } = await this.supabase.db
+        .from('vehicles')
+        .select('id, vendor_id')
+        .eq('id', vehicleId)
+        .maybeSingle();
+      if (!vehicle || vehicle.vendor_id !== vendor.id) {
+        throw new NotFoundException('No such vehicle for this vendor');
+      }
+    }
+
+    const path = `${vendor.id}/${dto.type}-${randomUUID()}`;
     const { data: upload, error: storageError } = await this.supabase.db.storage
       .from(DOCUMENTS_BUCKET)
       .createSignedUploadUrl(path);
@@ -121,20 +155,57 @@ export class VendorsService {
       throw new BadRequestException(storageError?.message ?? 'Could not create upload URL');
     }
 
-    const { data, error } = await this.supabase.db
+    // Replace-in-place per (vendor, type, scope). Written as select-then-write
+    // because the scope uniqueness lives in partial indexes, which ON CONFLICT
+    // upserts can't target; a lost race just surfaces the index violation.
+    const row = {
+      vendor_id: vendor.id,
+      vehicle_id: vehicleId,
+      type: dto.type,
+      file_path: path,
+      status: 'pending' as const,
+      expires_at: dto.expires_at ?? null,
+      // A re-upload restarts review — a stale note or reviewer stamp on fresh
+      // paperwork would misreport what was actually reviewed.
+      reviewed_by: null,
+      reviewed_at: null,
+      notes: null,
+    };
+
+    let existing = this.supabase.db
       .from('vendor_documents')
-      .upsert(
-        { vendor_id: vendor.id, type, file_path: path, status: 'pending' },
-        { onConflict: 'vendor_id,type' },
-      )
-      .select('*')
-      .single();
+      .select('id')
+      .eq('vendor_id', vendor.id)
+      .eq('type', dto.type);
+    existing = vehicleId ? existing.eq('vehicle_id', vehicleId) : existing.is('vehicle_id', null);
+    const { data: prior } = await existing.maybeSingle();
+
+    const write = prior
+      ? this.supabase.db.from('vendor_documents').update(row).eq('id', prior.id)
+      : this.supabase.db.from('vendor_documents').insert(row);
+    const { data, error } = await write.select('*').single();
     if (error || !data) throw new BadRequestException(error?.message ?? 'Could not record document');
 
     return {
       document: data,
       upload: { path: upload.path, token: upload.token, signedUrl: upload.signedUrl },
     };
+  }
+
+  /**
+   * The vendor's own paperwork and where each piece stands in review —
+   * including reviewer notes, so a rejection arrives with its reason rather
+   * than as a silent status flip.
+   */
+  async listDocuments(profileId: string) {
+    const vendor = await this.getByProfile(profileId);
+    const { data, error } = await this.supabase.db
+      .from('vendor_documents')
+      .select('*')
+      .eq('vendor_id', vendor.id)
+      .order('created_at', { ascending: false });
+    if (error) throw new BadRequestException(error.message);
+    return data ?? [];
   }
 
   /**
@@ -244,15 +315,19 @@ export class VendorsService {
   }
 
   /**
-   * Public directory of operating vendors (verified and pending — the badge
-   * marks verification, it doesn't gate operating), each with its aggregate
-   * rating. Rejected and suspended vendors stay out.
+   * Public directory of verified vendors, each with its aggregate rating.
+   * Verification is a gate (onboarding spec §12) — pending, rejected and
+   * suspended vendors stay out. The column list is explicit so onboarding
+   * paperwork fields (RCCM, WhatsApp, address, declaration) never leak into
+   * a public payload.
    */
   async listPublic(): Promise<Array<Vendor & { rating: RatingSummary }>> {
     const { data, error } = await this.supabase.db
       .from('vendors')
-      .select('*')
-      .in('status', ['verified', 'pending'])
+      .select(
+        'id, profile_id, business_name, city, contact_person, contact_phone, contact_email, delivery_fee_xaf, airport_fee_xaf, status, verified_at, created_at, updated_at',
+      )
+      .eq('status', 'verified')
       .order('created_at', { ascending: false });
     if (error) throw new NotFoundException(error.message);
 

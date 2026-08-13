@@ -8,7 +8,11 @@ const makeSupabase = (opts: {
   vendorRow?: Record<string, unknown> | null;
   blockError?: { code: string; message: string };
 }) => {
-  const state = { vendorPatch: undefined as Record<string, unknown> | undefined };
+  const state = {
+    vendorPatch: undefined as Record<string, unknown> | undefined,
+    bookingsPatch: undefined as Record<string, unknown> | undefined,
+    bookingsFilters: [] as Array<[string, unknown]>,
+  };
   const db = {
     from: (table: string) => {
       if (table === 'vendors') {
@@ -31,6 +35,21 @@ const makeSupabase = (opts: {
               maybeSingle: async () => ({ data: opts.vendorRow ?? null }),
             }),
           }),
+        };
+      }
+      if (table === 'bookings') {
+        return {
+          update: (patch: Record<string, unknown>) => {
+            state.bookingsPatch = patch;
+            const chain = {
+              eq: (col: string, val: unknown) => {
+                state.bookingsFilters.push([col, val]);
+                return chain;
+              },
+              then: (resolve: (v: unknown) => unknown) => resolve({ data: null, error: null }),
+            };
+            return chain;
+          },
         };
       }
       if (table === 'vehicle_blocks') {
@@ -74,6 +93,40 @@ describe('AdminService.setVendorStatus', () => {
       NotFoundException,
     );
   });
+
+  it('blocks nonsensical transitions (pending → suspended)', async () => {
+    const { service: supabase } = makeSupabase({ vendorRow: { id: 'v1', status: 'pending' } });
+    const admin = new AdminService(supabase);
+    await expect(admin.setVendorStatus('v1', { status: 'suspended' })).rejects.toThrow(
+      ConflictException,
+    );
+  });
+
+  it('allows reinstating a suspended vendor', async () => {
+    const { service: supabase } = makeSupabase({ vendorRow: { id: 'v1', status: 'suspended' } });
+    const admin = new AdminService(supabase);
+    const result = await admin.setVendorStatus('v1', { status: 'verified' });
+    expect(result.status).toBe('verified');
+  });
+
+  it('treats a same-status update as a no-op', async () => {
+    const { service: supabase, state } = makeSupabase({ vendorRow: { id: 'v1', status: 'verified' } });
+    const admin = new AdminService(supabase);
+    const result = await admin.setVendorStatus('v1', { status: 'verified' });
+    expect(result.status).toBe('verified');
+    expect(state.vendorPatch).toBeUndefined();
+  });
+
+  it('auto-declines open booking requests when suspending', async () => {
+    const { service: supabase, state } = makeSupabase({ vendorRow: { id: 'v1', status: 'verified' } });
+    const admin = new AdminService(supabase);
+    await admin.setVendorStatus('v1', { status: 'suspended' });
+    expect(state.bookingsPatch).toEqual({ status: 'rejected' });
+    expect(state.bookingsFilters).toEqual([
+      ['vendor_id', 'v1'],
+      ['status', 'requested'],
+    ]);
+  });
 });
 
 describe('AdminService.createBlock', () => {
@@ -114,6 +167,10 @@ describe('AdminService.createVehicleOnBehalf', () => {
         vendor_id: 'missing',
         make: 'Toyota',
         model: 'RAV4',
+        year: 2020,
+        seats: 5,
+        registration_number: 'LT 123 AB',
+        fuel_type: 'petrol',
         category: 'suv',
         daily_rate_xaf: 45000,
         city: 'douala',

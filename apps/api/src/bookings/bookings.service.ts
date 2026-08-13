@@ -73,6 +73,11 @@ export class BookingsService {
     // Driver and delivery are both the vendor's to offer, so both are checked
     // against what the vendor actually sells rather than taken from the client.
     const vendor = await this.vendors.getById(vehicle.vendor_id);
+    // Verification is a gate (onboarding spec §12): an unverified vendor's
+    // cars are hidden from browse, and a direct link can't book them either.
+    if (vendor.status !== 'verified') {
+      throw new BadRequestException('This provider is not yet verified');
+    }
     const withDriver = dto.with_driver ?? vehicle.driver_option === 'required';
     if (withDriver && vehicle.driver_option === 'none') {
       throw new BadRequestException('This car is not offered with a driver');
@@ -98,6 +103,8 @@ export class BookingsService {
       startDate: dto.start_date,
       endDate: dto.end_date,
       dailyRateXaf: vehicle.daily_rate_xaf,
+      weeklyRateXaf: vehicle.weekly_rate_xaf,
+      monthlyRateXaf: vehicle.monthly_rate_xaf,
       withDriver,
       driverDailyRateXaf: vehicle.driver_daily_rate_xaf,
       deliveryType,

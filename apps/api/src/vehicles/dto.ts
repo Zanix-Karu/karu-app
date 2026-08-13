@@ -14,8 +14,12 @@ import {
 } from 'class-validator';
 import {
   DRIVER_OPTIONS,
+  FUEL_TYPES,
+  PHOTO_ANGLES,
   type City,
   type DriverOption,
+  type FuelType,
+  type PhotoAngle,
   type Transmission,
   type VehicleCategory,
   type VehicleStatus,
@@ -29,15 +33,26 @@ export class CreateVehicleDto {
   @IsString() @MaxLength(60) make!: string;
   @IsString() @MaxLength(60) model!: string;
 
-  @IsOptional() @IsInt() @Min(1980) year?: number;
+  // Year, seats, plate and fuel are required listing facts in the onboarding
+  // spec — a customer can't judge a car without them, and admins match the
+  // plate against the carte grise during review.
+  @Type(() => Number) @IsInt() @Min(1980) @Max(2100) year!: number;
 
   @IsIn(CATEGORIES) category!: VehicleCategory;
 
-  @IsOptional() @IsInt() @Min(1) seats?: number;
+  @Type(() => Number) @IsInt() @Min(1) @Max(50) seats!: number;
 
   @IsOptional() @IsIn(TRANSMISSIONS) transmission?: Transmission;
 
+  @IsString() @MaxLength(20) registration_number!: string;
+
+  @IsIn(FUEL_TYPES) fuel_type!: FuelType;
+
   @IsInt() @Min(1) daily_rate_xaf!: number;
+
+  /** Optional longer-term rates; omitted = the car charges daily x days. */
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) weekly_rate_xaf?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) monthly_rate_xaf?: number;
 
   @IsIn(CITIES) city!: City;
 
@@ -49,7 +64,6 @@ export class CreateVehicleDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) driver_daily_rate_xaf?: number;
 
   @IsOptional() @IsArray() @IsString({ each: true }) pickup_locations?: string[];
-  @IsOptional() @IsArray() @IsString({ each: true }) photos?: string[];
   @IsOptional() @IsString() description?: string;
 }
 
@@ -97,16 +111,19 @@ export class BrowseVehiclesQuery {
 export class UpdateVehicleDto {
   @IsOptional() @IsString() @MaxLength(60) make?: string;
   @IsOptional() @IsString() @MaxLength(60) model?: string;
-  @IsOptional() @Type(() => Number) @IsInt() @Min(1980) year?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1980) @Max(2100) year?: number;
   @IsOptional() @IsIn(CATEGORIES) category?: VehicleCategory;
-  @IsOptional() @Type(() => Number) @IsInt() @Min(1) seats?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(50) seats?: number;
   @IsOptional() @IsIn(TRANSMISSIONS) transmission?: Transmission;
+  @IsOptional() @IsString() @MaxLength(20) registration_number?: string;
+  @IsOptional() @IsIn(FUEL_TYPES) fuel_type?: FuelType;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) daily_rate_xaf?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) weekly_rate_xaf?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) monthly_rate_xaf?: number;
   @IsOptional() @IsIn(DRIVER_OPTIONS) driver_option?: DriverOption;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) driver_daily_rate_xaf?: number;
   @IsOptional() @IsIn(CITIES) city?: City;
   @IsOptional() @IsArray() @IsString({ each: true }) pickup_locations?: string[];
-  @IsOptional() @IsArray() @IsString({ each: true }) photos?: string[];
   @IsOptional() @IsString() @MaxLength(2000) description?: string;
   @IsOptional() @IsIn(['draft', 'active', 'inactive']) status?: VehicleStatus;
 }
@@ -133,4 +150,19 @@ export class AttachPhotoDto {
   @IsString()
   @MaxLength(300)
   path!: string;
+
+  /**
+   * Which required slot this photo fills (front, rear, …). Omitted = an
+   * extra gallery shot. Re-attaching an angle replaces that slot's photo.
+   */
+  @IsOptional()
+  @IsIn(PHOTO_ANGLES)
+  angle?: PhotoAngle;
+}
+
+export class RemovePhotoDto {
+  /** The photo's public URL exactly as it appears on the listing. */
+  @IsString()
+  @MaxLength(500)
+  url!: string;
 }

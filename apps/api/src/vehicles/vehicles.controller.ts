@@ -8,6 +8,7 @@ import {
   BrowseVehiclesQuery,
   CreateBlockDto,
   CreateVehicleDto,
+  RemovePhotoDto,
   UpdateVehicleDto,
   UploadPhotoDto,
 } from './dto';
@@ -70,7 +71,19 @@ export class VehiclesController {
     @CurrentUser('role') role: UserRole,
     @Body() dto: AttachPhotoDto,
   ) {
-    return this.vehicles.attachPhoto(id, profileId, role, dto.path);
+    return this.vehicles.attachPhoto(id, profileId, role, dto.path, dto.angle);
+  }
+
+  /** Remove a photo from the listing (owning vendor or admin). */
+  @Roles('vendor', 'admin')
+  @Delete(':id/photos')
+  removePhoto(
+    @Param('id') id: string,
+    @CurrentUser('id') profileId: string,
+    @CurrentUser('role') role: UserRole,
+    @Body() dto: RemovePhotoDto,
+  ) {
+    return this.vehicles.removePhoto(id, profileId, role, dto.url);
   }
 
   /** Edit a listing (owning vendor or admin). */

@@ -4,7 +4,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { Booking, Vendor, VendorDocument, Vehicle, VendorStatus } from '@karu/shared';
+import {
+  canTransitionVendor,
+  type Booking,
+  type Vendor,
+  type VendorDocument,
+  type Vehicle,
+  type VendorStatus,
+} from '@karu/shared';
 import { SupabaseService } from '../supabase/supabase.service';
 import {
   AdminCreateVehicleDto,
@@ -49,6 +56,19 @@ export class AdminService {
 
   /** Verify / reject / suspend a vendor. verified_at is stamped exactly once. */
   async setVendorStatus(vendorId: string, dto: SetVendorStatusDto): Promise<Vendor> {
+    const { data: current } = await this.supabase.db
+      .from('vendors')
+      .select('*')
+      .eq('id', vendorId)
+      .maybeSingle();
+    if (!current) throw new NotFoundException('Vendor not found');
+
+    const from = (current as Vendor).status;
+    if (from === dto.status) return current as Vendor;
+    if (!canTransitionVendor(from, dto.status)) {
+      throw new ConflictException(`A ${from} vendor cannot be moved to ${dto.status}`);
+    }
+
     const patch: Record<string, unknown> = { status: dto.status };
     if (dto.status === 'verified') patch.verified_at = new Date().toISOString();
 
@@ -59,14 +79,27 @@ export class AdminService {
       .select('*')
       .single();
     if (error || !data) throw new NotFoundException('Vendor not found');
+
+    // A vendor who has just been suspended or rejected cannot honour open
+    // requests — decline them now rather than leaving customers waiting on an
+    // answer that can never come. Confirmed bookings are left for the ops
+    // team to resolve case by case (cancel + refund vs honour).
+    if (dto.status === 'suspended' || dto.status === 'rejected') {
+      await this.supabase.db
+        .from('bookings')
+        .update({ status: 'rejected' })
+        .eq('vendor_id', vendorId)
+        .eq('status', 'requested');
+    }
     return data as Vendor;
   }
 
-  /** Documents awaiting (or past) review, with their vendor's name. */
+  /** Documents awaiting (or past) review, with their vendor's name and, when
+   *  scoped to a car, the car — reviewers match plates against cartes grises. */
   async listDocuments(status?: 'pending' | 'approved' | 'rejected', vendorId?: string) {
     let q = this.supabase.db
       .from('vendor_documents')
-      .select('*, vendors(business_name)');
+      .select('*, vendors(business_name), vehicles(make, model, registration_number)');
     if (status) q = q.eq('status', status);
     if (vendorId) q = q.eq('vendor_id', vendorId);
     const { data, error } = await q.order('created_at', { ascending: false });
@@ -99,14 +132,19 @@ export class AdminService {
   }
 
   async reviewDocument(documentId: string, reviewerId: string, dto: ReviewDocumentDto) {
+    const patch: Record<string, unknown> = {
+      status: dto.status,
+      notes: dto.notes ?? null,
+      reviewed_by: reviewerId,
+      reviewed_at: new Date().toISOString(),
+    };
+    // The reviewer is looking at the actual certificate — their reading of the
+    // expiry date beats whatever the vendor typed at upload.
+    if (dto.expires_at !== undefined) patch.expires_at = dto.expires_at;
+
     const { data, error } = await this.supabase.db
       .from('vendor_documents')
-      .update({
-        status: dto.status,
-        notes: dto.notes ?? null,
-        reviewed_by: reviewerId,
-        reviewed_at: new Date().toISOString(),
-      })
+      .update(patch)
       .eq('id', documentId)
       .select('*')
       .single();
@@ -138,7 +176,10 @@ export class AdminService {
         business_name: dto.business_name,
         city: dto.city,
         rccm_number: dto.rccm_number ?? null,
+        contact_person: dto.full_name ?? null,
         contact_phone: dto.contact_phone ?? null,
+        whatsapp_number: dto.whatsapp_number ?? null,
+        address: dto.address ?? null,
         contact_email: dto.contact_email,
         status: 'verified',
         verified_at: new Date().toISOString(),
