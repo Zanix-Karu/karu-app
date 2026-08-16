@@ -212,6 +212,17 @@ export class VehiclesService {
       throw new BadRequestException('Path does not belong to this vehicle');
     }
 
+    // Attach only what was actually uploaded — recording a URL for an object
+    // that never made it to storage puts a permanently broken image on the
+    // listing (and, with an angle, silently satisfies the photo gate).
+    const objectName = path.slice(vehicleId.length + 1);
+    const { data: uploaded } = await this.supabase.db.storage
+      .from(PHOTOS_BUCKET)
+      .list(vehicleId, { search: objectName, limit: 1 });
+    if (!uploaded?.some((o) => o.name === objectName)) {
+      throw new BadRequestException('Upload the file first, then attach it');
+    }
+
     const { data: pub } = this.supabase.db.storage.from(PHOTOS_BUCKET).getPublicUrl(path);
     const angles = { ...(vehicle.photo_angles ?? {}) };
     let photos = [...vehicle.photos];

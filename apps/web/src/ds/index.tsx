@@ -521,6 +521,7 @@ export function CarCard({
   subPrice,
   secondaryPrice,
   perDayLabel = 'per day',
+  viewLabel = 'View details',
   onView,
   style = {},
 }: {
@@ -540,6 +541,7 @@ export function CarCard({
   secondaryPrice?: string | null;
   /** Passed in so the design system stays free of i18n wiring. */
   perDayLabel?: string;
+  viewLabel?: string;
   onView?: () => void;
   style?: CSSProperties;
 }) {
@@ -614,7 +616,7 @@ export function CarCard({
           </div>
         </div>
         <Button variant="primary" size="sm" onClick={onView} style={{ marginTop: 4 }}>
-          View details
+          {viewLabel}
         </Button>
       </div>
     </div>

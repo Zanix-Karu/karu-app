@@ -93,6 +93,7 @@ export const en = {
     signUp: 'Sign up',
     didYouMean: 'Did you mean',
     emailsDontMatch: "Those email addresses don't match — please check both.",
+    genericError: 'Something went wrong on our side — please try again in a moment.',
     checkInbox: 'Check your inbox — confirm your email, then sign in.',
     resetSent: 'If that address has an account, a reset link is on its way.',
     customerTitle: 'Rent the right car, right where you are.',

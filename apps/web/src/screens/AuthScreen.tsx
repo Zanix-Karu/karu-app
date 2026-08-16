@@ -126,7 +126,10 @@ export function AuthScreen() {
         setNotice(t('auth.resetSent'));
       }
     } catch (err) {
-      setError((err as Error).message);
+      // Auth failures sometimes surface a raw body ("{}") or nothing at all —
+      // a person retrying their password deserves words, not JSON.
+      const message = (err as Error).message?.trim();
+      setError(message && message !== '{}' ? message : t('auth.genericError'));
     } finally {
       setBusy(false);
     }

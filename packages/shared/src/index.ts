@@ -260,6 +260,31 @@ export function missingPhotoAngles(angles: Partial<Record<PhotoAngle, string>>):
   return PHOTO_ANGLES.filter((a) => !angles[a]);
 }
 
+/**
+ * The photo that leads a listing: the front view when it exists (it's the
+ * shot that sells a car), else whatever was uploaded first.
+ */
+export function primaryPhoto(v: {
+  photos: string[];
+  photo_angles?: Partial<Record<PhotoAngle, string>> | null;
+}): string | undefined {
+  return v.photo_angles?.front ?? v.photos[0];
+}
+
+/**
+ * Gallery in presentation order: the six required angles first (front, rear,
+ * left, right, dashboard, seats), then any extra shots in upload order.
+ */
+export function orderedPhotos(v: {
+  photos: string[];
+  photo_angles?: Partial<Record<PhotoAngle, string>> | null;
+}): string[] {
+  const angles = v.photo_angles ?? {};
+  const slotUrls = PHOTO_ANGLES.map((a) => angles[a]).filter((u): u is string => !!u);
+  const slotSet = new Set(slotUrls);
+  return [...slotUrls, ...v.photos.filter((p) => !slotSet.has(p))];
+}
+
 /** Whether a car can be rented with a driver — and whether it must be. */
 export type DriverOption = 'none' | 'optional' | 'required';
 

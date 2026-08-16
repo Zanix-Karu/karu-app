@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import type { Vehicle } from '@karu/shared';
+import { primaryPhoto, type Vehicle } from '@karu/shared';
 import { api, type Page } from '../lib/api';
 import { CATEGORY_LABEL, CITY_LABEL, todayISO } from '../lib/format';
 import { Button, CarCard, Card, Field, Input, Select } from '../ds';
@@ -248,7 +248,7 @@ export function SearchScreen() {
             {cars?.map((v) => (
               <CarCard
                 key={v.id}
-                image={v.photos[0]}
+                image={primaryPhoto(v)}
                 name={`${v.make} ${v.model}`}
                 category={`${t('search.orSimilar', { category: CATEGORY_LABEL[v.category] })}${v.year ? ` · ${v.year}` : ''}`}
                 seats={v.seats ? t('common.seats', { count: v.seats }) : '—'}
@@ -257,6 +257,7 @@ export function SearchScreen() {
                 price={v.daily_rate_xaf}
                 subPrice={t('common.allFeesIn')}
                 perDayLabel={t('common.perDay')}
+                viewLabel={t('common.viewDetails')}
         secondaryPrice={secondary(v.daily_rate_xaf)}
                 onView={() =>
                   navigate(

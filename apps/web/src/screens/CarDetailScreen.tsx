@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { Booking, DeliveryType, VehicleDetail } from '@karu/shared';
-import { quoteBooking } from '@karu/shared';
+import { orderedPhotos, quoteBooking } from '@karu/shared';
 import { api } from '../lib/api';
 import { useAuth, useView } from '../lib/auth';
 import { CAN_BOOK } from '../lib/roles';
@@ -96,10 +96,10 @@ export function CarDetailScreen() {
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
       <div>
-        <CarImage photos={car.photos} alt={`${car.make} ${car.model}`} className="h-80 w-full rounded-2xl" />
+        <CarImage photos={orderedPhotos(car)} alt={`${car.make} ${car.model}`} className="h-80 w-full rounded-2xl" />
         {car.photos.length > 1 && (
           <div className="mt-3 flex gap-2 overflow-x-auto">
-            {car.photos.slice(1, 6).map((p) => (
+            {orderedPhotos(car).slice(1, 6).map((p) => (
               <img key={p} src={p} alt="" className="h-20 w-28 rounded-lg object-cover" />
             ))}
           </div>

@@ -40,6 +40,11 @@ const makeSupabase = (vehicle: Record<string, unknown>) => {
           return { data: null, error: null };
         },
         getPublicUrl: (path: string) => ({ data: { publicUrl: `${PUBLIC_BASE}/${path}` } }),
+        // Attach verifies the object landed in storage; the stub says yes.
+        list: async (_folder: string, opts?: { search?: string }) => ({
+          data: opts?.search ? [{ name: opts.search }] : [],
+          error: null,
+        }),
       }),
     },
   };

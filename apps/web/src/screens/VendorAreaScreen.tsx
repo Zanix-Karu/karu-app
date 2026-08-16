@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   missingPhotoAngles,
+  primaryPhoto,
   type Booking,
   type BookingStatus,
   type Review,
@@ -682,7 +683,7 @@ function CarRow({ car }: { car: Vehicle }) {
     <Card>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          {car.photos[0] && <img src={car.photos[0]} alt="" style={{ width: 90, height: 60, objectFit: 'contain' }} />}
+          {primaryPhoto(car) && <img src={primaryPhoto(car)} alt="" style={{ width: 90, height: 60, objectFit: 'contain' }} />}
           <div>
             <span style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 20 }}>
               {car.make} {car.model} {car.year ?? ''}

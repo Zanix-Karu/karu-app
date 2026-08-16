@@ -98,6 +98,7 @@ export const fr = {
     signUp: 'Créer un compte',
     didYouMean: 'Vouliez-vous dire',
     emailsDontMatch: 'Les deux adresses ne correspondent pas — vérifiez-les.',
+    genericError: 'Une erreur est survenue de notre côté — veuillez réessayer dans un instant.',
     checkInbox: 'Vérifiez votre boîte mail — confirmez votre adresse, puis connectez-vous.',
     resetSent: 'Si un compte existe pour cette adresse, un lien vient de partir.',
     customerTitle: 'La bonne voiture, là où vous êtes.',

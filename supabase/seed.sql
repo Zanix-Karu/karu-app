@@ -17,6 +17,19 @@ VALUES
   ('00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated', 'ahamadfalah.dev@gmail.com',       now(), '{"provider":"email","providers":["email"]}', '{"full_name":"Seed Customer","locale":"en"}', now(), now())
 ON CONFLICT DO NOTHING;
 
+-- GoTrue scans its token columns as non-null strings; rows inserted by SQL
+-- leave them NULL, which 500s every sign-in ("Database error querying
+-- schema") and even the password-reset flow. Blank them explicitly.
+UPDATE auth.users SET
+  confirmation_token         = COALESCE(confirmation_token, ''),
+  recovery_token             = COALESCE(recovery_token, ''),
+  email_change               = COALESCE(email_change, ''),
+  email_change_token_new     = COALESCE(email_change_token_new, ''),
+  email_change_token_current = COALESCE(email_change_token_current, ''),
+  phone_change               = COALESCE(phone_change, ''),
+  phone_change_token         = COALESCE(phone_change_token, ''),
+  reauthentication_token     = COALESCE(reauthentication_token, '');
+
 -- 2. Promote the team account to admin (signup can never grant this role).
 UPDATE profiles SET role = 'admin'
 WHERE id = (SELECT id FROM auth.users WHERE email = 'mnfalahahamad@gmail.com');
