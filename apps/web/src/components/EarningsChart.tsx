@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { xaf } from '../lib/format';
 
 /**
@@ -6,6 +7,7 @@ import { xaf } from '../lib/format';
  * the same series the dashboard already fetches.
  */
 export function EarningsChart({ series }: { series: Array<{ day: string; xaf: number }> }) {
+  const { t, i18n } = useTranslation();
   const W = 640;
   const H = 160;
   const PAD = 8;
@@ -22,16 +24,16 @@ export function EarningsChart({ series }: { series: Array<{ day: string; xaf: nu
   const area = `${PAD},${H - PAD} ${line} ${W - PAD},${H - PAD}`;
   const total = series.reduce((s, p) => s + p.xaf, 0);
   const label = (i: number) =>
-    new Date(`${series[i].day}T00:00:00`).toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-    });
+    new Date(`${series[i].day}T00:00:00`).toLocaleDateString(
+      i18n.language === 'fr' ? 'fr-FR' : 'en-GB',
+      { day: 'numeric', month: 'short' },
+    );
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <span style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-500)' }}>
-          Last 30 days
+          {t('vendor.chart.last30')}
         </span>
         <span style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 18 }}>
           {xaf(total)}
@@ -48,7 +50,7 @@ export function EarningsChart({ series }: { series: Array<{ day: string; xaf: nu
             textAlign: 'center',
           }}
         >
-          No completed rentals in the last 30 days yet.
+          {t('vendor.chart.empty')}
         </p>
       ) : (
         <>

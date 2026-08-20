@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMutation } from '@tanstack/react-query';
 import type { Vehicle } from '@karu/shared';
 import { api } from '../lib/api';
@@ -17,6 +18,7 @@ export function PhotoStrip({
   photos: string[];
   onChanged: () => void;
 }) {
+  const { t } = useTranslation();
   // Two-tap confirm, same idea as ConfirmButton: first tap arms one photo,
   // second tap on the same photo removes it.
   const [armedUrl, setArmedUrl] = useState<string | null>(null);
@@ -58,8 +60,8 @@ export function PhotoStrip({
             />
             <button
               type="button"
-              aria-label={armed ? 'Confirm remove photo' : 'Remove photo'}
-              title={armed ? 'Tap again to remove' : 'Remove photo'}
+              aria-label={armed ? t('vendor.strip.confirmRemove') : t('vendor.strip.remove')}
+              title={armed ? t('vendor.strip.tapAgain') : t('vendor.strip.remove')}
               disabled={remove.isPending}
               onClick={() => {
                 if (armed) {

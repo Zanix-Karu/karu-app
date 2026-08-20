@@ -1,15 +1,7 @@
+import { useTranslation } from 'react-i18next';
 import { useMutation } from '@tanstack/react-query';
 import { PHOTO_ANGLES, type PhotoAngle, type Vehicle } from '@karu/shared';
 import { api } from '../lib/api';
-
-const ANGLE_LABEL: Record<PhotoAngle, string> = {
-  front: 'Front',
-  rear: 'Rear',
-  left: 'Left side',
-  right: 'Right side',
-  dashboard: 'Dashboard',
-  seats: 'Seats',
-};
 
 /**
  * The six required photo slots (onboarding spec §5). Each slot uploads via the
@@ -25,6 +17,7 @@ export function PhotoSlots({
   angles: Partial<Record<PhotoAngle, string>>;
   onChanged: () => void;
 }) {
+  const { t } = useTranslation();
   const upload = useMutation({
     mutationFn: async ({ angle, file }: { angle: PhotoAngle; file: File }) => {
       const res = await api<{ signedUrl: string; path: string }>(`/vehicles/${vehicleId}/photos`, {
@@ -46,9 +39,7 @@ export function PhotoSlots({
   return (
     <div style={{ marginTop: 12 }}>
       <div style={{ fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700, color: missing ? 'var(--gold-600)' : 'var(--success)', marginBottom: 6 }}>
-        {missing
-          ? `Required photos — ${6 - missing}/6 (all six needed to go live)`
-          : 'Required photos — 6/6 ✓'}
+        {missing ? t('vendor.slots.progress', { count: 6 - missing }) : t('vendor.slots.done')}
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
         {PHOTO_ANGLES.map((angle) => {
@@ -57,7 +48,7 @@ export function PhotoSlots({
           return (
             <label
               key={angle}
-              title={url ? `Replace the ${ANGLE_LABEL[angle].toLowerCase()} photo` : `Upload the ${ANGLE_LABEL[angle].toLowerCase()} photo`}
+              title={t(`angle.${angle}`)}
               style={{ cursor: 'pointer', textAlign: 'center' }}
             >
               <span
@@ -75,13 +66,13 @@ export function PhotoSlots({
                 }}
               >
                 {url ? (
-                  <img src={url} alt={ANGLE_LABEL[angle]} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={url} alt={t(`angle.${angle}`)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                   <span style={{ fontFamily: 'var(--font-ui)', fontSize: 18, color: 'rgba(0,0,0,0.35)' }}>+</span>
                 )}
               </span>
               <span style={{ display: 'block', fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 600, marginTop: 3, color: url ? 'inherit' : 'var(--gray-500, #777)' }}>
-                {busy ? 'Uploading…' : ANGLE_LABEL[angle]}
+                {busy ? t('vendor.slots.uploading') : t(`angle.${angle}`)}
               </span>
               <input
                 type="file"

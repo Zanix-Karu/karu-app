@@ -1,4 +1,5 @@
 import { useState, type CSSProperties, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -36,10 +37,10 @@ interface VendorStats {
 type Section = 'dashboard' | 'bookings' | 'cars' | 'documents';
 
 const NAV = [
-  { key: 'dashboard', label: 'Dashboard', path: '/vendor' },
-  { key: 'bookings', label: 'Booking requests', path: '/vendor/bookings' },
-  { key: 'cars', label: 'My cars', path: '/vendor/cars' },
-  { key: 'documents', label: 'Documents', path: '/vendor/documents' },
+  { key: 'dashboard', label: 'vendor.nav.dashboard', path: '/vendor' },
+  { key: 'bookings', label: 'vendor.nav.bookings', path: '/vendor/bookings' },
+  { key: 'cars', label: 'vendor.nav.cars', path: '/vendor/cars' },
+  { key: 'documents', label: 'vendor.nav.documents', path: '/vendor/documents' },
 ];
 
 /** Section is derived from the URL so the rail, header nav and page agree. */
@@ -51,6 +52,7 @@ function sectionFromPath(pathname: string): Section {
 }
 
 export function VendorAreaScreen() {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const view = useView();
@@ -73,26 +75,25 @@ export function VendorAreaScreen() {
 
   const active = isAdmin ? allVendors?.find((v) => v.id === asVendorId) : vendor;
 
-  if (!isAdmin && isLoading) return <Spinner label="Loading your vendor account…" />;
+  if (!isAdmin && isLoading) return <Spinner label={t('vendor.loading')} />;
   if (!isAdmin && error) return <ErrorNote>{(error as Error).message}</ErrorNote>;
 
   if (isAdmin && !active) {
     return (
       <div>
         <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 32 }}>
-          Provider area
+          {t('vendor.providerArea')}
         </h1>
         <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 6 }}>
-          You&rsquo;re an admin, so you have no provider account of your own. Choose a provider to
-          view their dashboard as they see it.
+          {t('vendor.adminPick')}
         </p>
         <Card style={{ marginTop: 18, maxWidth: 420 }}>
-          <Field label="Provider">
+          <Field label={t('vendor.provider')}>
             <Select value={asVendorId} onChange={(e) => setAsVendorId(e.target.value)}>
-              <option value="">Choose a provider…</option>
+              <option value="">{t('vendor.chooseProvider')}</option>
               {allVendors?.map((v) => (
                 <option key={v.id} value={v.id}>
-                  {v.business_name} ({v.status})
+                  {v.business_name} ({t(`vendor.status.${v.status}`)})
                 </option>
               ))}
             </Select>
@@ -120,7 +121,9 @@ export function VendorAreaScreen() {
             {active.business_name}
           </div>
           <Badge variant={active.status === 'verified' ? 'success' : 'upcoming'} style={{ marginTop: 8 }}>
-            {active.status === 'verified' ? '✓ Verified' : `Verification ${active.status}`}
+            {active.status === 'verified'
+              ? t('vendor.verifiedBadge')
+              : t('vendor.verificationStatus', { status: t(`vendor.status.${active.status}`) })}
           </Badge>
           {isAdmin && (
             <button
@@ -128,12 +131,12 @@ export function VendorAreaScreen() {
               style={{ display: 'block', marginTop: 10, background: 'none', border: 'none', padding: 0,
                 cursor: 'pointer', fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--yellow)', textDecoration: 'underline' }}
             >
-              Switch provider
+              {t('vendor.switchProvider')}
             </button>
           )}
         </div>
         <SidebarNav
-          items={NAV}
+          items={NAV.map((n) => ({ ...n, label: t(n.label) }))}
           active={section}
           onSelect={(k) => navigate(NAV.find((n) => n.key === k)!.path)}
         />
@@ -162,6 +165,7 @@ export function VendorAreaScreen() {
  * empty dashboard with a grey badge and no idea what is expected of them.
  */
 function Onboarding({ vendor, onGo }: { vendor: Vendor; onGo: (to: string) => void }) {
+  const { t } = useTranslation();
   const { data: cars } = useQuery({
     queryKey: ['my-cars'],
     queryFn: () => api<Vehicle[]>('/vehicles/mine'),
@@ -181,38 +185,41 @@ function Onboarding({ vendor, onGo }: { vendor: Vendor; onGo: (to: string) => vo
   const steps = [
     {
       done: true,
-      title: 'Business details',
+      title: t('vendor.onboarding.step1'),
       body: `${vendor.business_name} · ${CITY_LABEL[vendor.city]}`,
       action: null as null | { label: string; to: string },
     },
     {
       done: docsUploaded && rejectedDocs.length === 0,
-      title: 'Upload your documents',
+      title: t('vendor.onboarding.step2'),
       body: rejectedDocs.length
-        ? `${rejectedDocs.length} document${rejectedDocs.length === 1 ? ' was' : 's were'} rejected — see the reviewer's note and re-upload.`
-        : "RCCM — or a national ID / passport if the business isn't registered. We review within one business day.",
-      action: { label: rejectedDocs.length ? 'Fix documents' : 'Upload documents', to: '/vendor/documents' },
+        ? t('vendor.onboarding.step2Rejected', { count: rejectedDocs.length })
+        : t('vendor.onboarding.step2Body'),
+      action: {
+        label: rejectedDocs.length ? t('vendor.onboarding.fixDocuments') : t('vendor.onboarding.uploadDocuments'),
+        to: '/vendor/documents',
+      },
     },
     {
       done: (cars?.length ?? 0) > 0,
-      title: 'Add your first car',
+      title: t('vendor.onboarding.step3'),
       body:
         (cars?.length ?? 0) > 0
-          ? `${cars!.length} car${cars!.length === 1 ? '' : 's'} added — set a listing to Active and it goes live.`
-          : 'Add a car now — it starts as a draft, and goes live once your account is verified and the listing is set to Active.',
-      action: { label: 'Add a car', to: '/vendor/cars' },
+          ? t('vendor.onboarding.step3Done', { count: cars!.length })
+          : t('vendor.onboarding.step3Body'),
+      action: { label: t('vendor.addCar'), to: '/vendor/cars' },
     },
   ];
 
   return (
     <Card style={{ marginBottom: 24, borderLeft: '4px solid var(--yellow)' }}>
       <h2 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 22 }}>
-        {rejected ? 'Your account needs attention' : 'Welcome to Karu — two steps to go live'}
+        {rejected ? t('vendor.onboarding.titleAttention') : t('vendor.onboarding.titleOk')}
       </h2>
       <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 6 }}>
         {rejected
-          ? `Verification is currently ${vendor.status}. Send us a message and we will help sort it out.`
-          : 'Add your cars and paperwork now — your listings go live to customers as soon as your account is verified.'}
+          ? t('vendor.onboarding.subAttention', { status: t(`vendor.status.${vendor.status}`) })
+          : t('vendor.onboarding.subOk')}
       </p>
 
       <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -264,6 +271,7 @@ function Onboarding({ vendor, onGo }: { vendor: Vendor; onGo: (to: string) => vo
  * option entirely — so an empty field here is a real answer, not missing data.
  */
 function DeliverySettings({ vendor }: { vendor: Vendor }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [delivery, setDelivery] = useState(vendor.delivery_fee_xaf?.toString() ?? '');
   const [airport, setAirport] = useState(vendor.airport_fee_xaf?.toString() ?? '');
@@ -283,40 +291,39 @@ function DeliverySettings({ vendor }: { vendor: Vendor }) {
   return (
     <>
       <h2 style={{ margin: '32px 0 14px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
-        Delivery
+        {t('vendor.delivery.title')}
       </h2>
       <Card>
         <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', margin: '0 0 14px' }}>
-          Most customers booking from abroad want the car brought to the airport.
-          Leave a field blank if you don&rsquo;t offer it.
+          {t('vendor.delivery.sub')}
         </p>
         <div className="karu-form-grid">
-          <Field label="Airport meet-and-greet (XAF)">
+          <Field label={t('vendor.delivery.airport')}>
             <Input
               type="number"
               min={0}
               value={airport}
               onChange={(e) => setAirport(e.target.value)}
-              placeholder="Not offered"
+              placeholder={t('vendor.delivery.notOffered')}
             />
           </Field>
-          <Field label="Delivery to an address (XAF)">
+          <Field label={t('vendor.delivery.address')}>
             <Input
               type="number"
               min={0}
               value={delivery}
               onChange={(e) => setDelivery(e.target.value)}
-              placeholder="Not offered"
+              placeholder={t('vendor.delivery.notOffered')}
             />
           </Field>
         </div>
         <Button size="sm" style={{ marginTop: 14 }} disabled={save.isPending} onClick={() => save.mutate()}>
-          {save.isPending ? 'Saving…' : 'Save delivery pricing'}
+          {save.isPending ? t('vendor.saving') : t('vendor.delivery.save')}
         </Button>
         {save.isError && <div style={{ marginTop: 10 }}><ErrorNote>{(save.error as Error).message}</ErrorNote></div>}
         {save.isSuccess && (
           <span style={{ marginLeft: 12, fontFamily: 'var(--font-ui)', fontSize: 14, fontWeight: 600, color: 'var(--success)' }}>
-            Saved ✓
+            {t('vendor.saved')}
           </span>
         )}
       </Card>
@@ -325,6 +332,7 @@ function DeliverySettings({ vendor }: { vendor: Vendor }) {
 }
 
 function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: boolean }) {
+  const { t } = useTranslation();
   const { data: stats, isLoading } = useQuery({
     queryKey: ['vendor-stats', vendor.id, asAdmin],
     queryFn: () =>
@@ -360,7 +368,8 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
     .slice(0, 5);
 
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const greeting =
+    hour < 12 ? t('vendor.greeting.morning') : hour < 18 ? t('vendor.greeting.afternoon') : t('vendor.greeting.evening');
 
   return (
     <div>
@@ -370,34 +379,34 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
         </h1>
         <div style={{ display: 'flex', gap: 10 }}>
           <Link to={`/vendors/${vendor.id}`}>
-            <Button size="sm" variant="outline">View public profile</Button>
+            <Button size="sm" variant="outline">{t('vendor.viewPublicProfile')}</Button>
           </Link>
           <Link to="/vendor/cars">
-            <Button size="sm">Add a car</Button>
+            <Button size="sm">{t('vendor.addCar')}</Button>
           </Link>
         </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginTop: 20 }}>
         <StatCard
-          label="Total earnings"
+          label={t('vendor.stats.earnings')}
           value={xaf(stats.earningsXaf)}
-          hint={`${stats.completedCount} completed rental${stats.completedCount === 1 ? '' : 's'}`}
+          hint={t('vendor.stats.completed', { count: stats.completedCount })}
           accent
         />
         <StatCard
-          label="Requests awaiting reply"
+          label={t('vendor.stats.awaiting')}
           value={stats.requestedCount}
-          hint={stats.requestedCount > 0 ? 'Confirm within 24h' : 'All caught up'}
+          hint={stats.requestedCount > 0 ? t('vendor.stats.confirm24') : t('vendor.stats.caughtUp')}
         />
-        <StatCard label="Upcoming bookings" value={stats.upcomingCount} />
+        <StatCard label={t('vendor.stats.upcoming')} value={stats.upcomingCount} />
         <StatCard
-          label="Response rate"
+          label={t('vendor.stats.responseRate')}
           value={stats.responseRate === null ? '—' : `${stats.responseRate}%`}
           hint={
             stats.responseRate === null
-              ? 'No answered requests yet'
-              : `${stats.decidedCount} request${stats.decidedCount === 1 ? '' : 's'} answered within 24h`
+              ? t('vendor.stats.noAnswered')
+              : t('vendor.stats.answered', { count: stats.decidedCount })
           }
         />
       </div>
@@ -405,20 +414,20 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16, marginTop: 20 }}>
         <Card>
           <h2 style={{ margin: '0 0 6px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 20 }}>
-            Earnings overview
+            {t('vendor.earningsOverview')}
           </h2>
           <EarningsChart series={stats.earningsSeries} />
         </Card>
 
         <Card>
           <h2 style={{ margin: '0 0 12px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 20 }}>
-            Vehicle status
+            {t('vendor.vehicleStatus')}
           </h2>
           {[
-            ['Total vehicles', stats.fleet.total, 'var(--ink)'],
-            ['Available today', stats.fleet.available, 'var(--success)'],
-            ['On a trip today', stats.fleet.booked, 'var(--gold-600)'],
-            ['Unavailable', stats.fleet.unavailable, 'var(--gray-500)'],
+            [t('vendor.fleet.total'), stats.fleet.total, 'var(--ink)'],
+            [t('vendor.fleet.available'), stats.fleet.available, 'var(--success)'],
+            [t('vendor.fleet.onTrip'), stats.fleet.booked, 'var(--gold-600)'],
+            [t('vendor.fleet.unavailable'), stats.fleet.unavailable, 'var(--gray-500)'],
           ].map(([label, value, color]) => (
             <div
               key={label as string}
@@ -439,9 +448,11 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
       </div>
 
       <h2 style={{ margin: '32px 0 14px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
-        Upcoming trips
+        {t('vendor.upcomingTrips')}
       </h2>
-      {upcoming.length === 0 && <EmptyState title="Nothing upcoming" hint="Confirmed trips appear here." />}
+      {upcoming.length === 0 && (
+        <EmptyState title={t('vendor.upcomingNone')} hint={t('vendor.upcomingNoneHint')} />
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {upcoming.map((b) => (
           <Card key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
@@ -462,10 +473,10 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
       {!asAdmin && <DeliverySettings vendor={vendor} />}
 
       <h2 style={{ margin: '32px 0 14px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
-        Recent reviews
+        {t('vendor.recentReviews')}
       </h2>
       {(!reviews || reviews.length === 0) && (
-        <EmptyState title="No reviews yet" hint="Customers can review you once a trip is completed." />
+        <EmptyState title={t('vendor.noReviews')} hint={t('vendor.noReviewsHint')} />
       )}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
         {reviews?.slice(0, 6).map((r) => (
@@ -488,22 +499,23 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
 
 // --- Booking requests ----------------------------------------------------------
 
-/** Transitions a vendor may drive, per current status. */
+/** Transitions a vendor may drive, per current status. Labels are i18n keys. */
 const VENDOR_ACTIONS: Partial<
   Record<BookingStatus, Array<{ to: BookingStatus; label: string; danger?: boolean; confirm?: string }>>
 > = {
   requested: [
-    { to: 'confirmed', label: 'Confirm' },
-    { to: 'rejected', label: 'Reject', danger: true, confirm: 'Reject this request?' },
+    { to: 'confirmed', label: 'vendor.actions.confirm' },
+    { to: 'rejected', label: 'vendor.actions.reject', danger: true, confirm: 'vendor.actions.rejectConfirm' },
   ],
   confirmed: [
-    { to: 'in_progress', label: 'Start trip' },
-    { to: 'cancelled', label: 'Cancel', danger: true, confirm: 'Cancel this booking?' },
+    { to: 'in_progress', label: 'vendor.actions.startTrip' },
+    { to: 'cancelled', label: 'vendor.actions.cancel', danger: true, confirm: 'vendor.actions.cancelConfirm' },
   ],
-  in_progress: [{ to: 'completed', label: 'Complete' }],
+  in_progress: [{ to: 'completed', label: 'vendor.actions.complete' }],
 };
 
 function VendorBookings({ asVendorId }: { asVendorId?: string }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const { data, isLoading, error } = useQuery({
     queryKey: ['my-bookings', asVendorId ?? 'self'],
@@ -532,14 +544,14 @@ function VendorBookings({ asVendorId }: { asVendorId?: string }) {
   return (
     <div>
       <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 32 }}>
-        Booking requests
+        {t('vendor.bookings.title')}
       </h1>
       <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 6 }}>
-        Confirm or decline within 24 hours. Customers see the change straight away, and we email them too.
+        {t('vendor.bookings.sub')}
       </p>
 
       {data?.length === 0 && (
-        <EmptyState title="No requests yet" hint="Requests for your cars will appear here." />
+        <EmptyState title={t('vendor.bookings.none')} hint={t('vendor.bookings.noneHint')} />
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 20 }}>
@@ -565,7 +577,7 @@ function VendorBookings({ asVendorId }: { asVendorId?: string }) {
                 to={`/bookings/${b.id}`}
                 style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 13, color: 'var(--gold-600)', textDecoration: 'underline', display: 'inline-block', marginTop: 6 }}
               >
-                View details
+                {t('common.viewDetails')}
               </Link>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -578,10 +590,10 @@ function VendorBookings({ asVendorId }: { asVendorId?: string }) {
                     size="sm"
                     variant={a.danger ? 'danger' : 'primary'}
                     disabled={transition.isPending}
-                    confirmLabel={a.confirm}
+                    confirmLabel={t(a.confirm)}
                     onConfirm={() => transition.mutate({ id: b.id, to: a.to })}
                   >
-                    {a.label}
+                    {t(a.label)}
                   </ConfirmButton>
                 ) : (
                   <Button
@@ -591,7 +603,7 @@ function VendorBookings({ asVendorId }: { asVendorId?: string }) {
                     disabled={transition.isPending}
                     onClick={() => transition.mutate({ id: b.id, to: a.to })}
                   >
-                    {a.label}
+                    {t(a.label)}
                   </Button>
                 ),
               )}
@@ -611,6 +623,7 @@ function VendorBookings({ asVendorId }: { asVendorId?: string }) {
 // --- My cars (list + wizard + photos + availability blocks) --------------------
 
 function Cars({ vendorVerified, asVendorId }: { vendorVerified: boolean; asVendorId?: string }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [adding, setAdding] = useState(false);
   const { data: cars, isLoading } = useQuery({
@@ -625,20 +638,19 @@ function Cars({ vendorVerified, asVendorId }: { vendorVerified: boolean; asVendo
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 32 }}>
-          {asVendorId ? 'Cars' : 'My cars'}
+          {asVendorId ? t('vendor.cars.titleAdmin') : t('vendor.cars.title')}
         </h1>
         {/* Adding posts to /vehicles as the caller, so it would land on the
             admin's own (non-existent) vendor record — hidden while viewing. */}
         {!asVendorId && (
           <Button size="sm" onClick={() => setAdding((v) => !v)}>
-            {adding ? 'Close' : '+ Add a car'}
+            {adding ? t('vendor.cars.close') : t('vendor.cars.add')}
           </Button>
         )}
       </div>
       {!vendorVerified && (
         <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gold-600)', marginTop: 8 }}>
-          Your account is awaiting verification — add your cars and paperwork now, but listings
-          stay hidden from customers until the Karu team approves your documents.
+          {t('vendor.cars.awaiting')}
         </p>
       )}
 
@@ -647,13 +659,16 @@ function Cars({ vendorVerified, asVendorId }: { vendorVerified: boolean; asVendo
       {isLoading && <Spinner />}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 20 }}>
         {cars?.map((c) => <CarRow key={c.id} car={c} />)}
-        {cars?.length === 0 && !adding && <EmptyState title="No cars yet" hint="Add your first car to start earning." />}
+        {cars?.length === 0 && !adding && (
+          <EmptyState title={t('vendor.cars.none')} hint={t('vendor.cars.noneHint')} />
+        )}
       </div>
     </div>
   );
 }
 
 function CarRow({ car }: { car: Vehicle }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -689,9 +704,9 @@ function CarRow({ car }: { car: Vehicle }) {
               {car.make} {car.model} {car.year ?? ''}
             </span>
             <div style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-500)', marginTop: 2 }}>
-              {CITY_LABEL[car.city]} · {CATEGORY_LABEL[car.category]} · {xaf(car.daily_rate_xaf)}/day ·{' '}
+              {CITY_LABEL[car.city]} · {CATEGORY_LABEL[car.category]} · {xaf(car.daily_rate_xaf)}/{t('vendor.cars.dayShort')} ·{' '}
               <Badge variant={car.status === 'active' ? 'success' : 'neutral'} style={{ fontSize: 11, padding: '3px 8px' }}>
-                {car.status}
+                {t(`vendor.cars.status.${car.status}`)}
               </Badge>
             </div>
           </div>
@@ -708,7 +723,7 @@ function CarRow({ car }: { car: Vehicle }) {
               border: '1.5px solid var(--ink)',
             }}
           >
-            {uploadPhoto.isPending ? 'Uploading…' : '+ Photo'}
+            {uploadPhoto.isPending ? t('vendor.cars.uploading') : t('vendor.cars.photo')}
             <input
               type="file"
               accept="image/*"
@@ -721,28 +736,28 @@ function CarRow({ car }: { car: Vehicle }) {
             />
           </label>
           <Button variant="outline" size="sm" onClick={() => setEditing((v) => !v)}>
-            {editing ? 'Close' : 'Edit'}
+            {editing ? t('vendor.cars.close') : t('vendor.cars.edit')}
           </Button>
           <Button variant="outline" size="sm" onClick={() => setOpen((v) => !v)}>
-            {open ? 'Hide availability' : 'Availability'}
+            {open ? t('vendor.cars.hideAvailability') : t('vendor.cars.availability')}
           </Button>
           <ConfirmButton
             as={Button}
             variant="danger"
             size="sm"
             disabled={retire.isPending}
-            confirmLabel="Retire this car?"
+            confirmLabel={t('vendor.cars.retireConfirm')}
             onConfirm={() => retire.mutate()}
           >
-            {retire.isPending ? 'Working…' : 'Retire'}
+            {retire.isPending ? t('vendor.cars.working') : t('vendor.cars.retire')}
           </ConfirmButton>
         </div>
       </div>
       {retire.isSuccess && (
         <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--success)', marginTop: 10 }}>
           {retire.data?.deactivated
-            ? `Taken off the marketplace — ${retire.data.bookings} booking(s) kept for your records.`
-            : 'Listing removed.'}
+            ? t('vendor.cars.retiredKept', { count: retire.data.bookings })
+            : t('vendor.cars.retiredRemoved')}
         </p>
       )}
       <PhotoSlots
@@ -763,6 +778,7 @@ function CarRow({ car }: { car: Vehicle }) {
 }
 
 function Blocks({ vehicleId }: { vehicleId: string }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const key = ['blocks', vehicleId];
   const { data: blocks } = useQuery({
@@ -790,10 +806,10 @@ function Blocks({ vehicleId }: { vehicleId: string }) {
   return (
     <div style={{ marginTop: 16, borderTop: '1px solid var(--divider)', paddingTop: 16 }}>
       <div style={{ fontFamily: 'var(--font-ui)', fontWeight: 700, fontSize: 14, marginBottom: 10 }}>
-        Blocked dates (maintenance, private use)
+        {t('vendor.blocks.title')}
       </div>
       {blocks?.length === 0 && (
-        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-400)' }}>No blocks — fully bookable.</p>
+        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-400)' }}>{t('vendor.blocks.none')}</p>
       )}
       {blocks?.map((b) => (
         <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', fontFamily: 'var(--font-ui)', fontSize: 14 }}>
@@ -802,7 +818,7 @@ function Blocks({ vehicleId }: { vehicleId: string }) {
             {b.reason ? <span style={{ color: 'var(--gray-500)' }}> · {b.reason}</span> : null}
           </span>
           <Button variant="outline" size="sm" style={{ height: 32, padding: '4px 12px', fontSize: 13 }} onClick={() => remove.mutate(b.id)}>
-            Remove
+            {t('vendor.blocks.remove')}
           </Button>
         </div>
       ))}
@@ -815,8 +831,8 @@ function Blocks({ vehicleId }: { vehicleId: string }) {
       >
         <Input type="date" required value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
         <Input type="date" required min={form.start_date} value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
-        <Input placeholder="Reason (optional)" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
-        <Button size="sm" type="submit" disabled={add.isPending}>Block</Button>
+        <Input placeholder={t('vendor.blocks.reason')} value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
+        <Button size="sm" type="submit" disabled={add.isPending}>{t('vendor.blocks.block')}</Button>
       </form>
       {add.isError && <div style={{ marginTop: 8 }}><ErrorNote>{(add.error as Error).message}</ErrorNote></div>}
     </div>
@@ -825,6 +841,7 @@ function Blocks({ vehicleId }: { vehicleId: string }) {
 
 /** Inline edit for the fields a vendor changes most. */
 function EditCar({ car, onDone }: { car: Vehicle; onDone: () => void }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [form, setForm] = useState({
     daily_rate_xaf: String(car.daily_rate_xaf),
@@ -865,7 +882,7 @@ function EditCar({ car, onDone }: { car: Vehicle; onDone: () => void }) {
           save.mutate();
         }}
       >
-        <Field label="Daily rate (XAF)">
+        <Field label={t('vendor.form.dailyRate')}>
           <Input
             type="number"
             min={1}
@@ -874,7 +891,7 @@ function EditCar({ car, onDone }: { car: Vehicle; onDone: () => void }) {
             onChange={(e) => setForm({ ...form, daily_rate_xaf: e.target.value })}
           />
         </Field>
-        <Field label="Weekly rate (XAF, optional)">
+        <Field label={t('vendor.form.weeklyRate')}>
           <Input
             type="number"
             min={1}
@@ -882,7 +899,7 @@ function EditCar({ car, onDone }: { car: Vehicle; onDone: () => void }) {
             onChange={(e) => setForm({ ...form, weekly_rate_xaf: e.target.value })}
           />
         </Field>
-        <Field label="Monthly rate (XAF, optional)">
+        <Field label={t('vendor.form.monthlyRate')}>
           <Input
             type="number"
             min={1}
@@ -890,28 +907,28 @@ function EditCar({ car, onDone }: { car: Vehicle; onDone: () => void }) {
             onChange={(e) => setForm({ ...form, monthly_rate_xaf: e.target.value })}
           />
         </Field>
-        <Field label="Listing status">
+        <Field label={t('vendor.form.status')}>
           <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as Vehicle['status'] })}>
-            <option value="active">Active — bookable</option>
-            <option value="draft">Draft — hidden</option>
-            <option value="inactive">Inactive — hidden</option>
+            <option value="active">{t('vendor.form.statusActive')}</option>
+            <option value="draft">{t('vendor.form.statusDraft')}</option>
+            <option value="inactive">{t('vendor.form.statusInactive')}</option>
           </Select>
         </Field>
-        <Field label="Pick-up points (comma-separated)" style={{ gridColumn: '1 / -1' }}>
+        <Field label={t('vendor.form.pickups')} style={{ gridColumn: '1 / -1' }}>
           <Input
             value={form.pickup_locations}
             onChange={(e) => setForm({ ...form, pickup_locations: e.target.value })}
           />
         </Field>
-        <Field label="Description" style={{ gridColumn: '1 / -1' }}>
+        <Field label={t('vendor.form.description')} style={{ gridColumn: '1 / -1' }}>
           <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
         </Field>
         <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 10 }}>
           <Button size="sm" type="submit" disabled={save.isPending}>
-            {save.isPending ? 'Saving…' : 'Save changes'}
+            {save.isPending ? t('vendor.saving') : t('vendor.form.save')}
           </Button>
           <Button size="sm" variant="outline" type="button" onClick={onDone}>
-            Cancel
+            {t('vendor.form.cancel')}
           </Button>
         </div>
       </form>
@@ -922,9 +939,9 @@ function EditCar({ car, onDone }: { car: Vehicle; onDone: () => void }) {
 
 // --- Add-car wizard (mockup StepNav flow) ---------------------------------------
 
-const STEPS = ['Car details', 'Pricing', 'Review'];
-
 function AddCarWizard({ onDone }: { onDone: () => void }) {
+  const { t } = useTranslation();
+  const steps = [t('vendor.wizard.stepDetails'), t('vendor.wizard.stepPricing'), t('vendor.wizard.stepReview')];
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     make: '',
@@ -986,15 +1003,15 @@ function AddCarWizard({ onDone }: { onDone: () => void }) {
 
   return (
     <Card style={{ marginTop: 20 }}>
-      <StepNav steps={STEPS} current={step} style={{ marginBottom: 22 }} />
+      <StepNav steps={steps} current={step} style={{ marginBottom: 22 }} />
 
       {step === 0 && (
         <div className="karu-form-grid">
-          <Field label="Make"><Input required value={form.make} onChange={(e) => setForm({ ...form, make: e.target.value })} /></Field>
-          <Field label="Model"><Input required value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} /></Field>
-          <Field label="Year"><Input type="number" min={1980} required value={form.year} onChange={(e) => setForm({ ...form, year: e.target.value })} /></Field>
-          <Field label="Seats"><Input type="number" min={1} required value={form.seats} onChange={(e) => setForm({ ...form, seats: e.target.value })} /></Field>
-          <Field label="Number plate">
+          <Field label={t('vendor.form.make')}><Input required value={form.make} onChange={(e) => setForm({ ...form, make: e.target.value })} /></Field>
+          <Field label={t('vendor.form.model')}><Input required value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} /></Field>
+          <Field label={t('vendor.form.year')}><Input type="number" min={1980} required value={form.year} onChange={(e) => setForm({ ...form, year: e.target.value })} /></Field>
+          <Field label={t('vendor.form.seats')}><Input type="number" min={1} required value={form.seats} onChange={(e) => setForm({ ...form, seats: e.target.value })} /></Field>
+          <Field label={t('vendor.form.plate')}>
             <Input
               required
               value={form.registration_number}
@@ -1002,26 +1019,26 @@ function AddCarWizard({ onDone }: { onDone: () => void }) {
               placeholder="LT 1234 AB"
             />
           </Field>
-          <Field label="Fuel">
+          <Field label={t('vendor.form.fuel')}>
             <Select value={form.fuel_type} onChange={(e) => setForm({ ...form, fuel_type: e.target.value })}>
-              <option value="petrol">Petrol</option>
-              <option value="diesel">Diesel</option>
-              <option value="hybrid">Hybrid</option>
-              <option value="electric">Electric</option>
+              <option value="petrol">{t('common.fuel.petrol')}</option>
+              <option value="diesel">{t('common.fuel.diesel')}</option>
+              <option value="hybrid">{t('common.fuel.hybrid')}</option>
+              <option value="electric">{t('common.fuel.electric')}</option>
             </Select>
           </Field>
-          <Field label="Type">
+          <Field label={t('vendor.form.type')}>
             <Select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
               {Object.entries(CATEGORY_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </Select>
           </Field>
-          <Field label="Gearbox">
+          <Field label={t('vendor.form.gearbox')}>
             <Select value={form.transmission} onChange={(e) => setForm({ ...form, transmission: e.target.value })}>
-              <option value="manual">Manual</option>
-              <option value="automatic">Automatic</option>
+              <option value="manual">{t('common.manual')}</option>
+              <option value="automatic">{t('common.automatic')}</option>
             </Select>
           </Field>
-          <Field label="Description" style={{ gridColumn: '1 / -1' }}>
+          <Field label={t('vendor.form.description')} style={{ gridColumn: '1 / -1' }}>
             <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           </Field>
         </div>
@@ -1029,34 +1046,34 @@ function AddCarWizard({ onDone }: { onDone: () => void }) {
 
       {step === 1 && (
         <div className="karu-form-grid">
-          <Field label="Daily rate (XAF)">
+          <Field label={t('vendor.form.dailyRate')}>
             <Input type="number" min={1} required value={form.daily_rate_xaf} onChange={(e) => setForm({ ...form, daily_rate_xaf: e.target.value })} />
           </Field>
-          <Field label="City">
+          <Field label={t('vendor.form.city')}>
             <Select value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })}>
-              <option value="douala">Douala</option>
-              <option value="yaounde">Yaoundé</option>
-              <option value="other">Other</option>
+              <option value="douala">{t('city.douala')}</option>
+              <option value="yaounde">{t('city.yaounde')}</option>
+              <option value="other">{t('city.other')}</option>
             </Select>
           </Field>
-          <Field label="Weekly rate (XAF, optional)">
-            <Input type="number" min={1} value={form.weekly_rate_xaf} onChange={(e) => setForm({ ...form, weekly_rate_xaf: e.target.value })} placeholder="Leave blank for daily x 7" />
+          <Field label={t('vendor.form.weeklyRate')}>
+            <Input type="number" min={1} value={form.weekly_rate_xaf} onChange={(e) => setForm({ ...form, weekly_rate_xaf: e.target.value })} placeholder={t('vendor.form.weeklyPlaceholder')} />
           </Field>
-          <Field label="Monthly rate (XAF, optional)">
-            <Input type="number" min={1} value={form.monthly_rate_xaf} onChange={(e) => setForm({ ...form, monthly_rate_xaf: e.target.value })} placeholder="Leave blank for daily x 30" />
+          <Field label={t('vendor.form.monthlyRate')}>
+            <Input type="number" min={1} value={form.monthly_rate_xaf} onChange={(e) => setForm({ ...form, monthly_rate_xaf: e.target.value })} placeholder={t('vendor.form.monthlyPlaceholder')} />
           </Field>
-          <Field label="Driver">
+          <Field label={t('vendor.form.driver')}>
             <Select
               value={form.driver_option}
               onChange={(e) => setForm({ ...form, driver_option: e.target.value })}
             >
-              <option value="none">Self-drive only</option>
-              <option value="optional">Driver available (customer chooses)</option>
-              <option value="required">Always with a driver</option>
+              <option value="none">{t('vendor.form.driverNone')}</option>
+              <option value="optional">{t('vendor.form.driverOptional')}</option>
+              <option value="required">{t('vendor.form.driverRequired')}</option>
             </Select>
           </Field>
           {form.driver_option !== 'none' && (
-            <Field label="Driver rate per day (XAF)">
+            <Field label={t('vendor.form.driverRate')}>
               <Input
                 type="number"
                 min={1}
@@ -1067,7 +1084,7 @@ function AddCarWizard({ onDone }: { onDone: () => void }) {
               />
             </Field>
           )}
-          <Field label="Pick-up points (comma-separated)" style={{ gridColumn: '1 / -1' }}>
+          <Field label={t('vendor.form.pickups')} style={{ gridColumn: '1 / -1' }}>
             <Input value={form.pickup_locations} onChange={(e) => setForm({ ...form, pickup_locations: e.target.value })} placeholder="Douala International Airport, Akwa" />
           </Field>
         </div>
@@ -1079,17 +1096,19 @@ function AddCarWizard({ onDone }: { onDone: () => void }) {
             {form.make} {form.model} {form.year}
           </strong>
           <br />
-          {CATEGORY_LABEL[form.category]} · {form.seats || '—'} seats · {form.transmission} · {form.fuel_type} · {CITY_LABEL[form.city]}
+          {CATEGORY_LABEL[form.category]}
+          {form.seats ? <> · {t('common.seats', { count: Number(form.seats) })}</> : null} ·{' '}
+          {form.transmission === 'automatic' ? t('common.automatic') : t('common.manual')} ·{' '}
+          {t(`common.fuel.${form.fuel_type}`)} · {CITY_LABEL[form.city]}
           <br />
-          Plate: {form.registration_number || '—'}
+          {t('vendor.wizard.plate')} {form.registration_number || '—'}
           <br />
-          {form.daily_rate_xaf ? xaf(Number(form.daily_rate_xaf)) : '—'} per day
-          {form.weekly_rate_xaf && <> · {xaf(Number(form.weekly_rate_xaf))} per week</>}
-          {form.monthly_rate_xaf && <> · {xaf(Number(form.monthly_rate_xaf))} per month</>}
-          {form.pickup_locations && <><br />Pick-up: {form.pickup_locations}</>}
+          {form.daily_rate_xaf ? xaf(Number(form.daily_rate_xaf)) : '—'} {t('common.perDay')}
+          {form.weekly_rate_xaf && <> · {xaf(Number(form.weekly_rate_xaf))} {t('vendor.wizard.perWeek')}</>}
+          {form.monthly_rate_xaf && <> · {xaf(Number(form.monthly_rate_xaf))} {t('vendor.wizard.perMonth')}</>}
+          {form.pickup_locations && <><br />{t('vendor.wizard.pickup')} {form.pickup_locations}</>}
           <p style={{ color: 'var(--gray-500)', fontSize: 13 }}>
-            The listing is created as a draft — add the six required photos (front, rear, left,
-            right, dashboard, seats), then set it to Active from My cars to go live.
+            {t('vendor.wizard.draftNote')}
           </p>
         </div>
       )}
@@ -1098,15 +1117,15 @@ function AddCarWizard({ onDone }: { onDone: () => void }) {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 22 }}>
         <Button variant="outline" size="sm" onClick={() => (step === 0 ? onDone() : setStep(step - 1))}>
-          {step === 0 ? 'Cancel' : 'Back'}
+          {step === 0 ? t('vendor.wizard.cancel') : t('vendor.wizard.back')}
         </Button>
         {step < 2 ? (
           <Button size="sm" disabled={step === 0 ? !detailsOk : !pricingOk} onClick={() => setStep(step + 1)}>
-            Continue
+            {t('vendor.wizard.continue')}
           </Button>
         ) : (
           <Button size="sm" disabled={create.isPending} onClick={() => create.mutate()}>
-            {create.isPending ? 'Creating…' : 'Create listing'}
+            {create.isPending ? t('vendor.wizard.creating') : t('vendor.wizard.create')}
           </Button>
         )}
       </div>
@@ -1117,17 +1136,13 @@ function AddCarWizard({ onDone }: { onDone: () => void }) {
 // --- Documents -------------------------------------------------------------------
 
 /** Business/identity paperwork — scoped to the vendor. One of these unblocks review. */
-const BUSINESS_DOCS = [
-  { type: 'rccm', label: 'RCCM (business registration)' },
-  { type: 'national_id', label: 'National ID — if the business is not registered' },
-  { type: 'passport', label: 'Passport — alternative identity document' },
-] as const;
+const BUSINESS_DOCS = ['rccm', 'national_id', 'passport'] as const;
 
 /** Car paperwork — each certificate legally covers one car. */
 const VEHICLE_DOCS = [
-  { type: 'carte_grise', label: 'Carte grise (registration)', expires: false },
-  { type: 'insurance', label: 'Insurance certificate', expires: true },
-  { type: 'roadworthiness', label: 'Roadworthiness inspection', expires: true },
+  { type: 'carte_grise', expires: false },
+  { type: 'insurance', expires: true },
+  { type: 'roadworthiness', expires: true },
 ] as const;
 
 const sectionTitle: CSSProperties = {
@@ -1138,6 +1153,7 @@ const sectionTitle: CSSProperties = {
 };
 
 function Documents({ asVendor }: { asVendor?: Vendor }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
 
   // Both sides of the desk see the same paperwork: an admin reads it via the
@@ -1208,16 +1224,15 @@ function Documents({ asVendor }: { asVendor?: Vendor }) {
 
   return (
     <div>
-      <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 32 }}>Verification documents</h1>
+      <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 32 }}>{t('vendor.docs.title')}</h1>
       <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 6 }}>
         {asVendor ? (
           <>
-            {asVendor.business_name}&rsquo;s paperwork. Upload what the team has collected, then
-            approve or reject in{' '}
-            <Link to="/admin/documents" style={{ color: 'var(--gold-600)', fontWeight: 600 }}>the review queue</Link>.
+            {t('vendor.docs.subAdmin', { name: asVendor.business_name })}
+            <Link to="/admin/documents" style={{ color: 'var(--gold-600)', fontWeight: 600 }}>{t('vendor.docs.reviewQueue')}</Link>.
           </>
         ) : (
-          'Upload each document — the Karu team reviews within one business day. Re-uploading restarts a review.'
+          t('vendor.docs.subVendor')
         )}
       </p>
       {isLoading && <Spinner />}
@@ -1226,29 +1241,29 @@ function Documents({ asVendor }: { asVendor?: Vendor }) {
         <VerificationChecklist vendor={asVendor} docs={docs} cars={cars} />
       )}
 
-      <h2 style={sectionTitle}>Business &amp; identity</h2>
+      <h2 style={sectionTitle}>{t('vendor.docs.businessTitle')}</h2>
       <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-500)', margin: '0 0 12px' }}>
-        Provide the RCCM — or a national ID or passport if the business is not registered.
+        {t('vendor.docs.businessHint')}
       </p>
       <Card style={{ maxWidth: 640 }}>
-        {BUSINESS_DOCS.map((d, i) => (
+        {BUSINESS_DOCS.map((type, i) => (
           <DocRow
-            key={d.type}
+            key={type}
             first={i === 0}
-            label={d.label}
-            doc={findDoc(d.type)}
+            label={t(`vendor.docs.type.${type}`)}
+            doc={findDoc(type)}
             pending={upload.isPending}
-            onUpload={(file) => upload.mutate({ type: d.type, file })}
+            onUpload={(file) => upload.mutate({ type, file })}
           />
         ))}
       </Card>
 
-      <h2 style={sectionTitle}>Per-vehicle documents</h2>
+      <h2 style={sectionTitle}>{t('vendor.docs.perVehicleTitle')}</h2>
       <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-500)', margin: '0 0 12px' }}>
-        Each car needs its carte grise, a valid insurance certificate and a roadworthiness inspection.
+        {t('vendor.docs.perVehicleHint')}
       </p>
       {cars?.length === 0 && (
-        <EmptyState title="No cars yet" hint="Add a car first — its paperwork is uploaded here afterwards." />
+        <EmptyState title={t('vendor.cars.none')} hint={t('vendor.docs.noCarsHint')} />
       )}
       <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
         {cars?.map((car) => (
@@ -1264,7 +1279,7 @@ function Documents({ asVendor }: { asVendor?: Vendor }) {
             {VEHICLE_DOCS.map((d) => (
               <DocRow
                 key={d.type}
-                label={d.label}
+                label={t(`vendor.docs.type.${d.type}`)}
                 doc={findDoc(d.type, car.id)}
                 withExpiry={d.expires}
                 pending={upload.isPending}
@@ -1279,16 +1294,16 @@ function Documents({ asVendor }: { asVendor?: Vendor }) {
 
       {legacyDocs.length > 0 && (
         <>
-          <h2 style={sectionTitle}>Fleet-wide documents (legacy)</h2>
+          <h2 style={sectionTitle}>{t('vendor.docs.legacyTitle')}</h2>
           <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-500)', margin: '0 0 12px' }}>
-            Uploaded before paperwork was tracked per car. New uploads go on the car they cover.
+            {t('vendor.docs.legacyHint')}
           </p>
           <Card style={{ maxWidth: 640 }}>
             {legacyDocs.map((d, i) => (
               <DocRow
                 key={d.id}
                 first={i === 0}
-                label={VEHICLE_DOCS.find((v) => v.type === d.type)?.label ?? d.type}
+                label={t(`vendor.docs.type.${d.type}`)}
                 doc={d}
                 pending={false}
               />
@@ -1300,7 +1315,7 @@ function Documents({ asVendor }: { asVendor?: Vendor }) {
       {upload.isError && <div style={{ marginTop: 12 }}><ErrorNote>{(upload.error as Error).message}</ErrorNote></div>}
       {upload.isSuccess && (
         <p style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 14, color: 'var(--success)', marginTop: 12 }}>
-          Document received — pending review ✓
+          {t('vendor.docs.received')}
         </p>
       )}
     </div>
@@ -1321,6 +1336,7 @@ function VerificationChecklist({
   docs: VendorDocument[];
   cars: Vehicle[];
 }) {
+  const { t } = useTranslation();
   // A fleet-wide (legacy, pre-per-vehicle) approval counts for every car.
   const approved = (type: VendorDocument['type'], vehicleId?: string) =>
     docs.some(
@@ -1350,14 +1366,15 @@ function VerificationChecklist({
   return (
     <Card style={{ maxWidth: 640, marginTop: 16, borderLeft: '4px solid var(--yellow)' }}>
       <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 17 }}>
-        Verification status <span style={{ fontWeight: 400, fontSize: 13, color: 'var(--gray-500)' }}>(internal)</span>
+        {t('vendor.checklist.title')}{' '}
+        <span style={{ fontWeight: 400, fontSize: 13, color: 'var(--gray-500)' }}>{t('vendor.checklist.internal')}</span>
       </div>
       <div style={{ marginTop: 8 }}>
-        <div style={row}>{tick(identityVerified)} Identity verified</div>
+        <div style={row}>{tick(identityVerified)} {t('vendor.checklist.identity')}</div>
         <div style={row}>
-          {tick(businessVerified)} Business verified (RCCM)
+          {tick(businessVerified)} {t('vendor.checklist.business')}
           {!businessVerified && identityVerified && (
-            <span style={{ fontSize: 12, color: 'var(--gray-500)' }}>— operating on an identity document</span>
+            <span style={{ fontSize: 12, color: 'var(--gray-500)' }}>{t('vendor.checklist.identityOnly')}</span>
           )}
         </div>
         {cars.map((car) => {
@@ -1374,18 +1391,19 @@ function VerificationChecklist({
                 {car.make} {car.model}
                 {car.registration_number ? ` (${car.registration_number})` : ''}:{' '}
                 <span style={{ color: 'var(--gray-500)' }}>
-                  registration {approved('carte_grise', car.id) ? '✓' : '☐'} · insurance{' '}
-                  {approved('insurance', car.id) ? '✓' : '☐'} · roadworthiness{' '}
-                  {approved('roadworthiness', car.id) ? '✓' : '☐'} · photos {6 - photosMissing}/6
+                  {t('vendor.checklist.registration')} {approved('carte_grise', car.id) ? '✓' : '☐'} ·{' '}
+                  {t('vendor.checklist.insurance')} {approved('insurance', car.id) ? '✓' : '☐'} ·{' '}
+                  {t('vendor.checklist.roadworthiness')} {approved('roadworthiness', car.id) ? '✓' : '☐'} ·{' '}
+                  {t('vendor.checklist.photos')} {6 - photosMissing}/6
                 </span>
               </span>
             </div>
           );
         })}
         {cars.length === 0 && (
-          <div style={{ ...row, color: 'var(--gray-500)' }}>No cars yet — vehicle checks appear per car.</div>
+          <div style={{ ...row, color: 'var(--gray-500)' }}>{t('vendor.checklist.noCars')}</div>
         )}
-        <div style={row}>{tick(vendor.status === 'verified')} Vendor approved</div>
+        <div style={row}>{tick(vendor.status === 'verified')} {t('vendor.checklist.approved')}</div>
       </div>
     </Card>
   );
@@ -1411,6 +1429,7 @@ function DocRow({
   pending: boolean;
   first?: boolean;
 }) {
+  const { t } = useTranslation();
   const [expiresAt, setExpiresAt] = useState('');
 
   const statusColor =
@@ -1425,15 +1444,17 @@ function DocRow({
         <span style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 14 }}>{label}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <span style={{ fontFamily: 'var(--font-ui)', fontSize: 13, fontWeight: 700, color: statusColor }}>
-            {doc ? doc.status : 'not uploaded'}
+            {doc ? t(`vendor.docs.status.${doc.status}`) : t('vendor.docs.status.notUploaded')}
             {doc?.expires_at && (
-              <span style={{ fontWeight: 500, color: 'var(--gray-500)' }}> · until {prettyDate(doc.expires_at)}</span>
+              <span style={{ fontWeight: 500, color: 'var(--gray-500)' }}>
+                {' '}· {t('vendor.docs.until', { date: prettyDate(doc.expires_at) })}
+              </span>
             )}
           </span>
           {onUpload && withExpiry && (
             <input
               type="date"
-              aria-label={`${label} expiry date`}
+              aria-label={t('vendor.docs.expiryAria', { label })}
               value={expiresAt}
               onChange={(e) => setExpiresAt(e.target.value)}
               style={{
@@ -1458,7 +1479,13 @@ function DocRow({
                 color: 'var(--ink)',
               }}
             >
-              {pending ? 'Uploading…' : doc?.status === 'rejected' ? 'Re-upload' : doc ? 'Replace' : 'Upload'}
+              {pending
+                ? t('vendor.docs.uploading')
+                : doc?.status === 'rejected'
+                  ? t('vendor.docs.reupload')
+                  : doc
+                    ? t('vendor.docs.replace')
+                    : t('vendor.docs.upload')}
               <input
                 type="file"
                 accept="image/*,.pdf"
@@ -1475,7 +1502,7 @@ function DocRow({
       </div>
       {doc?.status === 'rejected' && (
         <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--danger, #c0392b)', marginTop: 6, marginBottom: 0 }}>
-          {doc.notes ? <>Reviewer&rsquo;s note: {doc.notes}</> : 'Rejected — upload a clearer or more recent document.'}
+          {doc.notes ? t('vendor.docs.reviewerNote', { note: doc.notes }) : t('vendor.docs.rejectedFallback')}
         </p>
       )}
     </div>
