@@ -21,7 +21,9 @@ COPY apps/api apps/api
 RUN pnpm --filter @karu/api run build
 
 # Standalone production bundle: package + prod-only node_modules + dist.
-RUN pnpm --filter @karu/api deploy --prod /out
+# --legacy: pnpm v10 otherwise demands inject-workspace-packages, which this
+# workspace doesn't use; dist already inlines @karu/shared via tsc-alias.
+RUN pnpm --filter @karu/api deploy --legacy --prod /out
 
 FROM node:24-alpine
 ENV NODE_ENV=production
