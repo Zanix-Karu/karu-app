@@ -39,5 +39,5 @@ jobs:
         run: pnpm --filter @karu/web run build
         env:
           VITE_API_URL: https://api.getkaru.io
-          VITE_SUPABASE_URL: https://zxvshmicnufitxquogsw.supabase.co
+          VITE_SUPABASE_URL: https://oxjkrfcwffdkycrstnxz.supabase.co
           VITE_SUPABASE_ANON_KEY: ci-placeholder

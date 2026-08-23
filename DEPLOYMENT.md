@@ -7,11 +7,12 @@ Two subdomains, two deploy targets:
 | `app.getkaru.io` | `apps/web` (Vite SPA) | Vercel |
 | `api.getkaru.io` | `apps/api` (NestJS, Docker) | Railway / Render / Fly.io |
 
-The database is the existing Supabase project `karu-app`
-(`zxvshmicnufitxquogsw`, eu-west-3) — nothing to deploy there beyond
-migrations: run `supabase db push` against it so the hosted schema matches
-`supabase/migrations/` (it was last pushed at 0013; 0014–0017 add the
-signup-trigger fix, role grants, driver/delivery, and booking chat).
+The database is the Supabase project `karu-app`
+(`oxjkrfcwffdkycrstnxz`, eu-west-3, org zanix.karu@gmail.com). Recreated on
+2026-08-23 — the original project (`oxjkrfcwffdkycrstnxz`) was deleted — and
+the full schema 0001–0019 is applied, with `schema_migrations` versions
+matching the file numbering, so a plain `supabase db push` applies future
+migrations cleanly.
 
 > **Migration renumbering (2026-08-12):** two files used to share version
 > `0014`, which breaks `db push` with a duplicate-key error on
@@ -32,7 +33,7 @@ Environment variables (all of them — the app fails fast if one is missing):
 
 | Var | Value |
 | --- | --- |
-| `SUPABASE_URL` | `https://zxvshmicnufitxquogsw.supabase.co` |
+| `SUPABASE_URL` | `https://oxjkrfcwffdkycrstnxz.supabase.co` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Dashboard → Project Settings → API keys (never in git) |
 | `SUPABASE_JWT_SECRET` | optional — only needed for legacy HS256 tokens; new tokens verify via JWKS |
 | `CORS_ORIGIN` | `https://app.getkaru.io` |
@@ -60,7 +61,7 @@ Environment variables:
 | Var | Value |
 | --- | --- |
 | `VITE_API_URL` | `https://api.getkaru.io` |
-| `VITE_SUPABASE_URL` | `https://zxvshmicnufitxquogsw.supabase.co` |
+| `VITE_SUPABASE_URL` | `https://oxjkrfcwffdkycrstnxz.supabase.co` |
 | `VITE_SUPABASE_ANON_KEY` | anon key (safe to expose; RLS-gated) |
 
 DNS: `CNAME app → cname.vercel-dns.com`, then add `app.getkaru.io` as the
