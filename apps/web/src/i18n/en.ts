@@ -675,6 +675,12 @@ export const en = {
     filterStatus: 'Filter by status',
     all: 'All',
     overview: {
+      needsAttention: 'Needs attention',
+      alertStale: '{{count}} booking request(s) within 4h of the {{hours}}h reply window',
+      alertDocuments: '{{count}} document(s) waiting on review',
+      alertVendors: '{{count}} provider(s) awaiting verification',
+      alertChats: '{{count}} conversation(s) with unread messages',
+      pendingDocuments: 'Documents to review',
       requests: 'Booking requests awaiting action',
       pendingVendors: 'Vendors awaiting verification',
       activeCars: 'Active cars',

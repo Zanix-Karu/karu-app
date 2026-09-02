@@ -680,6 +680,12 @@ export const fr = {
     filterStatus: 'Filtrer par statut',
     all: 'Tous',
     overview: {
+      needsAttention: 'Requiert votre attention',
+      alertStale: '{{count}} demande(s) de r\u00e9servation \u00e0 moins de 4h de la limite de {{hours}}h',
+      alertDocuments: '{{count}} document(s) en attente de v\u00e9rification',
+      alertVendors: '{{count}} prestataire(s) en attente de validation',
+      alertChats: '{{count}} conversation(s) avec des messages non lus',
+      pendingDocuments: 'Documents \u00e0 examiner',
       requests: 'Demandes de réservation à traiter',
       pendingVendors: 'Loueurs en attente de vérification',
       activeCars: 'Voitures actives',

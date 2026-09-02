@@ -245,6 +245,23 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
+# FEAT-5: branded confirmation and recovery mail. These were commented out, so
+# both arrived as Supabase Auth's default — plain, unbranded, and signed by a
+# vendor the recipient has never heard of, which is exactly the shape of a
+# phishing mail people are told to ignore.
+#
+# NOTE: config.toml drives the LOCAL stack. Production reads its templates from
+# the Supabase dashboard (Authentication -> Emails), so these two files have to
+# be pasted there as well — along with the sender name — or prod keeps sending
+# the defaults.
+[auth.email.template.confirmation]
+subject = "Confirm your email · Karu"
+content_path = "./supabase/templates/confirm-signup.html"
+
+[auth.email.template.recovery]
+subject = "Reset your Karu password"
+content_path = "./supabase/templates/reset-password.html"
+
 # Uncomment to customize email template
 # [auth.email.template.invite]
 # subject = "You have been invited"

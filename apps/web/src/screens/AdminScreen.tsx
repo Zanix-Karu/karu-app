@@ -88,10 +88,21 @@ interface OverviewData {
   requestedBookings: number;
   activeVehicles: number;
   customers: number;
+  pendingDocuments: number;
+  staleRequests: number;
+  replyWindowHours: number;
 }
 
 function Overview() {
   const { t } = useTranslation();
+  // Reuses the Chats tab's query rather than adding a second aggregation on the
+  // API: react-query serves it from cache when that tab has already been open.
+  const { data: conversations } = useQuery({
+    queryKey: ['admin-conversations'],
+    queryFn: () => api<Array<{ unread_count: number }>>('/messages/admin/conversations'),
+  });
+  const unansweredChats = (conversations ?? []).filter((c) => c.unread_count > 0).length;
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-overview'],
     queryFn: () => api<OverviewData>('/admin/overview'),
@@ -109,12 +120,43 @@ function Overview() {
     </Card>
   );
 
+  // FEAT-6: one line at the top for anything actually decaying, so the console
+  // says what needs doing rather than only what exists. Counters alone do not
+  // distinguish "three requests came in" from "three requests are about to
+  // breach the reply window".
+  const alerts = [
+    data.staleRequests > 0 &&
+      t('admin.overview.alertStale', {
+        count: data.staleRequests,
+        hours: data.replyWindowHours,
+      }),
+    data.pendingDocuments > 0 &&
+      t('admin.overview.alertDocuments', { count: data.pendingDocuments }),
+    data.pendingVendors > 0 &&
+      t('admin.overview.alertVendors', { count: data.pendingVendors }),
+    unansweredChats > 0 && t('admin.overview.alertChats', { count: unansweredChats }),
+  ].filter(Boolean) as string[];
+
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {stat(t('admin.overview.requests'), data.requestedBookings, true)}
-      {stat(t('admin.overview.pendingVendors'), data.pendingVendors, true)}
-      {stat(t('admin.overview.activeCars'), data.activeVehicles)}
-      {stat(t('admin.overview.customers'), data.customers)}
+    <div className="space-y-4">
+      {alerts.length > 0 && (
+        <Card className="border-l-4 border-karu-terracotta p-4">
+          <p className="text-sm font-semibold">{t('admin.overview.needsAttention')}</p>
+          <ul className="mt-2 space-y-1 text-sm text-karu-mute">
+            {alerts.map((a) => (
+              <li key={a}>{a}</li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {stat(t('admin.overview.requests'), data.requestedBookings, true)}
+        {stat(t('admin.overview.pendingVendors'), data.pendingVendors, true)}
+        {stat(t('admin.overview.pendingDocuments'), data.pendingDocuments, true)}
+        {stat(t('admin.overview.activeCars'), data.activeVehicles)}
+        {stat(t('admin.overview.customers'), data.customers)}
+      </div>
     </div>
   );
 }

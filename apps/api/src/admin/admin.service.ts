@@ -35,13 +35,51 @@ export class AdminService {
       return n ?? 0;
     };
 
-    const [pendingVendors, requestedBookings, activeVehicles, customers] = await Promise.all([
+    // FEAT-6: the console showed totals but nothing that decays. A request
+    // sitting unanswered and a document waiting on review are the two things
+    // where the cost is measured in the customer's patience, so they get their
+    // own counters rather than being buried inside "requested bookings".
+    const REPLY_WINDOW_HOURS = 24;
+    const WARN_AFTER_HOURS = 20;
+    const staleBefore = new Date(
+      Date.now() - WARN_AFTER_HOURS * 60 * 60 * 1000,
+    ).toISOString();
+
+    const staleRequestCount = async () => {
+      const { count: n, error } = await this.supabase.db
+        .from('bookings')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'requested')
+        .lt('created_at', staleBefore);
+      if (error) throw new BadRequestException(error.message);
+      return n ?? 0;
+    };
+
+    const [
+      pendingVendors,
+      requestedBookings,
+      activeVehicles,
+      customers,
+      pendingDocuments,
+      staleRequests,
+    ] = await Promise.all([
       count('vendors', { status: 'pending' }),
       count('bookings', { status: 'requested' }),
       count('vehicles', { status: 'active' }),
       count('profiles', { role: 'customer' }),
+      count('vendor_documents', { status: 'pending' }),
+      staleRequestCount(),
     ]);
-    return { pendingVendors, requestedBookings, activeVehicles, customers };
+    return {
+      pendingVendors,
+      requestedBookings,
+      activeVehicles,
+      customers,
+      pendingDocuments,
+      /** Requested bookings within 4h of the 24h reply window closing. */
+      staleRequests,
+      replyWindowHours: REPLY_WINDOW_HOURS,
+    };
   }
 
   // --- vendor verification ---------------------------------------------------
