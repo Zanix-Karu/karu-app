@@ -123,8 +123,13 @@ export function VendorProfileScreen() {
               {vendor.business_name}
             </h1>
             <p style={{ margin: '6px 0 0', fontFamily: 'var(--font-ui)', color: 'var(--text-on-dark-muted)' }}>
+              {/*
+                No phone here: this header renders to logged-out visitors, and
+                the provider signup page promises that a vendor's number stays
+                private with contact routed through Karu. The API no longer
+                sends it either (vendors.service listPublic).
+              */}
               {CITY_LABEL[vendor.city]}
-              {vendor.contact_phone ? ` · ${vendor.contact_phone}` : ''}
             </p>
             <div style={{ marginTop: 10 }}>
               {vendor.rating?.average != null ? (

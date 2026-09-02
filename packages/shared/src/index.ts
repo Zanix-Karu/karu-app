@@ -229,6 +229,27 @@ export interface Vendor {
   updated_at: string;
 }
 
+/**
+ * What an unauthenticated caller may see about a vendor.
+ *
+ * SECURITY: deliberately omits `contact_person`, `contact_phone`,
+ * `contact_email`, `whatsapp_number`, `address` and the internal `profile_id`.
+ * The "List your car" page promises a provider that "your phone number stays
+ * private … all contact runs through Karu", and `GET /api/vendors` is public —
+ * so the public projection has to keep that promise. Contact details reach a
+ * customer only through a booking they are party to.
+ */
+export type PublicVendor = Omit<
+  Vendor,
+  | 'profile_id'
+  | 'contact_person'
+  | 'contact_phone'
+  | 'contact_email'
+  | 'whatsapp_number'
+  | 'address'
+  | 'rccm_number'
+>;
+
 export interface VendorDocument {
   id: string;
   vendor_id: string;

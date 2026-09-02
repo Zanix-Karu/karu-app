@@ -5,7 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { VEHICLE_DOCUMENT_TYPES, type RatingSummary, type Vendor } from '@karu/shared';
+import {
+  VEHICLE_DOCUMENT_TYPES,
+  type PublicVendor,
+  type RatingSummary,
+  type Vendor,
+} from '@karu/shared';
 import { SupabaseService } from '../supabase/supabase.service';
 import { ReviewsService } from '../reviews/reviews.service';
 import { CreateVendorDto, UploadDocumentDto } from './dto';
@@ -317,21 +322,28 @@ export class VendorsService {
   /**
    * Public directory of verified vendors, each with its aggregate rating.
    * Verification is a gate (onboarding spec §12) — pending, rejected and
-   * suspended vendors stay out. The column list is explicit so onboarding
-   * paperwork fields (RCCM, WhatsApp, address, declaration) never leak into
-   * a public payload.
+   * suspended vendors stay out.
+   *
+   * SECURITY: the column list *is* the security boundary — this route is
+   * `@Public()`, so every column named here is world-readable. Onboarding
+   * paperwork (RCCM, WhatsApp, address, declaration) stays out, and so do
+   * `contact_person`, `contact_phone`, `contact_email` and the internal
+   * `profile_id`: the provider signup page promises a vendor that their number
+   * stays private and that contact runs through Karu. Widening this select
+   * breaks that promise — route new fields through an authenticated endpoint
+   * instead.
    */
-  async listPublic(): Promise<Array<Vendor & { rating: RatingSummary }>> {
+  async listPublic(): Promise<Array<PublicVendor & { rating: RatingSummary }>> {
     const { data, error } = await this.supabase.db
       .from('vendors')
       .select(
-        'id, profile_id, business_name, city, contact_person, contact_phone, contact_email, delivery_fee_xaf, airport_fee_xaf, status, verified_at, created_at, updated_at',
+        'id, business_name, city, delivery_fee_xaf, airport_fee_xaf, status, verified_at, created_at, updated_at',
       )
       .eq('status', 'verified')
       .order('created_at', { ascending: false });
     if (error) throw new NotFoundException(error.message);
 
-    const vendors = (data ?? []) as Vendor[];
+    const vendors = (data ?? []) as PublicVendor[];
     const ratings = await this.reviews.summaryByVendor(vendors.map((v) => v.id));
     return vendors.map((v) => ({ ...v, rating: ratings[v.id] }));
   }
