@@ -47,7 +47,7 @@ export function ListYourCarScreen() {
         </p>
         <div style={{ marginTop: 26, display: 'flex', flexWrap: 'wrap', gap: 12 }}>
           {view === 'guest' && (
-            <Button size="lg" onClick={() => navigate('/auth', { state: { from: '/vendor' } })}>
+            <Button size="lg" onClick={() => navigate('/auth', { state: { from: '/vendor', mode: 'signup', account: 'vendor' } })}>
               {t('listYourCar.createAccount')}
             </Button>
           )}
@@ -117,7 +117,7 @@ export function ListYourCarScreen() {
           <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 6 }}>
             {t('listYourCar.readySub')}
           </p>
-          <Button style={{ marginTop: 14 }} onClick={() => navigate('/auth', { state: { from: '/vendor' } })}>
+          <Button style={{ marginTop: 14 }} onClick={() => navigate('/auth', { state: { from: '/vendor', mode: 'signup', account: 'vendor' } })}>
             {t('listYourCar.createAccount')}
           </Button>
         </Card>

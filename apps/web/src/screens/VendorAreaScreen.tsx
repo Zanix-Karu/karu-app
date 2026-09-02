@@ -76,7 +76,37 @@ export function VendorAreaScreen() {
   const active = isAdmin ? allVendors?.find((v) => v.id === asVendorId) : vendor;
 
   if (!isAdmin && isLoading) return <Spinner label={t('vendor.loading')} />;
-  if (!isAdmin && error) return <ErrorNote>{(error as Error).message}</ErrorNote>;
+
+  // A provider with no vendors row is not an error to shout about — it is the
+  // predictable end state of signing up while email confirmation is on: the
+  // business details typed at signup are dropped when signUp() returns no
+  // session, so the account exists with role=vendor and nothing else. Send them
+  // to the registration form instead of a raw API message.
+  if (!isAdmin && error) {
+    const missingRecord = /no vendor for this account/i.test((error as Error).message ?? '');
+    if (!missingRecord) return <ErrorNote>{(error as Error).message}</ErrorNote>;
+    return (
+      <Card style={{ maxWidth: 560 }}>
+        <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 26 }}>
+          {t('vendor.noRecordTitle')}
+        </h1>
+        <p
+          style={{
+            fontFamily: 'var(--font-ui)',
+            fontSize: 14,
+            lineHeight: 1.6,
+            color: 'var(--gray-500)',
+            marginTop: 10,
+          }}
+        >
+          {t('vendor.noRecordBody')}
+        </p>
+        <Button style={{ marginTop: 16 }} onClick={() => navigate('/list-your-car#convert')}>
+          {t('vendor.noRecordCta')}
+        </Button>
+      </Card>
+    );
+  }
 
   if (isAdmin && !active) {
     return (

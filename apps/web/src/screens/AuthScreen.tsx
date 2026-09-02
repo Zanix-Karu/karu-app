@@ -35,8 +35,16 @@ function domainSuggestion(email: string): string | null {
 
 export function AuthScreen() {
   const { t } = useTranslation();
-  const [mode, setMode] = useState<Mode>('login');
-  const [account, setAccount] = useState<Account>('customer');
+  // A caller can say which tab it meant. "List your car" sends a provider to
+  // signup-as-vendor; without this they landed on the login tab as a customer
+  // — a login wall in front of the one action the page exists to start.
+  const intent = (useLocation().state ?? null) as {
+    from?: string;
+    mode?: Mode;
+    account?: Account;
+  } | null;
+  const [mode, setMode] = useState<Mode>(intent?.mode ?? 'login');
+  const [account, setAccount] = useState<Account>(intent?.account ?? 'customer');
   const [email, setEmail] = useState('');
   const [confirmEmail, setConfirmEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -54,8 +62,7 @@ export function AuthScreen() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const navigate = useNavigate();
-  const location = useLocation();
-  const from = (location.state as { from?: string } | null)?.from ?? null;
+  const from = intent?.from ?? null;
   const suggestion = domainSuggestion(email);
   const pitch = {
     title: t(`auth.${account}Title`),
@@ -92,8 +99,13 @@ export function AuthScreen() {
           },
         });
         if (error) throw error;
+        // With email confirmation on (production), signUp() returns no session,
+        // so the POST /vendors below never runs and the business details typed
+        // above are discarded. Rather than pretend otherwise, tell a provider
+        // what to expect; VendorAreaScreen then walks them through entering the
+        // details once they are confirmed and signed in.
         if (!data.session) {
-          setNotice(t('auth.checkInbox'));
+          setNotice(t(account === 'vendor' ? 'auth.checkInboxVendor' : 'auth.checkInbox'));
           return;
         }
         // A vendor also needs their business record before the area is usable.

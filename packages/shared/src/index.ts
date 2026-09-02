@@ -364,7 +364,17 @@ export interface VehicleVendorSummary {
   airport_fee_xaf: number | null;
 }
 
-export interface VehicleDetail extends Vehicle {
+/**
+ * What an unauthenticated caller may see about a car.
+ *
+ * SECURITY: omits `registration_number`. The plate is printed on the car and
+ * matched by admins against the carte grise — it identifies a specific
+ * vehicle and its owner to anyone who scrapes the public browse endpoint, and
+ * a renter has no need of it until pickup.
+ */
+export type PublicVehicle = Omit<Vehicle, 'registration_number'>;
+
+export interface VehicleDetail extends PublicVehicle {
   vendor: VehicleVendorSummary;
 }
 
