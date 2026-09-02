@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { usePageMeta } from '../lib/page-meta';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import type { RatingSummary, Review, Vehicle, Vendor } from '@karu/shared';
@@ -14,6 +15,10 @@ type VendorWithRating = Vendor & { rating: RatingSummary };
 /** Public directory of verified providers — trust is the product. */
 export function VendorDirectoryScreen() {
   const { t } = useTranslation();
+  usePageMeta({
+    title: t('seo.vendors.title'),
+    description: t('seo.vendors.description'),
+  });
   const { data, isLoading, error } = useQuery({
     queryKey: ['vendors-public'],
     queryFn: () => api<VendorWithRating[]>('/vendors'),

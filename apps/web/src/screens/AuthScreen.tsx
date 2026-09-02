@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { usePageMeta } from '../lib/page-meta';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -35,6 +36,7 @@ function domainSuggestion(email: string): string | null {
 
 export function AuthScreen() {
   const { t } = useTranslation();
+  usePageMeta({ title: t('seo.auth.title'), noindex: true });
   // A caller can say which tab it meant. "List your car" sends a provider to
   // signup-as-vendor; without this they landed on the login tab as a customer
   // — a login wall in front of the one action the page exists to start.

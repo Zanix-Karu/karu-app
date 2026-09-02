@@ -131,6 +131,7 @@ export const en = {
     signingIn: 'Signing you in…',
   },
   search: {
+    sortBy: 'Sort by',
     heroA: 'Rent the right car.',
     heroB: 'Right where you are.',
     sub: 'Every provider verified · Total price up front · No hidden fees.',
@@ -339,6 +340,23 @@ export const en = {
         body: 'You set the price and availability. Accept only the requests you want.',
       },
     ],
+  },
+  seo: {
+    search: {
+      title: 'Find a car',
+      description: 'Browse verified rental cars in Douala and Yaounde. Transparent pricing, no hidden arrangements.',
+    },
+    vendors: {
+      title: 'Providers',
+      description: 'Verified car rental providers across Cameroon, with ratings from real bookings.',
+    },
+    listYourCar: {
+      title: 'List your car',
+      description: 'Earn from your vehicle with Karu. Your phone number stays private — all contact runs through Karu.',
+    },
+    auth: { title: 'Sign in' },
+    car: { description: 'Book this car on Karu. Verified provider, transparent pricing.' },
+    notFound: { title: 'Page not found' },
   },
   vendor: {
     noRecordTitle: 'Finish setting up your business',

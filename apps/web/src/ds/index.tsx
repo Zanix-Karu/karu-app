@@ -558,7 +558,27 @@ export function CarCard({
       }}
     >
       {image ? (
-        <img src={image} alt={name} style={{ width: '100%', height: 150, objectFit: 'contain' }} />
+        // DS-6: `contain` letterboxed each photo to its own shape, so a
+        // portrait source (the Corolla is 1200x1600) rendered a different
+        // height from its landscape neighbours and the cards stopped lining
+        // up. A fixed box plus `cover` crops instead, so every card matches.
+        <div
+          style={{
+            width: '100%',
+            height: 150,
+            overflow: 'hidden',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--sand-300)',
+          }}
+        >
+          <img
+            src={image}
+            alt={name}
+            loading="lazy"
+            decoding="async"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
+          />
+        </div>
       ) : (
         <div
           style={{

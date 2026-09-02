@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { usePageMeta } from '../lib/page-meta';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -38,6 +39,13 @@ export function CarDetailScreen() {
   const { data: car, isLoading } = useQuery({
     queryKey: ['vehicle', id],
     queryFn: () => api<VehicleDetail>(`/vehicles/${id}`),
+  });
+
+  // Title comes from the loaded car, so a shared link and a browser tab
+  // both name the vehicle rather than reading 'Karu' like every other route.
+  usePageMeta({
+    title: car ? `${car.make} ${car.model}` : undefined,
+    description: t('seo.car.description'),
   });
 
   const windowChosen = Boolean(from && to && from <= to);
@@ -100,7 +108,14 @@ export function CarDetailScreen() {
         {car.photos.length > 1 && (
           <div className="mt-3 flex gap-2 overflow-x-auto">
             {orderedPhotos(car).slice(1, 6).map((p) => (
-              <img key={p} src={p} alt="" className="h-20 w-28 rounded-lg object-cover" />
+              <img
+                key={p}
+                src={p}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                className="h-20 w-28 rounded-lg object-cover"
+              />
             ))}
           </div>
         )}

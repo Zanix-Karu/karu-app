@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { usePageMeta } from '../lib/page-meta';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useState, type FormEvent } from 'react';
@@ -16,6 +17,10 @@ import { ErrorNote } from '../ui';
 
 export function ListYourCarScreen() {
   const { t } = useTranslation();
+  usePageMeta({
+    title: t('seo.listYourCar.title'),
+    description: t('seo.listYourCar.description'),
+  });
   const view = useView();
   const navigate = useNavigate();
   const reasons = t('listYourCar.reasons', { returnObjects: true }) as unknown as Array<{ title: string; body: string }>;

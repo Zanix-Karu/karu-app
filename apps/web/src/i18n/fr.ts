@@ -136,6 +136,7 @@ export const fr = {
     signingIn: 'Connexion en cours…',
   },
   search: {
+    sortBy: 'Trier par',
     heroA: 'La bonne voiture.',
     heroB: 'Là où vous êtes.',
     sub: 'Loueurs vérifiés · Prix total affiché · Aucun frais caché.',
@@ -344,6 +345,23 @@ export const fr = {
         body: 'Vous fixez le prix et les disponibilités. Vous n’acceptez que ce qui vous convient.',
       },
     ],
+  },
+  seo: {
+    search: {
+      title: 'Trouver une voiture',
+      description: 'Parcourez des voitures de location verifiees a Douala et Yaounde. Prix transparents, sans arrangements caches.',
+    },
+    vendors: {
+      title: 'Prestataires',
+      description: 'Prestataires de location verifies au Cameroun, avec les avis de vraies reservations.',
+    },
+    listYourCar: {
+      title: 'Publier votre voiture',
+      description: 'Gagnez avec votre vehicule sur Karu. Votre numero reste prive : tout contact passe par Karu.',
+    },
+    auth: { title: 'Connexion' },
+    car: { description: 'Reservez cette voiture sur Karu. Prestataire verifie, prix transparents.' },
+    notFound: { title: 'Page introuvable' },
   },
   vendor: {
     noRecordTitle: 'Terminez la configuration de votre entreprise',

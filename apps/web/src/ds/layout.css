@@ -89,3 +89,33 @@
 @media (prefers-reduced-motion: reduce) {
   .karu-skeleton { animation: none; }
 }
+
+/* ─── Skip link ──────────────────────────────────────────────────────────── */
+/* Off-screen until focused, then pinned top-left over the header. Not
+   `display:none` — that would take it out of the tab order, which is the one
+   thing it exists for. */
+.karu-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: 12px 20px;
+  background: var(--brand);
+  color: var(--brand-ink);
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 14px;
+  border-radius: 0 0 var(--radius-md) 0;
+  text-decoration: none;
+}
+
+.karu-skip-link:focus,
+.karu-skip-link:focus-visible {
+  left: 0;
+}
+
+/* The target takes focus programmatically via the link; it should not draw a
+   focus ring as though it were interactive. */
+#main:focus {
+  outline: none;
+}

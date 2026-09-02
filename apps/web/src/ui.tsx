@@ -116,22 +116,53 @@ export function StatusBadge({ status }: { status: BookingStatus }) {
   );
 }
 
-/** Listing image with a branded placeholder while photos are pending. */
+/**
+ * Listing image with a branded placeholder while photos are pending.
+ *
+ * DS-6: source photos vary in shape — most are 1200x800 landscape but some are
+ * portrait — and without a fixed ratio the rendered images differed in height,
+ * so cards sat unevenly in the grid. The ratio box plus object-cover crops
+ * instead of stretching, so any source fills the same shape.
+ *
+ * PERF-1: `loading="lazy"` and `decoding="async"` keep off-screen photos off
+ * the critical path. Images come full-size from an external CDN, which is slow
+ * on the connections much of this market uses; sizing them properly needs a
+ * resizing proxy and is still open.
+ */
 export function CarImage({
   photos,
   alt,
   className = '',
+  ratio = '16 / 10',
+  eager = false,
 }: {
   photos: string[];
   alt: string;
   className?: string;
+  /** Card grids share 16/10; the detail hero passes 4/3. */
+  ratio?: string;
+  /** Set on the one above-the-fold image so it is not deferred. */
+  eager?: boolean;
 }) {
+  const box = `overflow-hidden bg-karu-brown/10 ${className}`;
+
   if (photos.length > 0) {
-    return <img src={photos[0]} alt={alt} className={`object-cover ${className}`} />;
+    return (
+      <div className={box} style={{ aspectRatio: ratio }}>
+        <img
+          src={photos[0]}
+          alt={alt}
+          loading={eager ? 'eager' : 'lazy'}
+          decoding="async"
+          className="h-full w-full object-cover object-center"
+        />
+      </div>
+    );
   }
   return (
     <div
-      className={`flex items-center justify-center bg-gradient-to-br from-karu-brown to-karu-ink ${className}`}
+      className={`flex items-center justify-center bg-gradient-to-br from-karu-brown to-karu-ink ${box}`}
+      style={{ aspectRatio: ratio }}
     >
       <span className="font-display text-2xl font-bold tracking-widest text-karu-yellow/80">
         KARU
