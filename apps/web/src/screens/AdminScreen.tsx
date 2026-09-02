@@ -91,6 +91,7 @@ interface OverviewData {
   pendingDocuments: number;
   staleRequests: number;
   replyWindowHours: number;
+  openAssistance: number;
 }
 
 function Overview() {
@@ -125,6 +126,8 @@ function Overview() {
   // distinguish "three requests came in" from "three requests are about to
   // breach the reply window".
   const alerts = [
+    data.openAssistance > 0 &&
+      t('admin.overview.alertAssistance', { count: data.openAssistance }),
     data.staleRequests > 0 &&
       t('admin.overview.alertStale', {
         count: data.staleRequests,

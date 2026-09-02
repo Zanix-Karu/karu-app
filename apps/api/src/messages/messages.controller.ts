@@ -35,4 +35,11 @@ export class MessagesController {
   conversations(@CurrentUser('id') adminId: string) {
     return this.messages.adminConversations(adminId);
   }
+
+  /** The provider's own threads, for the attention panel on their dashboard. */
+  @Roles('vendor')
+  @Get('vendor/conversations')
+  vendorConversations(@CurrentUser('id') profileId: string) {
+    return this.messages.vendorConversations(profileId);
+  }
 }

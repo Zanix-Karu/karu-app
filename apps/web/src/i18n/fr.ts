@@ -455,6 +455,12 @@ export const fr = {
     notFound: { title: 'Page introuvable' },
   },
   vendor: {
+    attention: {
+      title: 'Requiert votre attention',
+      pending: '{{count}} demande(s) de réservation en attente de votre validation',
+      unread: '{{count}} nouveau(x) message(s) de {{name}} sur {{ref}}',
+      escalated: 'L\'aide de Karu a été demandée sur {{ref}}',
+    },
     noRecordTitle: 'Terminez la configuration de votre entreprise',
     noRecordBody: 'Votre compte est un compte prestataire, mais ses informations d\'entreprise n\'ont jamais été enregistrées. Cela arrive lorsque l\'inscription se termine par la confirmation d\'un e-mail : les informations saisies à l\'inscription ne sont pas conservées. Saisissez-les une fois et votre espace prestataire s\'ouvrira.',
     noRecordCta: 'Ajouter les informations d\'entreprise',
@@ -680,6 +686,7 @@ export const fr = {
     filterStatus: 'Filtrer par statut',
     all: 'Tous',
     overview: {
+      alertAssistance: '{{count}} réservation(s) où quelqu\'un a demandé l\'aide de Karu',
       needsAttention: 'Requiert votre attention',
       alertStale: '{{count}} demande(s) de r\u00e9servation \u00e0 moins de 4h de la limite de {{hours}}h',
       alertDocuments: '{{count}} document(s) en attente de v\u00e9rification',

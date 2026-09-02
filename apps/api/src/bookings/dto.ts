@@ -48,3 +48,9 @@ export class RelayMessageDto {
   @MaxLength(2000)
   message!: string;
 }
+
+export class RequestAssistanceDto {
+  /** Optional one-liner on what they need. Short on purpose: the thread
+   *  carries the detail, this is just what an admin sees in the queue. */
+  @IsOptional() @IsString() @MaxLength(300) note?: string;
+}

@@ -450,6 +450,12 @@ export const en = {
     notFound: { title: 'Page not found' },
   },
   vendor: {
+    attention: {
+      title: 'Needs your attention',
+      pending: '{{count}} booking request(s) waiting on your approval',
+      unread: '{{count}} new message(s) from {{name}} on {{ref}}',
+      escalated: 'Karu has been asked to help on {{ref}}',
+    },
     noRecordTitle: 'Finish setting up your business',
     noRecordBody: 'Your account is a provider account, but its business details were never saved. This happens when signup is completed by confirming an email, the details typed at signup aren\'t carried across. Enter them once and your provider area opens.',
     noRecordCta: 'Add business details',
@@ -675,6 +681,7 @@ export const en = {
     filterStatus: 'Filter by status',
     all: 'All',
     overview: {
+      alertAssistance: '{{count}} booking(s) where someone has asked Karu for help',
       needsAttention: 'Needs attention',
       alertStale: '{{count}} booking request(s) within 4h of the {{hours}}h reply window',
       alertDocuments: '{{count}} document(s) waiting on review',

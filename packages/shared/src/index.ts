@@ -410,6 +410,12 @@ export interface Booking {
   confirmed_at: string | null;
   created_at: string;
   updated_at: string;
+  /** Set when a customer or provider asked Karu to step in (0023). */
+  assistance_requested_at: string | null;
+  assistance_requested_by: string | null;
+  assistance_note: string | null;
+  /** Set when an admin marked that request handled. */
+  assistance_resolved_at: string | null;
 }
 
 /**

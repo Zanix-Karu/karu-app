@@ -194,6 +194,108 @@ export class MessagesService {
       );
   }
 
+  /**
+   * The provider's own threads, same shape as the admin feed but scoped to
+   * their bookings. Feeds the attention panel on their dashboard: until now a
+   * provider had no way to see that a customer had written to them without
+   * opening each booking in turn.
+   */
+  async vendorConversations(profileId: string) {
+    const { data: vendorRow } = await this.supabase.db
+      .from('vendors')
+      .select('id')
+      .eq('profile_id', profileId)
+      .maybeSingle();
+    if (!vendorRow) return [];
+    const vendorId = (vendorRow as { id: string }).id;
+
+    const { data: bookingRows, error: bookingErr } = await this.supabase.db
+      .from('bookings')
+      .select('id, reference, status, customer_id, assistance_requested_at, assistance_resolved_at')
+      .eq('vendor_id', vendorId);
+    if (bookingErr) throw new BadRequestException(bookingErr.message);
+
+    const bookings = (bookingRows ?? []) as Array<{
+      id: string;
+      reference: string | null;
+      status: string;
+      customer_id: string;
+      assistance_requested_at: string | null;
+      assistance_resolved_at: string | null;
+    }>;
+    if (bookings.length === 0) return [];
+    const bookingIds = bookings.map((b) => b.id);
+
+    const [messagesRes, readsRes, customersRes] = await Promise.all([
+      this.supabase.db
+        .from('booking_messages')
+        .select('booking_id, sender_role, body, created_at')
+        .in('booking_id', bookingIds)
+        .order('created_at', { ascending: false }),
+      this.supabase.db
+        .from('booking_message_reads')
+        .select('booking_id, last_read_at')
+        .eq('profile_id', profileId)
+        .in('booking_id', bookingIds),
+      this.supabase.db
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', [...new Set(bookings.map((b) => b.customer_id))]),
+    ]);
+
+    const messages = (messagesRes.data ?? []) as Array<{
+      booking_id: string;
+      sender_role: string;
+      body: string;
+      created_at: string;
+    }>;
+    const byBooking = new Map<string, typeof messages>();
+    for (const m of messages) {
+      const list = byBooking.get(m.booking_id) ?? [];
+      list.push(m);
+      byBooking.set(m.booking_id, list);
+    }
+    const lastReadAt = new Map(
+      ((readsRes.data ?? []) as Array<{ booking_id: string; last_read_at: string }>).map((r) => [
+        r.booking_id,
+        r.last_read_at,
+      ]),
+    );
+    const customerName = new Map(
+      ((customersRes.data ?? []) as Array<{ id: string; full_name: string | null }>).map((p) => [
+        p.id,
+        p.full_name,
+      ]),
+    );
+
+    return bookings
+      .map((b) => {
+        const thread = byBooking.get(b.id) ?? [];
+        const cursor = lastReadAt.get(b.id);
+        const unseen = cursor
+          ? thread.filter((m) => m.created_at > cursor)
+          : thread;
+        return {
+          booking_id: b.id,
+          reference: b.reference,
+          booking_status: b.status,
+          customer_name: customerName.get(b.customer_id) ?? 'Customer',
+          message_count: thread.length,
+          // Only the other side's messages count as unread: a provider has by
+          // definition read their own.
+          unread_count: unseen.filter((m) => m.sender_role !== 'vendor').length,
+          assistance_open: Boolean(b.assistance_requested_at && !b.assistance_resolved_at),
+          last_message: thread[0]
+            ? { sender_role: thread[0].sender_role, body: thread[0].body, created_at: thread[0].created_at }
+            : null,
+        };
+      })
+      .filter((c) => c.message_count > 0)
+      .sort((a, b) =>
+        (b.last_message?.created_at ?? '').localeCompare(a.last_message?.created_at ?? ''),
+      );
+  }
+
   /** Who to nudge: the parties other than the sender. */
   private async recipientsFor(
     booking: Booking,

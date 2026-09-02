@@ -331,6 +331,57 @@ export class BookingsService {
 
   // --- helpers --------------------------------------------------------------
 
+  /**
+   * Either party asks Karu to step in (0023).
+   *
+   * Deliberately available on any booking the caller is party to, at any
+   * status: the moments people most need help are a rejected request they do
+   * not understand and a completed rental with a dispute about damage, not
+   * only the happy middle. getOwned() is the authorisation, so a stranger
+   * cannot raise a flag on someone else's booking.
+   *
+   * Re-requesting while one is already open is a no-op rather than an error —
+   * someone pressing the button twice is not a failure state, and resetting
+   * the timestamp would push them back down an admin queue sorted by age.
+   */
+  async requestAssistance(
+    bookingId: string,
+    userId: string,
+    role: UserRole,
+    note?: string,
+  ): Promise<Booking> {
+    const booking = await this.getOwned(bookingId, userId, role);
+    const alreadyOpen =
+      booking.assistance_requested_at && !booking.assistance_resolved_at;
+    if (alreadyOpen) return booking;
+
+    const { data, error } = await this.supabase.db
+      .from('bookings')
+      .update({
+        assistance_requested_at: new Date().toISOString(),
+        assistance_requested_by: userId,
+        assistance_note: note ?? null,
+        assistance_resolved_at: null,
+      })
+      .eq('id', bookingId)
+      .select('*')
+      .single();
+    if (error || !data) throw new BadRequestException(error?.message ?? 'Could not raise the request');
+    return data as Booking;
+  }
+
+  /** An admin marks the request handled. The timestamps stay as history. */
+  async resolveAssistance(bookingId: string): Promise<Booking> {
+    const { data, error } = await this.supabase.db
+      .from('bookings')
+      .update({ assistance_resolved_at: new Date().toISOString() })
+      .eq('id', bookingId)
+      .select('*')
+      .single();
+    if (error || !data) throw new NotFoundException('Booking not found');
+    return data as Booking;
+  }
+
   private async getOwned(bookingId: string, userId: string, role: UserRole): Promise<Booking> {
     const { data, error } = await this.supabase.db
       .from('bookings')

@@ -292,7 +292,11 @@ export function BookingDetailScreen() {
 
       {view === 'admin' && <RecordDeposit bookingId={b.id} />}
 
-      <BookingChat bookingId={b.id} view={view} />
+      <BookingChat
+        bookingId={b.id}
+        view={view}
+        assistanceOpen={Boolean(b.assistance_requested_at && !b.assistance_resolved_at)}
+      />
 
       {b.status === 'completed' && view !== 'admin' && (
         <div className="mt-4">

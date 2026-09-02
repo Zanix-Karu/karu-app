@@ -55,6 +55,18 @@ export class AdminService {
       return n ?? 0;
     };
 
+    // Someone on a booking has asked Karu to step in and no admin has closed
+    // it yet. This one outranks the counters: a person is waiting on a human.
+    const openAssistanceCount = async () => {
+      const { count: n, error } = await this.supabase.db
+        .from('bookings')
+        .select('*', { count: 'exact', head: true })
+        .not('assistance_requested_at', 'is', null)
+        .is('assistance_resolved_at', null);
+      if (error) throw new BadRequestException(error.message);
+      return n ?? 0;
+    };
+
     const [
       pendingVendors,
       requestedBookings,
@@ -62,6 +74,7 @@ export class AdminService {
       customers,
       pendingDocuments,
       staleRequests,
+      openAssistance,
     ] = await Promise.all([
       count('vendors', { status: 'pending' }),
       count('bookings', { status: 'requested' }),
@@ -69,6 +82,7 @@ export class AdminService {
       count('profiles', { role: 'customer' }),
       count('vendor_documents', { status: 'pending' }),
       staleRequestCount(),
+      openAssistanceCount(),
     ]);
     return {
       pendingVendors,
@@ -78,6 +92,8 @@ export class AdminService {
       pendingDocuments,
       /** Requested bookings within 4h of the 24h reply window closing. */
       staleRequests,
+      /** Bookings where a party asked for Karu and no admin has closed it. */
+      openAssistance,
       replyWindowHours: REPLY_WINDOW_HOURS,
     };
   }
