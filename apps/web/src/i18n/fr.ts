@@ -431,6 +431,12 @@ export const fr = {
       },
     ],
   },
+  gallery: {
+    previous: 'Photo pr\u00e9c\u00e9dente',
+    next: 'Photo suivante',
+    position: '{{current}} / {{total}}',
+    showPhoto: 'Afficher la photo {{n}}',
+  },
   seo: {
     search: {
       title: 'Trouver une voiture',

@@ -41,6 +41,7 @@ function tabFromPath(pathname: string): Tab {
 }
 
 export function AdminScreen() {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const tab = tabFromPath(location.pathname);
@@ -59,14 +60,14 @@ export function AdminScreen() {
 
   return (
     <div>
-      <h1 className="font-display text-3xl font-bold">Karu operations</h1>
+      <h1 className="font-display text-3xl font-bold">{t('admin.title')}</h1>
       <div className="mt-4 flex flex-wrap gap-2">
-        {tabBtn('overview', 'Overview')}
-        {tabBtn('vendors', 'Vendors')}
-        {tabBtn('documents', 'Documents')}
-        {tabBtn('cars', 'Cars')}
-        {tabBtn('bookings', 'Bookings')}
-        {tabBtn('chats', 'Chats')}
+        {tabBtn('overview', t('admin.tabs.overview'))}
+        {tabBtn('vendors', t('admin.tabs.vendors'))}
+        {tabBtn('documents', t('admin.tabs.documents'))}
+        {tabBtn('cars', t('admin.tabs.cars'))}
+        {tabBtn('bookings', t('admin.tabs.bookings'))}
+        {tabBtn('chats', t('admin.tabs.chats'))}
       </div>
       <div className="mt-6">
         {tab === 'overview' && <Overview />}
@@ -90,6 +91,7 @@ interface OverviewData {
 }
 
 function Overview() {
+  const { t } = useTranslation();
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-overview'],
     queryFn: () => api<OverviewData>('/admin/overview'),
@@ -109,10 +111,10 @@ function Overview() {
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {stat('Booking requests awaiting action', data.requestedBookings, true)}
-      {stat('Vendors awaiting verification', data.pendingVendors, true)}
-      {stat('Active cars', data.activeVehicles)}
-      {stat('Customers', data.customers)}
+      {stat(t('admin.overview.requests'), data.requestedBookings, true)}
+      {stat(t('admin.overview.pendingVendors'), data.pendingVendors, true)}
+      {stat(t('admin.overview.activeCars'), data.activeVehicles)}
+      {stat(t('admin.overview.customers'), data.customers)}
     </div>
   );
 }
@@ -120,6 +122,7 @@ function Overview() {
 // --- Vendors ----------------------------------------------------------------
 
 function Vendors() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [status, setStatus] = useState('');
   const { data, isLoading } = useQuery({
@@ -170,35 +173,35 @@ function Vendors() {
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
       <div>
-        <Field label="Filter by status" className="max-w-48">
+        <Field label={t('admin.filterStatus')} className="max-w-48">
           <Select value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="">All</option>
-            <option value="pending">Pending</option>
-            <option value="verified">Verified</option>
-            <option value="rejected">Rejected</option>
-            <option value="suspended">Suspended</option>
+            <option value="">{t('admin.all')}</option>
+            <option value="pending">{t('vendor.status.pending')}</option>
+            <option value="verified">{t('vendor.status.verified')}</option>
+            <option value="rejected">{t('vendor.status.rejected')}</option>
+            <option value="suspended">{t('vendor.status.suspended')}</option>
           </Select>
         </Field>
 
         {isLoading && <Spinner />}
-        {data?.length === 0 && <EmptyState title="No vendors" />}
+        {data?.length === 0 && <EmptyState title={t('admin.vendors.none')} />}
         <div className="mt-4 space-y-3">
           {data?.map((v) => (
             <Card key={v.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
               <div>
                 <p className="font-semibold">{v.business_name}</p>
                 <p className="text-xs text-karu-mute">
-                  {CITY_LABEL[v.city]} · {v.contact_email ?? 'no email'} ·{' '}
-                  {v.contact_phone ?? 'no phone'}
+                  {CITY_LABEL[v.city]} · {v.contact_email ?? t('admin.vendors.noEmail')} ·{' '}
+                  {v.contact_phone ?? t('admin.vendors.noPhone')}
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <span className="rounded-full bg-karu-ink/5 px-2.5 py-0.5 text-xs font-semibold capitalize">
-                  {v.status}
+                <span className="rounded-full bg-karu-ink/5 px-2.5 py-0.5 text-xs font-semibold">
+                  {t(`vendor.status.${v.status}`)}
                 </span>
                 {v.status !== 'verified' && (
                   <Button onClick={() => setVendorStatus.mutate({ id: v.id, status: 'verified' })}>
-                    Verify
+                    {t('admin.vendors.verify')}
                   </Button>
                 )}
                 {v.status === 'pending' && (
@@ -206,7 +209,7 @@ function Vendors() {
                     variant="danger"
                     onClick={() => setVendorStatus.mutate({ id: v.id, status: 'rejected' })}
                   >
-                    Reject
+                    {t('admin.vendors.reject')}
                   </Button>
                 )}
                 {v.status === 'verified' && (
@@ -214,7 +217,7 @@ function Vendors() {
                     variant="outline"
                     onClick={() => setVendorStatus.mutate({ id: v.id, status: 'suspended' })}
                   >
-                    Suspend
+                    {t('admin.vendors.suspend')}
                   </Button>
                 )}
               </div>
@@ -224,10 +227,8 @@ function Vendors() {
       </div>
 
       <Card className="h-fit p-5">
-        <h2 className="font-display text-lg font-bold">Onboard a vendor</h2>
-        <p className="mt-1 text-xs text-karu-mute">
-          Creates their account (they sign in later via password reset) and marks them verified.
-        </p>
+        <h2 className="font-display text-lg font-bold">{t('admin.vendors.onboardTitle')}</h2>
+        <p className="mt-1 text-xs text-karu-mute">{t('admin.vendors.onboardSub')}</p>
         <form
           className="mt-4 space-y-3"
           onSubmit={(e: FormEvent) => {
@@ -235,20 +236,20 @@ function Vendors() {
             createVendor.mutate();
           }}
         >
-          <Field label="Business name">
+          <Field label={t('auth.businessName')}>
             <Input
               required
               value={form.business_name}
               onChange={(e) => setForm({ ...form, business_name: e.target.value })}
             />
           </Field>
-          <Field label="Contact person">
+          <Field label={t('admin.vendors.contactPerson')}>
             <Input
               value={form.full_name}
               onChange={(e) => setForm({ ...form, full_name: e.target.value })}
             />
           </Field>
-          <Field label="Contact email">
+          <Field label={t('admin.vendors.contactEmail')}>
             <Input
               type="email"
               required
@@ -256,38 +257,38 @@ function Vendors() {
               onChange={(e) => setForm({ ...form, contact_email: e.target.value })}
             />
           </Field>
-          <Field label="Phone">
+          <Field label={t('admin.vendors.phone')}>
             <Input
               value={form.contact_phone}
               onChange={(e) => setForm({ ...form, contact_phone: e.target.value })}
             />
           </Field>
-          <Field label="WhatsApp">
+          <Field label={t('admin.vendors.whatsapp')}>
             <Input
               value={form.whatsapp_number}
               onChange={(e) => setForm({ ...form, whatsapp_number: e.target.value })}
             />
           </Field>
-          <Field label="Address (street / quarter)">
+          <Field label={t('admin.vendors.address')}>
             <Input
               value={form.address}
               onChange={(e) => setForm({ ...form, address: e.target.value })}
             />
           </Field>
-          <Field label="RCCM number (blank if not registered)">
+          <Field label={t('admin.vendors.rccm')}>
             <Input
               value={form.rccm_number}
               onChange={(e) => setForm({ ...form, rccm_number: e.target.value })}
             />
           </Field>
-          <Field label="City">
+          <Field label={t('vendor.form.city')}>
             <Select value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })}>
-              <option value="douala">Douala</option>
-              <option value="yaounde">Yaoundé</option>
-              <option value="other">Other</option>
+              <option value="douala">{t('city.douala')}</option>
+              <option value="yaounde">{t('city.yaounde')}</option>
+              <option value="other">{t('city.other')}</option>
             </Select>
           </Field>
-          <Field label="Language">
+          <Field label={t('admin.vendors.language')}>
             <Select value={form.locale} onChange={(e) => setForm({ ...form, locale: e.target.value })}>
               <option value="fr">Français</option>
               <option value="en">English</option>
@@ -295,7 +296,7 @@ function Vendors() {
           </Field>
           {createVendor.isError && <ErrorNote>{(createVendor.error as Error).message}</ErrorNote>}
           <Button type="submit" disabled={createVendor.isPending} className="w-full">
-            {createVendor.isPending ? 'Creating…' : 'Create verified vendor'}
+            {createVendor.isPending ? t('admin.vendors.creating') : t('admin.vendors.create')}
           </Button>
         </form>
       </Card>
@@ -317,16 +318,8 @@ type AdminDocument = {
   vehicles: { make: string; model: string; registration_number: string | null } | null;
 };
 
-const DOC_LABEL: Record<string, string> = {
-  rccm: 'RCCM',
-  national_id: 'National ID',
-  passport: 'Passport',
-  carte_grise: 'Carte grise',
-  insurance: 'Insurance',
-  roadworthiness: 'Roadworthiness',
-};
-
 function Documents() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [status, setStatus] = useState('pending');
   const [opening, setOpening] = useState<string | null>(null);
@@ -354,24 +347,24 @@ function Documents() {
 
   return (
     <div>
-      <Field label="Filter by status" className="max-w-48">
+      <Field label={t('admin.filterStatus')} className="max-w-48">
         <Select value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="pending">Pending</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
-          <option value="">All</option>
+          <option value="pending">{t('vendor.docs.status.pending')}</option>
+          <option value="approved">{t('vendor.docs.status.approved')}</option>
+          <option value="rejected">{t('vendor.docs.status.rejected')}</option>
+          <option value="">{t('admin.all')}</option>
         </Select>
       </Field>
 
       {isLoading && <Spinner />}
-      {data?.length === 0 && <EmptyState title="No documents" hint="Vendor uploads appear here for review." />}
+      {data?.length === 0 && <EmptyState title={t('admin.docs.none')} hint={t('admin.docs.noneHint')} />}
 
       <div className="mt-4 space-y-3">
         {data?.map((d) => (
           <Card key={d.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
             <div>
               <p className="font-semibold">
-                {DOC_LABEL[d.type] ?? d.type} — {d.vendors?.business_name ?? 'unknown vendor'}
+                {t(`vendor.docs.type.${d.type}`)} — {d.vendors?.business_name ?? t('admin.docs.unknownVendor')}
               </p>
               <p className="text-xs text-karu-mute">
                 {d.vehicles && (
@@ -380,8 +373,10 @@ function Documents() {
                     {d.vehicles.registration_number ? ` · ${d.vehicles.registration_number}` : ''} ·{' '}
                   </>
                 )}
-                {new Date(d.created_at).toLocaleString()} · <span className="capitalize">{d.status}</span>
-                {d.expires_at && <> · expires {new Date(d.expires_at).toLocaleDateString()}</>}
+                {new Date(d.created_at).toLocaleString()} · {t(`vendor.docs.status.${d.status}`)}
+                {d.expires_at && (
+                  <> · {t('admin.docs.expires', { date: new Date(d.expires_at).toLocaleDateString() })}</>
+                )}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -401,11 +396,13 @@ function Documents() {
                   }
                 }}
               >
-                {opening === d.id ? 'Opening…' : 'View document'}
+                {opening === d.id ? t('admin.docs.opening') : t('admin.docs.view')}
               </Button>
               {d.status === 'pending' && rejecting !== d.id && (
                 <>
-                  <Button onClick={() => review.mutate({ id: d.id, decision: 'approved' })}>Approve</Button>
+                  <Button onClick={() => review.mutate({ id: d.id, decision: 'approved' })}>
+                    {t('admin.docs.approve')}
+                  </Button>
                   <Button
                     variant="danger"
                     onClick={() => {
@@ -413,7 +410,7 @@ function Documents() {
                       setNote('');
                     }}
                   >
-                    Reject
+                    {t('admin.docs.reject')}
                   </Button>
                 </>
               )}
@@ -421,7 +418,7 @@ function Documents() {
                 <>
                   <Input
                     autoFocus
-                    placeholder="Reason the vendor will see"
+                    placeholder={t('admin.docs.reasonPlaceholder')}
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     className="w-56"
@@ -431,10 +428,10 @@ function Documents() {
                     disabled={review.isPending}
                     onClick={() => review.mutate({ id: d.id, decision: 'rejected', notes: note })}
                   >
-                    Confirm reject
+                    {t('admin.docs.confirmReject')}
                   </Button>
                   <Button variant="outline" onClick={() => setRejecting(null)}>
-                    Cancel
+                    {t('admin.docs.cancel')}
                   </Button>
                 </>
               )}
@@ -454,6 +451,7 @@ function Documents() {
 // --- Cars -------------------------------------------------------------------
 
 function Cars() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   // Every vendor can hold cars; only verified vendors' cars reach customers.
   const { data: vendors } = useQuery({
@@ -556,17 +554,17 @@ function Cars() {
                 </p>
                 <p className="text-xs text-karu-mute">
                   {vendors?.find((v) => v.id === c.vendor_id)?.business_name ?? '—'} ·{' '}
-                  {CITY_LABEL[c.city]} · {CATEGORY_LABEL[c.category]} · {xaf(c.daily_rate_xaf)}/day ·{' '}
-                  {c.photos.length} photo{c.photos.length === 1 ? '' : 's'}
+                  {CITY_LABEL[c.city]} · {CATEGORY_LABEL[c.category]} · {xaf(c.daily_rate_xaf)}/
+                  {t('vendor.cars.dayShort')} · {t('admin.cars.photos', { count: c.photos.length })}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <span
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                     c.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-karu-ink/5 text-karu-mute'
                   }`}
                 >
-                  {c.status}
+                  {t(`vendor.cars.status.${c.status}`)}
                 </span>
                 <Button
                   variant={c.status === 'active' ? 'outline' : 'primary'}
@@ -575,10 +573,21 @@ function Cars() {
                     setStatus.mutate({ id: c.id, status: c.status === 'active' ? 'inactive' : 'active' })
                   }
                 >
-                  {c.status === 'active' ? 'Take offline' : 'Publish'}
+                  {c.status === 'active' ? t('admin.cars.takeOffline') : t('admin.cars.publish')}
                 </Button>
+                {/*
+                  UX-3: activating a car with fewer than six photos returns a
+                  400 naming exactly which angles are missing, and the button
+                  used to swallow it — the click simply did nothing. Scoped to
+                  the row that failed, since the mutation is shared by the list.
+                */}
+                {setStatus.isError && setStatus.variables?.id === c.id && (
+                  <div className="w-full">
+                    <ErrorNote>{(setStatus.error as Error).message}</ErrorNote>
+                  </div>
+                )}
                 <label className="cursor-pointer rounded-full border-[1.5px] border-karu-ink px-4 py-1.5 text-sm font-semibold hover:bg-karu-ink hover:text-karu-cream">
-                  {uploadPhoto.isPending ? 'Uploading…' : '+ Photo'}
+                  {uploadPhoto.isPending ? t('admin.cars.uploading') : t('admin.cars.photo')}
                   <input
                     type="file"
                     accept="image/*"
@@ -614,7 +623,7 @@ function Cars() {
       </div>
 
       <Card className="h-fit p-5">
-        <h2 className="font-display text-lg font-bold">Add a car</h2>
+        <h2 className="font-display text-lg font-bold">{t('admin.cars.addTitle')}</h2>
         <form
           className="mt-4 space-y-3"
           onSubmit={(e: FormEvent) => {
@@ -622,29 +631,29 @@ function Cars() {
             createCar.mutate();
           }}
         >
-          <Field label="Vendor">
+          <Field label={t('admin.cars.vendor')}>
             <Select
               required
               value={form.vendor_id}
               onChange={(e) => setForm({ ...form, vendor_id: e.target.value })}
             >
-              <option value="">Choose…</option>
+              <option value="">{t('admin.cars.chooseVendor')}</option>
               {vendors?.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.business_name}
-                  {v.status !== 'verified' ? ` (${v.status})` : ''}
+                  {v.status !== 'verified' ? ` (${t(`vendor.status.${v.status}`)})` : ''}
                 </option>
               ))}
             </Select>
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Make">
+            <Field label={t('vendor.form.make')}>
               <Input required value={form.make} onChange={(e) => setForm({ ...form, make: e.target.value })} />
             </Field>
-            <Field label="Model">
+            <Field label={t('vendor.form.model')}>
               <Input required value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} />
             </Field>
-            <Field label="Year">
+            <Field label={t('vendor.form.year')}>
               <Input
                 type="number"
                 min={1980}
@@ -653,7 +662,7 @@ function Cars() {
                 onChange={(e) => setForm({ ...form, year: e.target.value })}
               />
             </Field>
-            <Field label="Seats">
+            <Field label={t('vendor.form.seats')}>
               <Input
                 type="number"
                 min={1}
@@ -662,7 +671,7 @@ function Cars() {
                 onChange={(e) => setForm({ ...form, seats: e.target.value })}
               />
             </Field>
-            <Field label="Number plate">
+            <Field label={t('vendor.form.plate')}>
               <Input
                 required
                 value={form.registration_number}
@@ -670,15 +679,15 @@ function Cars() {
                 placeholder="LT 1234 AB"
               />
             </Field>
-            <Field label="Fuel">
+            <Field label={t('vendor.form.fuel')}>
               <Select value={form.fuel_type} onChange={(e) => setForm({ ...form, fuel_type: e.target.value })}>
-                <option value="petrol">Petrol</option>
-                <option value="diesel">Diesel</option>
-                <option value="hybrid">Hybrid</option>
-                <option value="electric">Electric</option>
+                <option value="petrol">{t('common.fuel.petrol')}</option>
+                <option value="diesel">{t('common.fuel.diesel')}</option>
+                <option value="hybrid">{t('common.fuel.hybrid')}</option>
+                <option value="electric">{t('common.fuel.electric')}</option>
               </Select>
             </Field>
-            <Field label="Type">
+            <Field label={t('vendor.form.type')}>
               <Select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
                 {Object.entries(CATEGORY_LABEL).map(([v, l]) => (
                   <option key={v} value={v}>
@@ -687,16 +696,16 @@ function Cars() {
                 ))}
               </Select>
             </Field>
-            <Field label="Gearbox">
+            <Field label={t('vendor.form.gearbox')}>
               <Select
                 value={form.transmission}
                 onChange={(e) => setForm({ ...form, transmission: e.target.value })}
               >
-                <option value="manual">Manual</option>
-                <option value="automatic">Automatic</option>
+                <option value="manual">{t('common.manual')}</option>
+                <option value="automatic">{t('common.automatic')}</option>
               </Select>
             </Field>
-            <Field label="Rate / day (XAF)">
+            <Field label={t('admin.cars.dailyRate')}>
               <Input
                 type="number"
                 min={1}
@@ -705,14 +714,14 @@ function Cars() {
                 onChange={(e) => setForm({ ...form, daily_rate_xaf: e.target.value })}
               />
             </Field>
-            <Field label="City">
+            <Field label={t('vendor.form.city')}>
               <Select value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })}>
-                <option value="douala">Douala</option>
-                <option value="yaounde">Yaoundé</option>
-                <option value="other">Other</option>
+                <option value="douala">{t('city.douala')}</option>
+                <option value="yaounde">{t('city.yaounde')}</option>
+                <option value="other">{t('city.other')}</option>
               </Select>
             </Field>
-            <Field label="Rate / week (XAF, opt.)">
+            <Field label={t('admin.cars.weeklyRate')}>
               <Input
                 type="number"
                 min={1}
@@ -720,7 +729,7 @@ function Cars() {
                 onChange={(e) => setForm({ ...form, weekly_rate_xaf: e.target.value })}
               />
             </Field>
-            <Field label="Rate / month (XAF, opt.)">
+            <Field label={t('admin.cars.monthlyRate')}>
               <Input
                 type="number"
                 min={1}
@@ -728,18 +737,18 @@ function Cars() {
                 onChange={(e) => setForm({ ...form, monthly_rate_xaf: e.target.value })}
               />
             </Field>
-            <Field label="Driver">
+            <Field label={t('vendor.form.driver')}>
               <Select
                 value={form.driver_option}
                 onChange={(e) => setForm({ ...form, driver_option: e.target.value })}
               >
-                <option value="none">Self-drive only</option>
-                <option value="optional">Driver available</option>
-                <option value="required">Always with driver</option>
+                <option value="none">{t('vendor.form.driverNone')}</option>
+                <option value="optional">{t('admin.cars.driverOptional')}</option>
+                <option value="required">{t('admin.cars.driverRequired')}</option>
               </Select>
             </Field>
             {form.driver_option !== 'none' && (
-              <Field label="Driver rate / day (XAF)">
+              <Field label={t('admin.cars.driverRate')}>
                 <Input
                   type="number"
                   min={1}

@@ -426,6 +426,12 @@ export const en = {
       },
     ],
   },
+  gallery: {
+    previous: 'Previous photo',
+    next: 'Next photo',
+    position: '{{current}} / {{total}}',
+    showPhoto: 'Show photo {{n}}',
+  },
   seo: {
     search: {
       title: 'Find a car',
