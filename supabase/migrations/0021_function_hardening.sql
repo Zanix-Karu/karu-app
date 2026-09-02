@@ -19,9 +19,25 @@ ALTER FUNCTION public.next_booking_reference() SET search_path = public;
 --    RLS policies, where the definer's rights are the point — nothing should
 --    invoke them directly, and handle_new_user() is a trigger that must only
 --    ever fire on auth.users insert.
-REVOKE EXECUTE ON FUNCTION public.current_user_role() FROM anon, authenticated;
-REVOKE EXECUTE ON FUNCTION public.current_vendor_id() FROM anon, authenticated;
-REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM anon, authenticated;
+--    Revoking from anon and authenticated is NOT enough on its own: Postgres
+--    grants EXECUTE on functions to PUBLIC by default, so the privilege stays
+--    reachable through that. Verified against production — the first pass
+--    looked applied but has_function_privilege('anon', ...) still returned
+--    true until PUBLIC was revoked too.
+REVOKE EXECUTE ON FUNCTION public.current_user_role() FROM anon, authenticated, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.current_vendor_id() FROM anon, authenticated, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM anon, authenticated, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.next_booking_reference() FROM PUBLIC;
+
+-- Revoking PUBLIC also stripped the roles that legitimately need these, so put
+-- them back explicitly. supabase_auth_admin matters most: handle_new_user() is
+-- the AFTER INSERT trigger on auth.users that creates the profile row, and it
+-- held EXECUTE only via PUBLIC — without this grant, signup breaks.
+GRANT EXECUTE ON FUNCTION public.handle_new_user() TO supabase_auth_admin;
+GRANT EXECUTE ON FUNCTION public.next_booking_reference() TO service_role;
+GRANT EXECUTE ON FUNCTION public.current_user_role() TO service_role;
+GRANT EXECUTE ON FUNCTION public.current_vendor_id() TO service_role;
+GRANT EXECUTE ON FUNCTION public.handle_new_user() TO service_role;
 
 -- DELIBERATELY NOT DONE HERE: moving btree_gist out of the public schema.
 --
