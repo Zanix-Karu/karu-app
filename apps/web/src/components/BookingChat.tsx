@@ -77,7 +77,7 @@ export function BookingChat({ bookingId, view }: { bookingId: string; view: View
       <p className="mt-1 text-sm text-karu-mute">
         {view === 'admin'
           ? 'You are posting as Karu Support — both parties see your messages.'
-          : 'Chat with the other party here. Karu can see this conversation, and phone numbers or email addresses are removed automatically — all contact runs through Karu.'}
+          : 'Chat with the other party here. Karu can see this conversation, and phone numbers or email addresses are removed automatically from messages.'}
       </p>
 
       <div

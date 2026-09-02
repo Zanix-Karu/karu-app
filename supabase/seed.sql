@@ -193,7 +193,12 @@ from (values
   ('33333333-0000-4000-8000-000000000014', '22222222-0000-4000-8000-000000000015', 'Honda',         'Fit',            2016, 'economy',  5, 'automatic',  24000, 'none',       null,   null,     null, 'douala',  'Bonaberi',                                       'Deactivated automatically when the owner was suspended over expired roadworthiness.',    'inactive', 'LT 512 CD', 'petrol', 'photo-1526726538690-5cbf956ae2fd', 1,  85),
   ('33333333-0000-4000-8000-000000000015', '22222222-0000-4000-8000-000000000015', 'Ford',          'Ranger',         2018, 'pickup',   5, 'manual',     60000, 'none',       null,   null,     null, 'douala',  'Bonaberi',                                       'Deactivated with the rest of the suspended fleet.',                                      'inactive', 'LT 288 EF', 'diesel', 'photo-1567808291548-fc3ee04dbcf0', 1,  84)
 ) as c(id, vendor_id, make, model, year, category, seats, transmission, daily, driver, driver_rate, weekly, monthly, city, pickups, description, status, plate, fuel, hero, angles, age_days)
-cross join (select 'https://images.unsplash.com/' as base, '?w=1200&q=60&auto=format&fit=crop' as q) k;
+-- CONTENT-1: these listings used Unsplash stock that did not match the car —
+-- a "Toyota Vitz" led with a Honda CR-V in an Icelandic snowfield, and the
+-- galleries showed a Ferrari and a Bugatti. An obvious placeholder reads
+-- pre-launch; the wrong car reads dishonest. Swap `base` back to a real photo
+-- host once launch vendors have supplied their own images.
+cross join (select '/car-placeholder.svg#' as base, '' as q) k;
 
 -- ── 4. Verification documents ──────────────────────────────────────────────
 -- The admin console's review queue. Bastos Executive is the live case: four

@@ -262,15 +262,26 @@ export class BookingsService {
       | { id: string; full_name: string | null; phone: string | null }
       | null;
 
-    // Provider block: contact is public directory information, so customers
-    // and admins both get it. Vendors do not need their own details echoed.
+    // Provider block. This used to hand the phone to any customer on the
+    // grounds that it was "public directory information" — which stopped being
+    // true when SEC-1 took contact details out of the public vendor payload.
+    // Left as it was, merely *requesting* a booking would surface a stranger's
+    // number before they had agreed to anything.
+    //
+    // A booking the provider has accepted is the point where a customer has a
+    // real need to reach them: to arrange the handover. Admins keep full
+    // access, since the team coordinates pick-ups by hand.
+    const accepted =
+      booking.status === 'confirmed' ||
+      booking.status === 'in_progress' ||
+      booking.status === 'completed';
     const vendor =
       vendorRow && role !== 'vendor'
         ? {
             id: vendorRow.id,
             business_name: vendorRow.business_name,
             city: vendorRow.city,
-            contact_phone: vendorRow.contact_phone,
+            contact_phone: role === 'admin' || accepted ? vendorRow.contact_phone : null,
             contact_email: role === 'admin' ? vendorRow.contact_email : null,
           }
         : vendorRow
