@@ -49,11 +49,26 @@
   --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
-  --radius-sm: 5px;
+  /* Radius scale (DS-1).
+   *
+   * These names are also Tailwind v4's border-radius theme namespace, so this
+   * block silently redefines rounded-sm/md/lg/xl/2xl app-wide — which is how
+   * `rounded-2xl` came to mean 60px and made cards read toy-like. Six sizes
+   * across two systems is not a scale, it is drift.
+   *
+   * Collapsed to three plus round, and every Tailwind step is mapped onto one
+   * of them so it no longer matters which class someone reaches for:
+   *   6px   inputs, chips
+   *   10px  buttons, cards
+   *   14px  sheets, modals
+   *   999px avatars, status chips, toggles — never cards or CTAs
+   */
+  --radius-sm: 6px;
   --radius-md: 10px;
-  --radius-lg: 15px;
-  --radius-xl: 24px;
-  --radius-2xl: 60px;
+  --radius-lg: 14px;
+  --radius-xl: 14px;
+  --radius-2xl: 14px;
+  --radius-3xl: 14px;
   --radius-pill: 999px;
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
   --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.1);

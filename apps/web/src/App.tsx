@@ -40,6 +40,7 @@ const BookingsScreen = lazy(() => import('./screens/BookingsScreen').then((m) =>
 const BookingDetailScreen = lazy(() => import('./screens/BookingDetailScreen').then((m) => ({ default: m.BookingDetailScreen })));
 const ProfileScreen = lazy(() => import('./screens/ProfileScreen').then((m) => ({ default: m.ProfileScreen })));
 const AdminScreen = lazy(() => import('./screens/AdminScreen').then((m) => ({ default: m.AdminScreen })));
+const LegalScreen = lazy(() => import('./screens/LegalScreen').then((m) => ({ default: m.LegalScreen })));
 const VendorAreaScreen = lazy(() => import('./screens/VendorAreaScreen').then((m) => ({ default: m.VendorAreaScreen })));
 
 const queryClient = new QueryClient({
@@ -98,11 +99,10 @@ function Header() {
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 py-3 sm:justify-between sm:gap-4">
         <Link
           to={HOME[view]}
-          className="shrink-0"
+          className="shrink-0 text-[20px] sm:text-[26px]"
           style={{
             fontFamily: 'var(--font-display)',
             fontWeight: 700,
-            fontSize: 26,
             letterSpacing: '0.3em',
             color: 'var(--gold-400)',
           }}
@@ -110,14 +110,14 @@ function Header() {
           KARU
         </Link>
         {/* Each view sees only its own items — see lib/roles.ts */}
-        <nav className="flex flex-wrap items-center justify-center gap-1">
+        <nav className="karu-nav-strip flex flex-nowrap items-center justify-center gap-1 overflow-x-auto">
           {NAV[view].map((item) => (
             <NavLink key={item.to} to={item.to} end={item.to === '/vendor' || item.to === '/admin'} className={nav}>
               {t(item.label)}
             </NavLink>
           ))}
         </nav>
-        <div className="flex flex-wrap items-center justify-center gap-2">
+        <div className="flex flex-nowrap items-center justify-center gap-2">
           <LanguageSwitcher />
           <CurrencySwitcher />
           {session ? (
@@ -188,6 +188,10 @@ export default function App() {
               <Route path="/vendors/:id" element={<VendorProfileScreen />} />
               <Route path="/cars/:id" element={<CarDetailScreen />} />
               <Route path="/list-your-car" element={<ListYourCarScreen />} />
+              {/* FEAT-4: the signup consent checkbox asked people to agree to
+                  documents that did not exist and linked nowhere. */}
+              <Route path="/privacy" element={<LegalScreen doc="privacy" />} />
+              <Route path="/terms" element={<LegalScreen doc="terms" />} />
 
               {/* Customer view */}
               <Route

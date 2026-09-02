@@ -86,7 +86,7 @@ export const en = {
     confirmEmail: 'Confirm email',
     password: 'Password',
     passwordHint: 'At least 8 characters.',
-    agree: "I agree to Karu's Terms of Service and Privacy Policy.",
+    agree: "I agree to Karu's <terms>Terms of Service</terms> and <privacy>Privacy Policy</privacy>.",
     createProviderAccount: 'Create provider account',
     sendResetLink: 'Send reset link',
     noAccount: "Don't have an account?",
@@ -338,6 +338,91 @@ export const en = {
       {
         title: 'List your cars and take bookings',
         body: 'You set the price and availability. Accept only the requests you want.',
+      },
+    ],
+  },
+  legal: { back: '\u2190 Back to Karu' },
+  privacy: {
+    title: 'Privacy Policy',
+    updated: 'Last updated: September 2026',
+    sections: [
+      {
+        title: '1. Who we are',
+        body: 'Karu operates a marketplace connecting people who want to rent a car in Cameroon with verified rental providers. This policy covers the booking app at app.getkaru.io. The waitlist site at www.getkaru.io has its own, narrower policy.',
+      },
+      {
+        title: '2. What we collect',
+        body: 'Account: your name, email address, phone number and language. Providers additionally give business details, and upload identity and business documents (RCCM, national ID or passport) plus vehicle paperwork, which we hold privately for verification. Bookings: dates, pickup or delivery address, any note you write, and the calculated price. Payments: the amount and the payment provider\u2019s own reference \u2014 never your card number, which is entered on the provider\u2019s page and never reaches Karu. Messages: what you and the other party write on a booking. Technical: a non-reversible hash of your IP address, used only to limit abuse.',
+      },
+      {
+        title: '3. How we use it',
+        body: 'To run bookings, verify providers, take and reconcile payments, send transactional email about your bookings, and keep the marketplace safe. We do not sell your data, and we do not use it for advertising.',
+      },
+      {
+        title: '4. Who sees what',
+        body: 'When you book, the provider sees what they need to fulfil it \u2014 your name and the booking details. A provider\u2019s personal phone and email are not published publicly. Vehicle number plates are not shown on public listings. We use service providers to host the database, send email and process payments; they act on our instructions only.',
+      },
+      {
+        title: '5. Messages',
+        body: 'Messages on a booking pass through Karu, and phone numbers and email addresses in them are removed automatically. This is to keep contact on-platform so disputes can be resolved \u2014 it means we can read message content when investigating a report.',
+      },
+      {
+        title: '6. How long we keep it',
+        body: 'We keep your account and booking records for as long as your account is open, and afterwards only for as long as we are required to for tax, accounting and dispute purposes. Verification documents are kept while a provider is active on the platform.',
+      },
+      {
+        title: '7. Your rights',
+        body: 'Under Cameroon\u2019s Law No. 2024/017 on the protection of personal data \u2014 and under the GDPR where it applies to you \u2014 you can ask for a copy of your data, ask us to correct it, ask us to delete it, or object to how we use it. Write to privacy@getkaru.io and we will respond.',
+      },
+      {
+        title: '8. Security',
+        body: 'Traffic is encrypted in transit. Verification documents are held in private storage, not on public URLs. Access to production data is limited to the people who operate the service.',
+      },
+      {
+        title: '9. Contact',
+        body: 'Questions about this policy, or about your data: privacy@getkaru.io.',
+      },
+    ],
+  },
+  terms: {
+    title: 'Terms of Service',
+    updated: 'Last updated: September 2026',
+    sections: [
+      {
+        title: '1. What Karu is',
+        body: 'Karu is a marketplace. We introduce customers to independent rental providers and handle the booking. The rental itself is an agreement between you and the provider \u2014 they own the vehicle, and they are responsible for it and for the rental.',
+      },
+      {
+        title: '2. Your account',
+        body: 'Give accurate details and keep your password to yourself. You are responsible for what happens under your account. You must be old enough, and hold a valid licence, to drive a car you book without a driver.',
+      },
+      {
+        title: '3. Bookings',
+        body: 'A booking request is not confirmed until the provider accepts it. Prices shown are calculated by Karu from the provider\u2019s rates and include the fees displayed at the time of booking. Cancellation terms are shown on the booking.',
+      },
+      {
+        title: '4. Payments and deposits',
+        body: 'Where a deposit applies it is shown before you confirm. Karu does not currently take card payments in-app; a member of the team arranges payment with you directly, and nothing is charged automatically. Card numbers are never stored by Karu.',
+      },
+      {
+        title: '5. Providers',
+        body: 'Providers must be verified before their cars appear publicly, must keep their paperwork current, and must describe their vehicles accurately. Listings that misrepresent a vehicle may be removed and the account suspended.',
+      },
+      {
+        title: '6. Acceptable use',
+        body: 'Do not use Karu to defraud anyone, to move contact off-platform in order to avoid its protections, to scrape the service, or to break the law. We may suspend accounts that do.',
+      },
+      {
+        title: '7. Liability',
+        body: 'We work to keep listings accurate and providers verified, but we are not the owner of the vehicle and are not a party to the rental. Nothing here limits liability that cannot be limited under Cameroonian law.',
+      },
+      {
+        title: '8. Changes',
+        body: 'We may update these terms. Material changes will be notified to the email on your account.',
+      },
+      {
+        title: '9. Contact',
+        body: 'hello@getkaru.io.',
       },
     ],
   },

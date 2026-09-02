@@ -119,3 +119,16 @@
 #main:focus {
   outline: none;
 }
+
+/* ─── Header nav strip (UX-6) ────────────────────────────────────────────── */
+/* Scrolls sideways instead of wrapping onto extra rows. The scrollbar itself
+   is hidden — it would sit under the links and the strip is short enough that
+   the overflow is obvious from the clipped item. */
+.karu-nav-strip {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.karu-nav-strip::-webkit-scrollbar {
+  display: none;
+}

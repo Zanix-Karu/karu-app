@@ -91,7 +91,7 @@ export const fr = {
     confirmEmail: 'Confirmer l’e-mail',
     password: 'Mot de passe',
     passwordHint: 'Au moins 8 caractères.',
-    agree: 'J’accepte les conditions d’utilisation et la politique de confidentialité de Karu.',
+    agree: "J\u2019accepte les <terms>conditions d\u2019utilisation</terms> et la <privacy>politique de confidentialit\u00e9</privacy> de Karu.",
     createProviderAccount: 'Créer un compte loueur',
     sendResetLink: 'Envoyer le lien',
     noAccount: 'Pas encore de compte ?',
@@ -343,6 +343,91 @@ export const fr = {
       {
         title: 'Publiez vos voitures et recevez des réservations',
         body: 'Vous fixez le prix et les disponibilités. Vous n’acceptez que ce qui vous convient.',
+      },
+    ],
+  },
+  legal: { back: '\u2190 Retour \u00e0 Karu' },
+  privacy: {
+    title: 'Politique de confidentialit\u00e9',
+    updated: 'Derni\u00e8re mise \u00e0 jour : septembre 2026',
+    sections: [
+      {
+        title: '1. Qui nous sommes',
+        body: 'Karu exploite une place de march\u00e9 qui met en relation les personnes souhaitant louer une voiture au Cameroun avec des prestataires v\u00e9rifi\u00e9s. Cette politique couvre l\u2019application de r\u00e9servation app.getkaru.io. Le site d\u2019attente www.getkaru.io a sa propre politique, plus restreinte.',
+      },
+      {
+        title: '2. Ce que nous collectons',
+        body: 'Compte : nom, adresse e-mail, num\u00e9ro de t\u00e9l\u00e9phone et langue. Les prestataires fournissent en plus les informations de leur entreprise et t\u00e9l\u00e9versent des pi\u00e8ces d\u2019identit\u00e9 et documents professionnels (RCCM, CNI ou passeport) ainsi que les papiers du v\u00e9hicule, conserv\u00e9s de mani\u00e8re priv\u00e9e pour la v\u00e9rification. R\u00e9servations : dates, adresse de prise en charge ou de livraison, note \u00e9ventuelle et prix calcul\u00e9. Paiements : le montant et la r\u00e9f\u00e9rence du prestataire de paiement \u2014 jamais votre num\u00e9ro de carte, saisi sur la page du prestataire et qui ne parvient jamais \u00e0 Karu. Messages : ce que vous et l\u2019autre partie \u00e9crivez sur une r\u00e9servation. Technique : une empreinte non r\u00e9versible de votre adresse IP, utilis\u00e9e uniquement pour limiter les abus.',
+      },
+      {
+        title: '3. Comment nous l\u2019utilisons',
+        body: 'Pour g\u00e9rer les r\u00e9servations, v\u00e9rifier les prestataires, encaisser et rapprocher les paiements, envoyer les e-mails li\u00e9s \u00e0 vos r\u00e9servations et assurer la s\u00e9curit\u00e9 de la place de march\u00e9. Nous ne vendons pas vos donn\u00e9es et ne les utilisons pas \u00e0 des fins publicitaires.',
+      },
+      {
+        title: '4. Qui voit quoi',
+        body: 'Lorsque vous r\u00e9servez, le prestataire voit ce qui lui est n\u00e9cessaire : votre nom et les d\u00e9tails de la r\u00e9servation. Le t\u00e9l\u00e9phone et l\u2019e-mail personnels d\u2019un prestataire ne sont pas publi\u00e9s. Les plaques d\u2019immatriculation ne figurent pas sur les annonces publiques. Nous recourons \u00e0 des sous-traitants pour l\u2019h\u00e9bergement, l\u2019envoi d\u2019e-mails et le paiement ; ils agissent uniquement sur nos instructions.',
+      },
+      {
+        title: '5. Messages',
+        body: 'Les messages li\u00e9s \u00e0 une r\u00e9servation transitent par Karu, et les num\u00e9ros de t\u00e9l\u00e9phone et adresses e-mail qu\u2019ils contiennent sont retir\u00e9s automatiquement. Cela maintient le contact sur la plateforme afin de pouvoir traiter les litiges \u2014 nous pouvons donc lire le contenu des messages lors d\u2019un signalement.',
+      },
+      {
+        title: '6. Dur\u00e9e de conservation',
+        body: 'Nous conservons votre compte et vos r\u00e9servations tant que votre compte est ouvert, puis uniquement le temps requis \u00e0 des fins fiscales, comptables et de r\u00e8glement des litiges. Les documents de v\u00e9rification sont conserv\u00e9s tant qu\u2019un prestataire est actif.',
+      },
+      {
+        title: '7. Vos droits',
+        body: 'En vertu de la loi camerounaise n\u00b0 2024/017 sur la protection des donn\u00e9es \u00e0 caract\u00e8re personnel \u2014 et du RGPD lorsqu\u2019il vous est applicable \u2014 vous pouvez demander une copie de vos donn\u00e9es, leur rectification, leur suppression, ou vous opposer \u00e0 leur utilisation. \u00c9crivez \u00e0 privacy@getkaru.io et nous vous r\u00e9pondrons.',
+      },
+      {
+        title: '8. S\u00e9curit\u00e9',
+        body: 'Les \u00e9changes sont chiffr\u00e9s en transit. Les documents de v\u00e9rification sont stock\u00e9s de mani\u00e8re priv\u00e9e, pas sur des URL publiques. L\u2019acc\u00e8s aux donn\u00e9es de production est limit\u00e9 aux personnes qui exploitent le service.',
+      },
+      {
+        title: '9. Contact',
+        body: 'Questions sur cette politique ou sur vos donn\u00e9es : privacy@getkaru.io.',
+      },
+    ],
+  },
+  terms: {
+    title: 'Conditions d\u2019utilisation',
+    updated: 'Derni\u00e8re mise \u00e0 jour : septembre 2026',
+    sections: [
+      {
+        title: '1. Ce qu\u2019est Karu',
+        body: 'Karu est une place de march\u00e9. Nous mettons les clients en relation avec des prestataires ind\u00e9pendants et g\u00e9rons la r\u00e9servation. La location elle-m\u00eame est un contrat entre vous et le prestataire : le v\u00e9hicule lui appartient et il en est responsable.',
+      },
+      {
+        title: '2. Votre compte',
+        body: 'Donnez des informations exactes et gardez votre mot de passe pour vous. Vous \u00eates responsable de ce qui se passe sous votre compte. Vous devez avoir l\u2019\u00e2ge requis et un permis valide pour conduire une voiture r\u00e9serv\u00e9e sans chauffeur.',
+      },
+      {
+        title: '3. R\u00e9servations',
+        body: 'Une demande n\u2019est confirm\u00e9e qu\u2019une fois accept\u00e9e par le prestataire. Les prix affich\u00e9s sont calcul\u00e9s par Karu \u00e0 partir des tarifs du prestataire et incluent les frais indiqu\u00e9s au moment de la r\u00e9servation. Les conditions d\u2019annulation figurent sur la r\u00e9servation.',
+      },
+      {
+        title: '4. Paiements et cautions',
+        body: 'Lorsqu\u2019une caution s\u2019applique, elle est indiqu\u00e9e avant confirmation. Karu ne prend pas encore les paiements par carte dans l\u2019application ; un membre de l\u2019\u00e9quipe organise le paiement avec vous et rien n\u2019est pr\u00e9lev\u00e9 automatiquement. Les num\u00e9ros de carte ne sont jamais conserv\u00e9s par Karu.',
+      },
+      {
+        title: '5. Prestataires',
+        body: 'Les prestataires doivent \u00eatre v\u00e9rifi\u00e9s avant que leurs voitures n\u2019apparaissent publiquement, tenir leurs documents \u00e0 jour et d\u00e9crire fid\u00e8lement leurs v\u00e9hicules. Une annonce trompeuse peut \u00eatre retir\u00e9e et le compte suspendu.',
+      },
+      {
+        title: '6. Usage acceptable',
+        body: 'N\u2019utilisez pas Karu pour frauder, pour d\u00e9placer le contact hors plateforme afin d\u2019en contourner les protections, pour extraire des donn\u00e9es, ou pour enfreindre la loi. Nous pouvons suspendre les comptes concern\u00e9s.',
+      },
+      {
+        title: '7. Responsabilit\u00e9',
+        body: 'Nous nous effor\u00e7ons de garder les annonces exactes et les prestataires v\u00e9rifi\u00e9s, mais nous ne sommes ni propri\u00e9taire du v\u00e9hicule ni partie au contrat de location. Rien ici ne limite une responsabilit\u00e9 qui ne peut l\u2019\u00eatre en droit camerounais.',
+      },
+      {
+        title: '8. Modifications',
+        body: 'Nous pouvons modifier ces conditions. Les changements importants seront notifi\u00e9s \u00e0 l\u2019adresse e-mail de votre compte.',
+      },
+      {
+        title: '9. Contact',
+        body: 'hello@getkaru.io.',
       },
     ],
   },

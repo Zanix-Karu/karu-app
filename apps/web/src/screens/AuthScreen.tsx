@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { usePageMeta } from '../lib/page-meta';
-import { useTranslation } from 'react-i18next';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Trans, useTranslation } from 'react-i18next';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { api } from '../lib/api';
 import { Button, Card, ErrorNote, Field, Input, Select } from '../ui';
@@ -382,7 +382,13 @@ export function AuthScreen() {
                 style={{ accentColor: 'var(--gold-600)' }}
               />
               <span className="text-karu-mute">
-                {t('auth.agree')}
+                <Trans
+                  i18nKey="auth.agree"
+                  components={{
+                    terms: <Link to="/terms" target="_blank" className="underline" />,
+                    privacy: <Link to="/privacy" target="_blank" className="underline" />,
+                  }}
+                />
               </span>
             </label>
           )}
