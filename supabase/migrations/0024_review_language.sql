@@ -35,3 +35,20 @@ CREATE TABLE IF NOT EXISTS review_translations (
 -- Same posture as email_log and vehicle_blocks: the API holds the service role
 -- and is the authorisation boundary, so no end-user JWT touches this directly.
 ALTER TABLE review_translations ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.review_translations FROM anon, authenticated;
+
+-- Backfill existing reviews from their author's interface locale, which is the
+-- same signal the write path now records. Without this the feature would do
+-- nothing for the reviews that prompted it: the component shows no control
+-- when the source language is unknown, so every pre-existing review would keep
+-- sitting in the wrong language with no way to read it.
+--
+-- Only fills rows still null, so it is safe to re-run and cannot overwrite a
+-- recorded value.
+UPDATE reviews r
+SET language = p.locale
+FROM profiles p
+WHERE p.id = r.author_id
+  AND r.language IS NULL
+  AND r.comment IS NOT NULL
+  AND p.locale IN ('en', 'fr');
