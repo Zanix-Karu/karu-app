@@ -107,7 +107,7 @@ export const en = {
     vendorTitle: 'List your fleet and reach renters across Cameroon.',
     vendorSub: 'Karu brings you booking requests. You choose which to accept.',
     vendorPoints: [
-      'You set the price and the availability, always',
+      'You always set the price and the availability',
       'We verify every renter, and handle the customer conversation',
       'No listing fee: you only hear from us when there is a booking',
     ],
@@ -158,7 +158,7 @@ export const en = {
     noneTitle: 'No cars match',
     noneHint: 'Try widening your dates or clearing a filter.',
     loadError:
-      "We couldn't load cars just now. Please check your connection and try again: if it keeps happening. Contact us and we'll sort it out.",
+      "We couldn't load cars just now. Please check your connection and try again. If it keeps happening, contact us and we'll sort it out.",
     prev: 'Previous',
     next: 'Next',
     showing: 'Showing {{from}}–{{to}} of {{total}}',
@@ -169,7 +169,7 @@ export const en = {
     pickupLocations: 'Pick-up locations',
     conditions: 'Cancel any time before pick-up at no cost · No hidden fees. What you see is what you pay',
     available: 'Available {{from}} → {{to}}',
-    notAvailable: 'Not available for those dates, try different ones.',
+    notAvailable: 'Not available for those dates. Try different ones.',
     checking: 'Checking availability…',
     preferredPickup: 'Preferred pick-up point',
     noteToProvider: 'Note to the provider (optional)',
@@ -179,7 +179,7 @@ export const en = {
     requestToBook: 'Request to book',
     signInToBook: 'Sign in to book',
     sending: 'Sending request…',
-    noCharge: 'No charge yet, the provider confirms within 24h.',
+    noCharge: 'No charge yet. The provider confirms within 24h.',
     readOnlyVendor:
       "You're signed in as a provider, so booking is disabled. This is how the listing looks to customers.",
     driverHeading: 'Driver',
@@ -209,7 +209,7 @@ export const en = {
     whatNext: 'What happens next?',
     next1: 'Your request is with the provider. They usually respond within 24 hours.',
     next2: 'Track the status any time under My bookings',
-    next2Email: ". We'll also email {{email}} when it changes",
+    next2Email: ", and we'll email {{email}} when it changes",
     next3:
       'Quote your reference at pick-up. Nothing has been charged: the Karu team will contact you about paying the deposit once the provider confirms.',
     viewMyBookings: 'View my bookings',
@@ -272,7 +272,7 @@ export const en = {
   },
   providers: {
     title: 'Verified providers',
-    sub: 'Every provider on Karu has passed document verification, business registration, carte grise, insurance.',
+    sub: 'Every provider on Karu has passed document verification: business registration, carte grise and insurance.',
     none: 'No providers yet',
     noReviews: 'No reviews yet',
     verified: '✓ Verified',
@@ -315,7 +315,7 @@ export const en = {
       },
       {
         title: 'We bring verified renters',
-        body: 'Every customer has an account with us, and we handle the conversation, your phone number stays private.',
+        body: 'Every customer has an account with us and we handle the conversation, so your phone number stays private.',
       },
       {
         title: 'No listing fee',
@@ -443,7 +443,7 @@ export const en = {
     },
     listYourCar: {
       title: 'List your car',
-      description: 'Earn from your vehicle with Karu. Your phone number stays private. All contact runs through Karu.',
+      description: 'Earn from your vehicle with Karu. Your phone number stays private, because all contact runs through us.',
     },
     auth: { title: 'Sign in' },
     car: { description: 'Book this car on Karu. Verified provider, transparent pricing.' },
@@ -479,15 +479,15 @@ export const en = {
     status: { pending: 'pending', verified: 'verified', rejected: 'rejected', suspended: 'suspended' },
     nav: { dashboard: 'Dashboard', bookings: 'Booking requests', cars: 'My cars', documents: 'Documents' },
     onboarding: {
-      titleOk: 'Welcome to Karu, two steps to go live',
+      titleOk: 'Welcome to Karu. Two steps to go live',
       titleAttention: 'Your account needs attention',
       subOk: 'Add your cars and paperwork now. Your listings go live to customers as soon as your account is verified.',
       subAttention: 'Verification is currently {{status}}. Send us a message and we will help sort it out.',
       step1: 'Business details',
       step2: 'Upload your documents',
       step2Body: "RCCM. Or a national ID / passport if the business isn't registered. We review within one business day.",
-      step2Rejected_one: "{{count}} document was rejected, see the reviewer's note and re-upload.",
-      step2Rejected_other: "{{count}} documents were rejected, see the reviewer's note and re-upload.",
+      step2Rejected_one: "{{count}} document was rejected. See the reviewer's note and re-upload.",
+      step2Rejected_other: "{{count}} documents were rejected. See the reviewer's note and re-upload.",
       fixDocuments: 'Fix documents',
       uploadDocuments: 'Upload documents',
       step3: 'Add your first car',
@@ -565,13 +565,13 @@ export const en = {
       retire: 'Retire',
       retireConfirm: 'Retire this car?',
       working: 'Working…',
-      retiredKept_one: 'Taken off the marketplace, {{count}} booking kept for your records.',
-      retiredKept_other: 'Taken off the marketplace, {{count}} bookings kept for your records.',
+      retiredKept_one: 'Taken off the marketplace. {{count}} booking kept for your records.',
+      retiredKept_other: 'Taken off the marketplace. {{count}} bookings kept for your records.',
       retiredRemoved: 'Listing removed.',
     },
     blocks: {
       title: 'Blocked dates (maintenance, private use)',
-      none: 'No blocks, fully bookable.',
+      none: 'No blocks. Fully bookable.',
       remove: 'Remove',
       reason: 'Reason (optional)',
       block: 'Block',
@@ -623,7 +623,7 @@ export const en = {
     },
     docs: {
       title: 'Verification documents',
-      subVendor: 'Upload each document, the Karu team reviews within one business day. Re-uploading restarts a review.',
+      subVendor: 'Upload each document. The Karu team reviews within one business day, and re-uploading restarts a review.',
       subAdmin: '{{name}}’s paperwork. Upload what the team has collected, then approve or reject in ',
       reviewQueue: 'the review queue',
       businessTitle: 'Business & identity',
@@ -635,7 +635,7 @@ export const en = {
       noCarsHint: 'Add a car first. Its paperwork is uploaded here afterwards.',
       type: {
         rccm: 'RCCM (business registration)',
-        national_id: 'National ID. If the business is not registered',
+        national_id: 'National ID, if the business is not registered',
         passport: 'Passport, alternative identity document',
         carte_grise: 'Carte grise (registration)',
         insurance: 'Insurance certificate',
@@ -649,7 +649,7 @@ export const en = {
       uploading: 'Uploading…',
       expiryAria: '{{label}} expiry date',
       reviewerNote: 'Reviewer’s note: {{note}}',
-      rejectedFallback: 'Rejected, upload a clearer or more recent document.',
+      rejectedFallback: 'Rejected. Upload a clearer or more recent document.',
       received: 'Document received, pending review ✓',
     },
     checklist: {
@@ -662,7 +662,7 @@ export const en = {
       insurance: 'insurance',
       roadworthiness: 'roadworthiness',
       photos: 'photos',
-      noCars: 'No cars yet, vehicle checks appear per car.',
+      noCars: 'No cars yet. Vehicle checks appear per car.',
       approved: 'Vendor approved',
     },
     slots: {

@@ -165,8 +165,8 @@ export function BookingChat({
             }
           }}
         />
-        <Button type="submit" disabled={!draft.trim() || send.isPending}>
-          {send.isPending ? 'Sending…' : 'Send'}
+        <Button type="submit" disabled={!draft.trim()} loading={send.isPending}>
+          Send
         </Button>
       </form>
       {lastSentRedacted && (
@@ -193,10 +193,10 @@ export function BookingChat({
               <Button
                 variant="ghost"
                 type="button"
-                disabled={askForHelp.isPending}
+                loading={askForHelp.isPending}
                 onClick={() => askForHelp.mutate()}
               >
-                {askForHelp.isPending ? 'Asking…' : 'Ask Karu for help'}
+                Ask Karu for help
               </Button>
             </div>
           )}

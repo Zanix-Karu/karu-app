@@ -9,12 +9,23 @@ import type { BookingStatus } from '@karu/shared';
 
 /** Karu UI primitives — visual language of the approved mockups. */
 
+/**
+ * NOTE: there are two Button components in this app, this one and the DS one
+ * in ds/index.tsx, with different variant sets, and screens import from both.
+ * They should converge. Until they do, both carry the same states so a
+ * keyboard user gets the same focus ring either way.
+ */
 export function Button({
   variant = 'primary',
   className = '',
+  loading = false,
+  disabled,
+  children,
   ...rest
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: 'primary' | 'outline' | 'danger' | 'ghost';
+  /** Shows a spinner and blocks clicks, keeping the label in place. */
+  loading?: boolean;
 }) {
   const variants = {
     primary:
@@ -26,9 +37,19 @@ export function Button({
   } as const;
   return (
     <button
-      className={`rounded-full px-5 py-2.5 text-sm font-semibold transition ${variants[variant]} ${className}`}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      className={`karu-btn inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition ${variants[variant]} ${className}`}
       {...rest}
-    />
+    >
+      {loading && (
+        <span
+          aria-hidden="true"
+          className="karu-btn-spinner inline-block h-[1em] w-[1em] shrink-0 rounded-full border-2 border-current border-t-transparent"
+        />
+      )}
+      {children}
+    </button>
   );
 }
 

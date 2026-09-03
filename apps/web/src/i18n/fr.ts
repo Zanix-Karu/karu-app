@@ -277,7 +277,7 @@ export const fr = {
   },
   providers: {
     title: 'Loueurs vérifiés',
-    sub: 'Chaque loueur sur Karu a passé la vérification des documents, registre de commerce, carte grise, assurance.',
+    sub: 'Chaque loueur sur Karu a passé la vérification des documents : registre de commerce, carte grise et assurance.',
     none: 'Aucun loueur pour l’instant',
     noReviews: 'Pas encore d’avis',
     verified: '✓ Vérifié',

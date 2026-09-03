@@ -259,7 +259,7 @@ function ConvertToVendor() {
               <ErrorNote>{(register.error as Error).message}</ErrorNote>
             </div>
           )}
-          <Button type="submit" disabled={register.isPending}>
+          <Button type="submit" loading={register.isPending}>
             {register.isPending ? t('listYourCar.registering') : t('listYourCar.registerCta')}
           </Button>
         </div>

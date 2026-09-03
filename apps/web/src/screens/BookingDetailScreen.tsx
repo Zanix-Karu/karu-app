@@ -264,11 +264,11 @@ export function BookingDetailScreen() {
                   key={a.to}
                   as={Button}
                   variant="danger"
-                  disabled={transition.isPending}
+                  loading={transition.isPending}
                   confirmLabel={`${a.label}?`}
                   onConfirm={() => transition.mutate(a.to)}
                 >
-                  {transition.isPending ? 'Working…' : a.label}
+                  {a.label}
                 </ConfirmButton>
               ) : (
                 <Button
@@ -384,10 +384,10 @@ function DepositBlock({ bookingId, view }: { bookingId: string; view: string }) 
           <Button
             variant="outline"
             className="mt-3"
-            disabled={start.isPending}
+            loading={start.isPending}
             onClick={() => start.mutate()}
           >
-            {start.isPending ? 'One moment…' : 'How do I pay the deposit?'}
+            How do I pay the deposit?
           </Button>
           {start.isSuccess && (
             <p className="mt-2 text-xs text-karu-brown">{start.data?.instructions}</p>
@@ -465,8 +465,8 @@ function RecordDeposit({ bookingId }: { bookingId: string }) {
             className="rounded-lg border border-karu-ink/15 px-3 py-2 text-sm"
           />
         </label>
-        <Button type="submit" disabled={record.isPending}>
-          {record.isPending ? 'Saving…' : 'Record'}
+        <Button type="submit" loading={record.isPending}>
+          Record
         </Button>
       </form>
       {record.isSuccess && (

@@ -132,3 +132,54 @@
 .karu-nav-strip::-webkit-scrollbar {
   display: none;
 }
+
+/* ─── Buttons: the states the component could not express inline (DS-4) ──── */
+.karu-btn {
+  transition: filter 150ms ease, transform 100ms ease, box-shadow 150ms ease;
+}
+
+.karu-btn:hover:not(:disabled) {
+  filter: brightness(0.95);
+}
+
+.karu-btn:active:not(:disabled) {
+  transform: scale(0.985);
+  filter: brightness(0.92);
+}
+
+/* The important one. There was no focus indicator on any DS button, so a
+   keyboard user could not see where they were. Offset so the ring reads
+   against both the yellow primary and the dark ghost variant. */
+.karu-btn:focus-visible {
+  outline: 2px solid var(--gold-600);
+  outline-offset: 2px;
+}
+
+.karu-btn-spinner {
+  animation: karu-spin 700ms linear infinite;
+}
+
+@keyframes karu-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Inputs, selects and links were in the same position. */
+.karu-btn:disabled { pointer-events: none; }
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--gold-600);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .karu-btn,
+  .karu-btn-spinner {
+    transition: none;
+    animation-duration: 2s;
+  }
+  .karu-btn:active:not(:disabled) { transform: none; }
+}
