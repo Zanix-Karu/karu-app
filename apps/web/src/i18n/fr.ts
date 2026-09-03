@@ -454,6 +454,14 @@ export const fr = {
     car: { description: 'Reservez cette voiture sur Karu. Prestataire verifie, prix transparents.' },
     notFound: { title: 'Page introuvable' },
   },
+  reviews: {
+    translate: 'Traduire depuis {{lang}}',
+    showOriginal: 'Afficher l\'original',
+    translating: 'Traduction…',
+    machineTranslated: 'Traduit automatiquement depuis {{lang}}',
+    translateFailed: 'La traduction n\'a pas abouti. Réessayez dans un instant.',
+    lang: { en: 'anglais', fr: 'français' },
+  },
   vendor: {
     attention: {
       title: 'Requiert votre attention',

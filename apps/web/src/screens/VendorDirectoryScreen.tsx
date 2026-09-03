@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { ReviewBody } from '../components/ReviewBody';
 import { usePageMeta } from '../lib/page-meta';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
@@ -186,11 +187,7 @@ function VendorReviews({ vendorId }: { vendorId: string }) {
         {data.map((r) => (
           <Card key={r.id}>
             <Rating value={r.rating} />
-            {r.comment && (
-              <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, marginTop: 8, lineHeight: 1.5 }}>
-                &ldquo;{r.comment}&rdquo;
-              </p>
-            )}
+            <ReviewBody review={r} />
             <p style={{ fontFamily: 'var(--font-ui)', fontSize: 12, color: 'var(--gray-400)', marginTop: 8 }}>
               {new Date(r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
             </p>

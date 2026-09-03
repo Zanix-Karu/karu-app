@@ -449,6 +449,14 @@ export const en = {
     car: { description: 'Book this car on Karu. Verified provider, transparent pricing.' },
     notFound: { title: 'Page not found' },
   },
+  reviews: {
+    translate: 'Translate from {{lang}}',
+    showOriginal: 'Show the original',
+    translating: 'Translating…',
+    machineTranslated: 'Machine translated from {{lang}}',
+    translateFailed: 'That didn\'t translate. Try again in a moment.',
+    lang: { en: 'English', fr: 'French' },
+  },
   vendor: {
     attention: {
       title: 'Needs your attention',

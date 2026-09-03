@@ -444,6 +444,8 @@ export interface Review {
   target: ReviewTarget;
   rating: number;
   comment: string | null;
+  /** What the author wrote in. Null for reviews predating 0024. */
+  language: 'en' | 'fr' | null;
   created_at: string;
 }
 

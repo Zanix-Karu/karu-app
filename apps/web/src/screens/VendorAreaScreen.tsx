@@ -1,4 +1,5 @@
 import { useState, type CSSProperties, type FormEvent } from 'react';
+import { ReviewBody } from '../components/ReviewBody';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -575,11 +576,7 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
         {reviews?.slice(0, 6).map((r) => (
           <Card key={r.id}>
             <Rating value={r.rating} />
-            {r.comment && (
-              <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, marginTop: 8, lineHeight: 1.5 }}>
-                &ldquo;{r.comment}&rdquo;
-              </p>
-            )}
+            <ReviewBody review={r} />
             <p style={{ fontFamily: 'var(--font-ui)', fontSize: 12, color: 'var(--gray-400)', marginTop: 8 }}>
               {prettyDate(r.created_at.slice(0, 10))}
             </p>
