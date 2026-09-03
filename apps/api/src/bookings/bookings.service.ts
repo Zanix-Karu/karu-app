@@ -262,15 +262,26 @@ export class BookingsService {
       | { id: string; full_name: string | null; phone: string | null }
       | null;
 
-    // Provider block: contact is public directory information, so customers
-    // and admins both get it. Vendors do not need their own details echoed.
+    // Provider block. This used to hand the phone to any customer on the
+    // grounds that it was "public directory information" — which stopped being
+    // true when SEC-1 took contact details out of the public vendor payload.
+    // Left as it was, merely *requesting* a booking would surface a stranger's
+    // number before they had agreed to anything.
+    //
+    // A booking the provider has accepted is the point where a customer has a
+    // real need to reach them: to arrange the handover. Admins keep full
+    // access, since the team coordinates pick-ups by hand.
+    const accepted =
+      booking.status === 'confirmed' ||
+      booking.status === 'in_progress' ||
+      booking.status === 'completed';
     const vendor =
       vendorRow && role !== 'vendor'
         ? {
             id: vendorRow.id,
             business_name: vendorRow.business_name,
             city: vendorRow.city,
-            contact_phone: vendorRow.contact_phone,
+            contact_phone: role === 'admin' || accepted ? vendorRow.contact_phone : null,
             contact_email: role === 'admin' ? vendorRow.contact_email : null,
           }
         : vendorRow
@@ -319,6 +330,57 @@ export class BookingsService {
   }
 
   // --- helpers --------------------------------------------------------------
+
+  /**
+   * Either party asks Karu to step in (0023).
+   *
+   * Deliberately available on any booking the caller is party to, at any
+   * status: the moments people most need help are a rejected request they do
+   * not understand and a completed rental with a dispute about damage, not
+   * only the happy middle. getOwned() is the authorisation, so a stranger
+   * cannot raise a flag on someone else's booking.
+   *
+   * Re-requesting while one is already open is a no-op rather than an error —
+   * someone pressing the button twice is not a failure state, and resetting
+   * the timestamp would push them back down an admin queue sorted by age.
+   */
+  async requestAssistance(
+    bookingId: string,
+    userId: string,
+    role: UserRole,
+    note?: string,
+  ): Promise<Booking> {
+    const booking = await this.getOwned(bookingId, userId, role);
+    const alreadyOpen =
+      booking.assistance_requested_at && !booking.assistance_resolved_at;
+    if (alreadyOpen) return booking;
+
+    const { data, error } = await this.supabase.db
+      .from('bookings')
+      .update({
+        assistance_requested_at: new Date().toISOString(),
+        assistance_requested_by: userId,
+        assistance_note: note ?? null,
+        assistance_resolved_at: null,
+      })
+      .eq('id', bookingId)
+      .select('*')
+      .single();
+    if (error || !data) throw new BadRequestException(error?.message ?? 'Could not raise the request');
+    return data as Booking;
+  }
+
+  /** An admin marks the request handled. The timestamps stay as history. */
+  async resolveAssistance(bookingId: string): Promise<Booking> {
+    const { data, error } = await this.supabase.db
+      .from('bookings')
+      .update({ assistance_resolved_at: new Date().toISOString() })
+      .eq('id', bookingId)
+      .select('*')
+      .single();
+    if (error || !data) throw new NotFoundException('Booking not found');
+    return data as Booking;
+  }
 
   private async getOwned(bookingId: string, userId: string, role: UserRole): Promise<Booking> {
     const { data, error } = await this.supabase.db

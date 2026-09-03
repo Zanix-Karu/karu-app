@@ -6,7 +6,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { prettyDate, xaf } from '../lib/format';
 import { ReviewForm } from '../components/ReviewForm';
-import { SkeletonCard } from '../components/Skeleton';
+import { Skeleton, SkeletonCard } from '../components/Skeleton';
 import { ConfirmButton } from '../components/ConfirmButton';
 import { Button, Card, EmptyState, ErrorNote, StatusBadge } from '../ui';
 
@@ -41,12 +41,19 @@ export function BookingsScreen() {
   // Which completed bookings the customer has already reviewed, so the form
   // is only offered once.
   const completedIds = (data ?? []).filter((b) => b.status === 'completed').map((b) => b.id);
-  const { data: myReviews } = useQuery({
+  const reviewsQuery = useQuery({
     queryKey: ['my-reviews', completedIds.join(',')],
     queryFn: () => api<Review[]>(`/reviews/mine?booking_ids=${completedIds.join(',')}`),
     enabled: completedIds.length > 0,
   });
-  const reviewed = new Set((myReviews ?? []).map((r) => r.booking_id));
+  const reviewed = new Set((reviewsQuery.data ?? []).map((r) => r.booking_id));
+
+  // UX-2: until this query settles `reviewed` is empty, so every completed
+  // booking briefly offered a review form — including ones already reviewed,
+  // where submitting would 409. `isFetched` covers the error case too: if the
+  // lookup fails we would rather show the form and let the API refuse than
+  // hide it forever. Nothing to wait for when there are no completed trips.
+  const reviewsSettled = completedIds.length === 0 || reviewsQuery.isFetched;
 
   const cancel = useMutation({
     mutationFn: (id: string) =>
@@ -116,9 +123,16 @@ export function BookingsScreen() {
                 </div>
               </div>
 
-              {b.status === 'completed' && !reviewed.has(b.id) && (
-                <ReviewForm bookingId={b.id} prompt={t('review.ratePrompt')} />
-              )}
+              {b.status === 'completed' &&
+                (reviewsSettled ? (
+                  !reviewed.has(b.id) && (
+                    <ReviewForm bookingId={b.id} prompt={t('review.ratePrompt')} />
+                  )
+                ) : (
+                  // Reserve the space so the form does not shove the card
+                  // contents down when it resolves.
+                  <Skeleton height={38} style={{ marginTop: 12 }} />
+                ))}
             </Card>
           );
         })}

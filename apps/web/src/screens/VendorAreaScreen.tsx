@@ -1,4 +1,5 @@
 import { useState, type CSSProperties, type FormEvent } from 'react';
+import { ReviewBody } from '../components/ReviewBody';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -76,7 +77,37 @@ export function VendorAreaScreen() {
   const active = isAdmin ? allVendors?.find((v) => v.id === asVendorId) : vendor;
 
   if (!isAdmin && isLoading) return <Spinner label={t('vendor.loading')} />;
-  if (!isAdmin && error) return <ErrorNote>{(error as Error).message}</ErrorNote>;
+
+  // A provider with no vendors row is not an error to shout about — it is the
+  // predictable end state of signing up while email confirmation is on: the
+  // business details typed at signup are dropped when signUp() returns no
+  // session, so the account exists with role=vendor and nothing else. Send them
+  // to the registration form instead of a raw API message.
+  if (!isAdmin && error) {
+    const missingRecord = /no vendor for this account/i.test((error as Error).message ?? '');
+    if (!missingRecord) return <ErrorNote>{(error as Error).message}</ErrorNote>;
+    return (
+      <Card style={{ maxWidth: 560 }}>
+        <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 26 }}>
+          {t('vendor.noRecordTitle')}
+        </h1>
+        <p
+          style={{
+            fontFamily: 'var(--font-ui)',
+            fontSize: 14,
+            lineHeight: 1.6,
+            color: 'var(--gray-500)',
+            marginTop: 10,
+          }}
+        >
+          {t('vendor.noRecordBody')}
+        </p>
+        <Button style={{ marginTop: 16 }} onClick={() => navigate('/list-your-car#convert')}>
+          {t('vendor.noRecordCta')}
+        </Button>
+      </Card>
+    );
+  }
 
   if (isAdmin && !active) {
     return (
@@ -338,6 +369,28 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
     queryFn: () =>
       api<VendorStats>(asAdmin ? `/admin/vendors/${vendor.id}/stats` : '/vendors/me/stats'),
   });
+  /**
+   * The provider's own threads. Until now a provider had no way to notice a
+   * customer had written without opening each booking in turn, which on a
+   * marketplace with a 24h reply window is the difference between answering
+   * and losing the booking. Admin-as-vendor is a read-only impersonation and
+   * has its own console, so this is skipped there.
+   */
+  const { data: conversations } = useQuery({
+    queryKey: ['vendor-conversations'],
+    queryFn: () =>
+      api<
+        Array<{
+          booking_id: string;
+          reference: string | null;
+          customer_name: string;
+          unread_count: number;
+          assistance_open: boolean;
+        }>
+      >('/messages/vendor/conversations'),
+    enabled: !asAdmin,
+  });
+
   const { data: bookings } = useQuery({
     // As an admin, /bookings/mine returns every booking on the platform, so the
     // upcoming-trips panel has to be narrowed to the provider being viewed.
@@ -386,6 +439,47 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
           </Link>
         </div>
       </div>
+
+      {(() => {
+        const unread = (conversations ?? []).filter((c) => c.unread_count > 0);
+        const escalated = (conversations ?? []).filter((c) => c.assistance_open);
+        const pending = (bookings ?? []).filter((b) => b.status === 'requested');
+        if (unread.length === 0 && escalated.length === 0 && pending.length === 0) return null;
+        return (
+          <Card style={{ marginTop: 20, borderLeft: '4px solid var(--brand)' }}>
+            <p style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 15 }}>
+              {t('vendor.attention.title')}
+            </p>
+            <ul style={{ margin: '10px 0 0', paddingLeft: 18, fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)' }}>
+              {pending.length > 0 && (
+                <li>
+                  <Link to="/vendor/bookings">
+                    {t('vendor.attention.pending', { count: pending.length })}
+                  </Link>
+                </li>
+              )}
+              {unread.map((c) => (
+                <li key={c.booking_id}>
+                  <Link to={`/bookings/${c.booking_id}`}>
+                    {t('vendor.attention.unread', {
+                      count: c.unread_count,
+                      name: c.customer_name,
+                      ref: c.reference ?? '',
+                    })}
+                  </Link>
+                </li>
+              ))}
+              {escalated.map((c) => (
+                <li key={`esc-${c.booking_id}`}>
+                  <Link to={`/bookings/${c.booking_id}`}>
+                    {t('vendor.attention.escalated', { ref: c.reference ?? '' })}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        );
+      })()}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginTop: 20 }}>
         <StatCard
@@ -482,11 +576,7 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
         {reviews?.slice(0, 6).map((r) => (
           <Card key={r.id}>
             <Rating value={r.rating} />
-            {r.comment && (
-              <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, marginTop: 8, lineHeight: 1.5 }}>
-                &ldquo;{r.comment}&rdquo;
-              </p>
-            )}
+            <ReviewBody review={r} />
             <p style={{ fontFamily: 'var(--font-ui)', fontSize: 12, color: 'var(--gray-400)', marginTop: 8 }}>
               {prettyDate(r.created_at.slice(0, 10))}
             </p>

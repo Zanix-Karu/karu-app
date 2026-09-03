@@ -50,6 +50,12 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     const formatted = new Intl.NumberFormat(locale(), {
       style: 'currency',
       currency,
+      // UX-4: the default 'symbol' display renders GBP in French as "28 £GB" —
+      // CLDR disambiguating the pound from other pound currencies. Correct, but
+      // it reads like a typo. 'narrowSymbol' gives "28 £" in French and "£28"
+      // in English, keeping each locale's own symbol placement: writing "£28"
+      // everywhere, as first suggested, would be wrong for French.
+      currencyDisplay: 'narrowSymbol',
       maximumFractionDigits: 0,
     }).format(amount);
     // '≈' is doing real work: GBP is a floating rate, not a promise.

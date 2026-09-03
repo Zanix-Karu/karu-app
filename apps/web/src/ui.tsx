@@ -9,12 +9,23 @@ import type { BookingStatus } from '@karu/shared';
 
 /** Karu UI primitives — visual language of the approved mockups. */
 
+/**
+ * NOTE: there are two Button components in this app, this one and the DS one
+ * in ds/index.tsx, with different variant sets, and screens import from both.
+ * They should converge. Until they do, both carry the same states so a
+ * keyboard user gets the same focus ring either way.
+ */
 export function Button({
   variant = 'primary',
   className = '',
+  loading = false,
+  disabled,
+  children,
   ...rest
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: 'primary' | 'outline' | 'danger' | 'ghost';
+  /** Shows a spinner and blocks clicks, keeping the label in place. */
+  loading?: boolean;
 }) {
   const variants = {
     primary:
@@ -26,9 +37,19 @@ export function Button({
   } as const;
   return (
     <button
-      className={`rounded-full px-5 py-2.5 text-sm font-semibold transition ${variants[variant]} ${className}`}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      className={`karu-btn inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition ${variants[variant]} ${className}`}
       {...rest}
-    />
+    >
+      {loading && (
+        <span
+          aria-hidden="true"
+          className="karu-btn-spinner inline-block h-[1em] w-[1em] shrink-0 rounded-full border-2 border-current border-t-transparent"
+        />
+      )}
+      {children}
+    </button>
   );
 }
 
@@ -116,22 +137,53 @@ export function StatusBadge({ status }: { status: BookingStatus }) {
   );
 }
 
-/** Listing image with a branded placeholder while photos are pending. */
+/**
+ * Listing image with a branded placeholder while photos are pending.
+ *
+ * DS-6: source photos vary in shape — most are 1200x800 landscape but some are
+ * portrait — and without a fixed ratio the rendered images differed in height,
+ * so cards sat unevenly in the grid. The ratio box plus object-cover crops
+ * instead of stretching, so any source fills the same shape.
+ *
+ * PERF-1: `loading="lazy"` and `decoding="async"` keep off-screen photos off
+ * the critical path. Images come full-size from an external CDN, which is slow
+ * on the connections much of this market uses; sizing them properly needs a
+ * resizing proxy and is still open.
+ */
 export function CarImage({
   photos,
   alt,
   className = '',
+  ratio = '16 / 10',
+  eager = false,
 }: {
   photos: string[];
   alt: string;
   className?: string;
+  /** Card grids share 16/10; the detail hero passes 4/3. */
+  ratio?: string;
+  /** Set on the one above-the-fold image so it is not deferred. */
+  eager?: boolean;
 }) {
+  const box = `overflow-hidden bg-karu-brown/10 ${className}`;
+
   if (photos.length > 0) {
-    return <img src={photos[0]} alt={alt} className={`object-cover ${className}`} />;
+    return (
+      <div className={box} style={{ aspectRatio: ratio }}>
+        <img
+          src={photos[0]}
+          alt={alt}
+          loading={eager ? 'eager' : 'lazy'}
+          decoding="async"
+          className="h-full w-full object-cover object-center"
+        />
+      </div>
+    );
   }
   return (
     <div
-      className={`flex items-center justify-center bg-gradient-to-br from-karu-brown to-karu-ink ${className}`}
+      className={`flex items-center justify-center bg-gradient-to-br from-karu-brown to-karu-ink ${box}`}
+      style={{ aspectRatio: ratio }}
     >
       <span className="font-display text-2xl font-bold tracking-widest text-karu-yellow/80">
         KARU

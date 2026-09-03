@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { usePageMeta } from '../lib/page-meta';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useState, type FormEvent } from 'react';
@@ -16,6 +17,10 @@ import { ErrorNote } from '../ui';
 
 export function ListYourCarScreen() {
   const { t } = useTranslation();
+  usePageMeta({
+    title: t('seo.listYourCar.title'),
+    description: t('seo.listYourCar.description'),
+  });
   const view = useView();
   const navigate = useNavigate();
   const reasons = t('listYourCar.reasons', { returnObjects: true }) as unknown as Array<{ title: string; body: string }>;
@@ -47,7 +52,7 @@ export function ListYourCarScreen() {
         </p>
         <div style={{ marginTop: 26, display: 'flex', flexWrap: 'wrap', gap: 12 }}>
           {view === 'guest' && (
-            <Button size="lg" onClick={() => navigate('/auth', { state: { from: '/vendor' } })}>
+            <Button size="lg" onClick={() => navigate('/auth', { state: { from: '/vendor', mode: 'signup', account: 'vendor' } })}>
               {t('listYourCar.createAccount')}
             </Button>
           )}
@@ -117,7 +122,7 @@ export function ListYourCarScreen() {
           <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 6 }}>
             {t('listYourCar.readySub')}
           </p>
-          <Button style={{ marginTop: 14 }} onClick={() => navigate('/auth', { state: { from: '/vendor' } })}>
+          <Button style={{ marginTop: 14 }} onClick={() => navigate('/auth', { state: { from: '/vendor', mode: 'signup', account: 'vendor' } })}>
             {t('listYourCar.createAccount')}
           </Button>
         </Card>
@@ -254,7 +259,7 @@ function ConvertToVendor() {
               <ErrorNote>{(register.error as Error).message}</ErrorNote>
             </div>
           )}
-          <Button type="submit" disabled={register.isPending}>
+          <Button type="submit" loading={register.isPending}>
             {register.isPending ? t('listYourCar.registering') : t('listYourCar.registerCta')}
           </Button>
         </div>

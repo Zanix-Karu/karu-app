@@ -2,7 +2,12 @@ import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import type { UserRole } from '@karu/shared';
 import { CurrentUser, Roles } from '../auth/decorators';
 import { BookingsService } from './bookings.service';
-import { CreateBookingDto, RelayMessageDto, TransitionBookingDto } from './dto';
+import {
+  CreateBookingDto,
+  RelayMessageDto,
+  RequestAssistanceDto,
+  TransitionBookingDto,
+} from './dto';
 
 @Controller('bookings')
 export class BookingsController {
@@ -69,5 +74,27 @@ export class BookingsController {
     @Body() dto: TransitionBookingDto,
   ) {
     return this.bookings.transition(id, userId, role, dto.status, dto.vendor_note);
+  }
+
+  /**
+   * Either party asks Karu to step in. No @Roles gate: the service authorises
+   * by ownership, so a customer and a provider can both raise a hand on their
+   * own booking and neither can raise one on anybody else's.
+   */
+  @Post(':id/assistance')
+  requestAssistance(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole,
+    @Body() dto: RequestAssistanceDto,
+  ) {
+    return this.bookings.requestAssistance(id, userId, role, dto.note);
+  }
+
+  /** An admin marks the request handled and it leaves the attention panel. */
+  @Roles('admin')
+  @Patch(':id/assistance/resolve')
+  resolveAssistance(@Param('id') id: string) {
+    return this.bookings.resolveAssistance(id);
   }
 }

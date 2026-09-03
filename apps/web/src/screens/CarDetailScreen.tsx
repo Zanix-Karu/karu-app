@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { PhotoCarousel } from '../components/PhotoCarousel';
+import { usePageMeta } from '../lib/page-meta';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -9,7 +11,7 @@ import { useAuth, useView } from '../lib/auth';
 import { CAN_BOOK } from '../lib/roles';
 import { useCurrency } from '../lib/currency';
 import { CATEGORY_LABEL, CITY_LABEL, prettyDate, todayISO, xaf } from '../lib/format';
-import { Button, Card, CarImage, ErrorNote, Field, Input, Spinner } from '../ui';
+import { Button, Card, ErrorNote, Field, Input, Spinner } from '../ui';
 
 interface Availability {
   available: boolean;
@@ -38,6 +40,13 @@ export function CarDetailScreen() {
   const { data: car, isLoading } = useQuery({
     queryKey: ['vehicle', id],
     queryFn: () => api<VehicleDetail>(`/vehicles/${id}`),
+  });
+
+  // Title comes from the loaded car, so a shared link and a browser tab
+  // both name the vehicle rather than reading 'Karu' like every other route.
+  usePageMeta({
+    title: car ? `${car.make} ${car.model}` : undefined,
+    description: t('seo.car.description'),
   });
 
   const windowChosen = Boolean(from && to && from <= to);
@@ -96,14 +105,7 @@ export function CarDetailScreen() {
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
       <div>
-        <CarImage photos={orderedPhotos(car)} alt={`${car.make} ${car.model}`} className="h-80 w-full rounded-2xl" />
-        {car.photos.length > 1 && (
-          <div className="mt-3 flex gap-2 overflow-x-auto">
-            {orderedPhotos(car).slice(1, 6).map((p) => (
-              <img key={p} src={p} alt="" className="h-20 w-28 rounded-lg object-cover" />
-            ))}
-          </div>
-        )}
+        <PhotoCarousel photos={orderedPhotos(car)} alt={`${car.make} ${car.model}`} />
 
         <h1 className="mt-6 font-display text-3xl font-bold">
           {car.make} {car.model} {car.year && <span className="text-karu-mute">{car.year}</span>}

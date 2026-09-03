@@ -229,6 +229,27 @@ export interface Vendor {
   updated_at: string;
 }
 
+/**
+ * What an unauthenticated caller may see about a vendor.
+ *
+ * SECURITY: deliberately omits `contact_person`, `contact_phone`,
+ * `contact_email`, `whatsapp_number`, `address` and the internal `profile_id`.
+ * The "List your car" page promises a provider that "your phone number stays
+ * private … all contact runs through Karu", and `GET /api/vendors` is public —
+ * so the public projection has to keep that promise. Contact details reach a
+ * customer only through a booking they are party to.
+ */
+export type PublicVendor = Omit<
+  Vendor,
+  | 'profile_id'
+  | 'contact_person'
+  | 'contact_phone'
+  | 'contact_email'
+  | 'whatsapp_number'
+  | 'address'
+  | 'rccm_number'
+>;
+
 export interface VendorDocument {
   id: string;
   vendor_id: string;
@@ -343,7 +364,17 @@ export interface VehicleVendorSummary {
   airport_fee_xaf: number | null;
 }
 
-export interface VehicleDetail extends Vehicle {
+/**
+ * What an unauthenticated caller may see about a car.
+ *
+ * SECURITY: omits `registration_number`. The plate is printed on the car and
+ * matched by admins against the carte grise — it identifies a specific
+ * vehicle and its owner to anyone who scrapes the public browse endpoint, and
+ * a renter has no need of it until pickup.
+ */
+export type PublicVehicle = Omit<Vehicle, 'registration_number'>;
+
+export interface VehicleDetail extends PublicVehicle {
   vendor: VehicleVendorSummary;
 }
 
@@ -379,6 +410,12 @@ export interface Booking {
   confirmed_at: string | null;
   created_at: string;
   updated_at: string;
+  /** Set when a customer or provider asked Karu to step in (0023). */
+  assistance_requested_at: string | null;
+  assistance_requested_by: string | null;
+  assistance_note: string | null;
+  /** Set when an admin marked that request handled. */
+  assistance_resolved_at: string | null;
 }
 
 /**
@@ -407,6 +444,8 @@ export interface Review {
   target: ReviewTarget;
   rating: number;
   comment: string | null;
+  /** What the author wrote in. Null for reviews predating 0024. */
+  language: 'en' | 'fr' | null;
   created_at: string;
 }
 

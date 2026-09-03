@@ -32,7 +32,16 @@ function timeOf(iso: string): string {
  * Contact details are removed server-side before a message is stored, so the
  * privacy note here describes what actually happens rather than asking nicely.
  */
-export function BookingChat({ bookingId, view }: { bookingId: string; view: View }) {
+export function BookingChat({
+  bookingId,
+  view,
+  assistanceOpen = false,
+}: {
+  bookingId: string;
+  view: View;
+  /** True when a request to Karu is already open on this booking. */
+  assistanceOpen?: boolean;
+}) {
   const { session } = useAuth();
   const myId = session?.user.id;
   const qc = useQueryClient();
@@ -63,6 +72,22 @@ export function BookingChat({ bookingId, view }: { bookingId: string; view: View
     },
   });
 
+  /**
+   * The nudge. Karu stays out of a booking by default: the provider approves
+   * or rejects, and the two parties talk. This is the hand-raise for when that
+   * is not enough, and it is what puts the booking on the admin console's
+   * attention panel. Both sides get it — a customer chasing a silent provider
+   * and a provider stuck with an unreachable customer need the same door.
+   */
+  const askForHelp = useMutation({
+    mutationFn: () =>
+      api(`/bookings/${bookingId}/assistance`, { method: 'POST', body: JSON.stringify({}) }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['booking-detail', bookingId] });
+      void qc.invalidateQueries({ queryKey: ['admin-overview'] });
+    },
+  });
+
   // Stick to the bottom as new messages arrive.
   useEffect(() => {
     const el = scrollRef.current;
@@ -77,7 +102,7 @@ export function BookingChat({ bookingId, view }: { bookingId: string; view: View
       <p className="mt-1 text-sm text-karu-mute">
         {view === 'admin'
           ? 'You are posting as Karu Support — both parties see your messages.'
-          : 'Chat with the other party here. Karu can see this conversation, and phone numbers or email addresses are removed automatically — all contact runs through Karu.'}
+          : 'Chat with the other party here. Karu can see this conversation, and phone numbers or email addresses are removed automatically from messages.'}
       </p>
 
       <div
@@ -140,8 +165,8 @@ export function BookingChat({ bookingId, view }: { bookingId: string; view: View
             }
           }}
         />
-        <Button type="submit" disabled={!draft.trim() || send.isPending}>
-          {send.isPending ? 'Sending…' : 'Send'}
+        <Button type="submit" disabled={!draft.trim()} loading={send.isPending}>
+          Send
         </Button>
       </form>
       {lastSentRedacted && (
@@ -153,6 +178,33 @@ export function BookingChat({ bookingId, view }: { bookingId: string; view: View
       {send.isError && (
         <div className="mt-2">
           <ErrorNote>{(send.error as Error).message}</ErrorNote>
+        </div>
+      )}
+
+      {view !== 'admin' && (
+        <div className="mt-3 border-t border-karu-ink/10 pt-3">
+          {assistanceOpen || askForHelp.isSuccess ? (
+            <p className="text-xs font-semibold text-karu-gold">
+              Karu has been asked to look at this booking. Someone will join the conversation.
+            </p>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-karu-mute">Stuck, or something has gone wrong?</p>
+              <Button
+                variant="ghost"
+                type="button"
+                loading={askForHelp.isPending}
+                onClick={() => askForHelp.mutate()}
+              >
+                Ask Karu for help
+              </Button>
+            </div>
+          )}
+          {askForHelp.isError && (
+            <div className="mt-2">
+              <ErrorNote>{(askForHelp.error as Error).message}</ErrorNote>
+            </div>
+          )}
         </div>
       )}
     </Card>

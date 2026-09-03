@@ -38,4 +38,25 @@ export class ReviewsController {
   forVendor(@Param('id') vendorId: string) {
     return this.reviews.listForVendor(vendorId);
   }
+
+  /**
+   * A reader asks for one review in their own language.
+   *
+   * Public because the reviews themselves are public, and GET because it is a
+   * read from the reader's point of view: the write it may cause is a cache
+   * fill, not a change to anything anyone can observe.
+   */
+  @Public()
+  @Get('reviews/:id/translation')
+  translation(@Param('id') id: string, @Query('to') to: string) {
+    const target = to === 'fr' ? 'fr' : 'en';
+    return this.reviews.translation(id, target);
+  }
+
+  /** Whether the translate control should render at all. */
+  @Public()
+  @Get('translation/status')
+  translationStatus() {
+    return { available: this.reviews.canTranslate };
+  }
 }

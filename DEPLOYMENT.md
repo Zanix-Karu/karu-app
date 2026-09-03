@@ -38,6 +38,7 @@ Environment variables (all of them — the app fails fast if one is missing):
 | `SUPABASE_JWT_SECRET` | optional — only needed for legacy HS256 tokens; new tokens verify via JWKS |
 | `CORS_ORIGIN` | `https://app.getkaru.io` |
 | `RESEND_API_KEY` | from Resend (optional until email goes live; failures are logged, not fatal) |
+| `DEEPL_API_KEY` | Optional. Enables the "Translate" control on reviews written in the other language. Without it the control is hidden and nothing breaks. Free keys end in `:fx`. |
 | `EMAIL_FROM` | `Karu <bookings@getkaru.io>` (verify the domain in Resend first) |
 | `SUPPORT_EMAIL` | where booking messages are relayed (defaults to `support@getkaru.io`) |
 | `STRIPE_SECRET_KEY` | optional — set together with the webhook secret to turn on card deposits |

@@ -89,3 +89,97 @@
 @media (prefers-reduced-motion: reduce) {
   .karu-skeleton { animation: none; }
 }
+
+/* ─── Skip link ──────────────────────────────────────────────────────────── */
+/* Off-screen until focused, then pinned top-left over the header. Not
+   `display:none` — that would take it out of the tab order, which is the one
+   thing it exists for. */
+.karu-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: 12px 20px;
+  background: var(--brand);
+  color: var(--brand-ink);
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 14px;
+  border-radius: 0 0 var(--radius-md) 0;
+  text-decoration: none;
+}
+
+.karu-skip-link:focus,
+.karu-skip-link:focus-visible {
+  left: 0;
+}
+
+/* The target takes focus programmatically via the link; it should not draw a
+   focus ring as though it were interactive. */
+#main:focus {
+  outline: none;
+}
+
+/* ─── Header nav strip (UX-6) ────────────────────────────────────────────── */
+/* Scrolls sideways instead of wrapping onto extra rows. The scrollbar itself
+   is hidden — it would sit under the links and the strip is short enough that
+   the overflow is obvious from the clipped item. */
+.karu-nav-strip {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.karu-nav-strip::-webkit-scrollbar {
+  display: none;
+}
+
+/* ─── Buttons: the states the component could not express inline (DS-4) ──── */
+.karu-btn {
+  transition: filter 150ms ease, transform 100ms ease, box-shadow 150ms ease;
+}
+
+.karu-btn:hover:not(:disabled) {
+  filter: brightness(0.95);
+}
+
+.karu-btn:active:not(:disabled) {
+  transform: scale(0.985);
+  filter: brightness(0.92);
+}
+
+/* The important one. There was no focus indicator on any DS button, so a
+   keyboard user could not see where they were. Offset so the ring reads
+   against both the yellow primary and the dark ghost variant. */
+.karu-btn:focus-visible {
+  outline: 2px solid var(--gold-600);
+  outline-offset: 2px;
+}
+
+.karu-btn-spinner {
+  animation: karu-spin 700ms linear infinite;
+}
+
+@keyframes karu-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Inputs, selects and links were in the same position. */
+.karu-btn:disabled { pointer-events: none; }
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--gold-600);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .karu-btn,
+  .karu-btn-spinner {
+    transition: none;
+    animation-duration: 2s;
+  }
+  .karu-btn:active:not(:disabled) { transform: none; }
+}

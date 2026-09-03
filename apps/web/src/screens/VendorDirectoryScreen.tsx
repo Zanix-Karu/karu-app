@@ -1,4 +1,6 @@
 import { useTranslation } from 'react-i18next';
+import { ReviewBody } from '../components/ReviewBody';
+import { usePageMeta } from '../lib/page-meta';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import type { RatingSummary, Review, Vehicle, Vendor } from '@karu/shared';
@@ -14,6 +16,10 @@ type VendorWithRating = Vendor & { rating: RatingSummary };
 /** Public directory of verified providers — trust is the product. */
 export function VendorDirectoryScreen() {
   const { t } = useTranslation();
+  usePageMeta({
+    title: t('seo.vendors.title'),
+    description: t('seo.vendors.description'),
+  });
   const { data, isLoading, error } = useQuery({
     queryKey: ['vendors-public'],
     queryFn: () => api<VendorWithRating[]>('/vendors'),
@@ -123,8 +129,13 @@ export function VendorProfileScreen() {
               {vendor.business_name}
             </h1>
             <p style={{ margin: '6px 0 0', fontFamily: 'var(--font-ui)', color: 'var(--text-on-dark-muted)' }}>
+              {/*
+                No phone here: this header renders to logged-out visitors, and
+                the provider signup page promises that a vendor's number stays
+                private with contact routed through Karu. The API no longer
+                sends it either (vendors.service listPublic).
+              */}
               {CITY_LABEL[vendor.city]}
-              {vendor.contact_phone ? ` · ${vendor.contact_phone}` : ''}
             </p>
             <div style={{ marginTop: 10 }}>
               {vendor.rating?.average != null ? (
@@ -176,11 +187,7 @@ function VendorReviews({ vendorId }: { vendorId: string }) {
         {data.map((r) => (
           <Card key={r.id}>
             <Rating value={r.rating} />
-            {r.comment && (
-              <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, marginTop: 8, lineHeight: 1.5 }}>
-                &ldquo;{r.comment}&rdquo;
-              </p>
-            )}
+            <ReviewBody review={r} />
             <p style={{ fontFamily: 'var(--font-ui)', fontSize: 12, color: 'var(--gray-400)', marginTop: 8 }}>
               {new Date(r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
             </p>

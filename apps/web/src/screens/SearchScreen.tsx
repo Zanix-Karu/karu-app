@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { usePageMeta } from '../lib/page-meta';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -44,6 +45,10 @@ const label: React.CSSProperties = {
 
 export function SearchScreen() {
   const { t } = useTranslation();
+  usePageMeta({
+    title: t('seo.search.title'),
+    description: t('seo.search.description'),
+  });
   const { secondary } = useCurrency();
   const PAGE = 12;
   const navigate = useNavigate();
@@ -158,54 +163,70 @@ export function SearchScreen() {
       {/* Sidebar + results — the mockup's 280px/1fr split */}
       <div className="karu-sidebar-layout" style={{ marginTop: 28 }}>
         <Card pad={24}>
-          <div style={label}>{t('search.carType')}</div>
-          {[['', t('search.all')], ...Object.entries(CATEGORY_LABEL)].map(([value, l]) => (
-            <label
-              key={value}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '7px 0',
-                fontFamily: 'var(--font-ui)',
-                fontWeight: draft.category === value ? 700 : 500,
-                fontSize: 15,
-                color: 'var(--ink)',
-                cursor: 'pointer',
-              }}
-            >
-              <input
-                type="radio"
-                name="cartype"
-                checked={draft.category === value}
-                onChange={() => setDraft((d) => ({ ...d, category: value }))}
-                style={{ accentColor: 'var(--gold-600)' }}
-              />
-              {l}
-            </label>
-          ))}
+          {/*
+            A fieldset/legend so the group announces as "Car type" rather than
+            seven loose radios, and an explicit `value` on each input — without
+            one the DOM value defaults to "on", which is what screen readers
+            were reading out for every option.
+          */}
+          <fieldset style={{ border: 0, margin: 0, padding: 0, minInlineSize: 'auto' }}>
+            <legend style={label}>{t('search.carType')}</legend>
+            {[['', t('search.all')], ...Object.entries(CATEGORY_LABEL)].map(([value, l]) => (
+              <label
+                key={value}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  // >=24px tall: WCAG 2.2 target size. The radio itself is
+                  // 13px, so the row carries the hit area.
+                  minHeight: 24,
+                  padding: '7px 0',
+                  fontFamily: 'var(--font-ui)',
+                  fontWeight: draft.category === value ? 700 : 500,
+                  fontSize: 15,
+                  color: 'var(--ink)',
+                  cursor: 'pointer',
+                }}
+              >
+                <input
+                  type="radio"
+                  name="cartype"
+                  value={value}
+                  checked={draft.category === value}
+                  onChange={() => setDraft((d) => ({ ...d, category: value }))}
+                  style={{ accentColor: 'var(--gold-600)', width: 18, height: 18 }}
+                />
+                {l}
+              </label>
+            ))}
+          </fieldset>
 
           {/* Placed above transmission on purpose: for someone booking from
               abroad for family at home, "with a driver" is the first question,
               and gearbox is often not a question at all. */}
-          <div style={{ ...label, marginTop: 24 }}>{t('search.driver')}</div>
-          <Select value={draft.with_driver} onChange={set('with_driver')}>
-            <option value="">{t('search.any')}</option>
-            <option value="true">{t('search.withDriverOnly')}</option>
-          </Select>
+          <Field label={t('search.driver')} style={{ marginTop: 24 }}>
+            <Select value={draft.with_driver} onChange={set('with_driver')}>
+              <option value="">{t('search.any')}</option>
+              <option value="true">{t('search.withDriverOnly')}</option>
+            </Select>
+          </Field>
 
-          <div style={{ ...label, marginTop: 24 }}>{t('search.transmission')}</div>
-          <Select value={draft.transmission} onChange={set('transmission')}>
-            <option value="">{t('search.any')}</option>
-            <option value="automatic">{t('common.automatic')}</option>
-            <option value="manual">{t('common.manual')}</option>
-          </Select>
+          <Field label={t('search.transmission')} style={{ marginTop: 24 }}>
+            <Select value={draft.transmission} onChange={set('transmission')}>
+              <option value="">{t('search.any')}</option>
+              <option value="automatic">{t('common.automatic')}</option>
+              <option value="manual">{t('common.manual')}</option>
+            </Select>
+          </Field>
 
-          <div style={{ ...label, marginTop: 24 }}>{t('search.seatsAtLeast')}</div>
-          <Input type="number" min={1} placeholder="Any" value={draft.seats} onChange={set('seats')} />
+          <Field label={t('search.seatsAtLeast')} style={{ marginTop: 24 }}>
+            <Input type="number" min={1} placeholder="Any" value={draft.seats} onChange={set('seats')} />
+          </Field>
 
-          <div style={{ ...label, marginTop: 24 }}>{t('search.maxPrice')}</div>
-          <Input type="number" min={0} step={5000} placeholder="Any" value={draft.max_price} onChange={set('max_price')} />
+          <Field label={t('search.maxPrice')} style={{ marginTop: 24 }}>
+            <Input type="number" min={0} step={5000} placeholder="Any" value={draft.max_price} onChange={set('max_price')} />
+          </Field>
 
           <Button full style={{ marginTop: 24 }} size="sm" onClick={apply} disabled={datesHalfSet}>
             {t('search.applyFilters')}
@@ -218,6 +239,7 @@ export function SearchScreen() {
               {data ? t('search.available', { count: total }) : ' '}
             </span>
             <Select
+              aria-label={t('search.sortBy')}
               value={applied.sort}
               onChange={(e) => commit({ ...applied, sort: e.target.value })}
               style={{ width: 220, padding: '10px 14px' }}

@@ -91,6 +91,10 @@ const baseBooking: Booking = {
   confirmed_at: null,
   created_at: '2026-07-19T00:00:00Z',
   updated_at: '2026-07-19T00:00:00Z',
+  assistance_requested_at: null,
+  assistance_requested_by: null,
+  assistance_note: null,
+  assistance_resolved_at: null,
 };
 
 const noVehicles = {} as VehiclesService;

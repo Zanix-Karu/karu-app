@@ -67,8 +67,10 @@ export function Button({
   size = 'md',
   shape = 'rounded',
   full = false,
+  loading = false,
   style = {},
   disabled,
+  className = '',
   children,
   ...rest
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -76,10 +78,24 @@ export function Button({
   size?: ButtonSize;
   shape?: 'rounded' | 'pill';
   full?: boolean;
+  /**
+   * Shows a spinner and blocks further clicks. Callers were hand-rolling this
+   * seventeen times across seven files, each swapping the label for a
+   * different word ("Working…", "One moment…", "Saving…"). Keeping the label
+   * and adding a spinner reads better anyway: nothing jumps, and the button
+   * still says what it does.
+   */
+  loading?: boolean;
 }) {
+  const isDisabled = disabled || loading;
   return (
     <button
-      disabled={disabled}
+      disabled={isDisabled}
+      aria-busy={loading || undefined}
+      // Hover, active and the focus ring live in CSS (karu-btn). They used to
+      // be inline mouse handlers, which cannot express :focus-visible at all —
+      // so keyboard users had no focus indicator on any DS button.
+      className={`karu-btn ${className}`.trim()}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -89,23 +105,36 @@ export function Button({
         borderRadius: shape === 'pill' ? 'var(--radius-pill)' : 'var(--radius-md)',
         fontFamily: 'var(--font-ui)',
         fontWeight: 600,
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.45 : 1,
-        transition: 'filter 150ms ease, transform 150ms ease',
+        cursor: isDisabled ? 'not-allowed' : 'pointer',
+        opacity: isDisabled ? 0.45 : 1,
         ...BUTTON_SIZES[size],
         ...BUTTON_VARIANTS[variant],
         ...style,
       }}
-      onMouseEnter={(e) => {
-        if (!disabled) e.currentTarget.style.filter = 'brightness(0.95)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.filter = '';
-      }}
       {...rest}
     >
+      {loading && <Spinner />}
       {children}
     </button>
+  );
+}
+
+/** Inline spinner for the button's loading state. */
+function Spinner() {
+  return (
+    <span
+      aria-hidden="true"
+      className="karu-btn-spinner"
+      style={{
+        width: '1em',
+        height: '1em',
+        borderRadius: '50%',
+        border: '2px solid currentColor',
+        borderTopColor: 'transparent',
+        display: 'inline-block',
+        flexShrink: 0,
+      }}
+    />
   );
 }
 
@@ -558,7 +587,27 @@ export function CarCard({
       }}
     >
       {image ? (
-        <img src={image} alt={name} style={{ width: '100%', height: 150, objectFit: 'contain' }} />
+        // DS-6: `contain` letterboxed each photo to its own shape, so a
+        // portrait source (the Corolla is 1200x1600) rendered a different
+        // height from its landscape neighbours and the cards stopped lining
+        // up. A fixed box plus `cover` crops instead, so every card matches.
+        <div
+          style={{
+            width: '100%',
+            height: 150,
+            overflow: 'hidden',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--sand-300)',
+          }}
+        >
+          <img
+            src={image}
+            alt={name}
+            loading="lazy"
+            decoding="async"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
+          />
+        </div>
       ) : (
         <div
           style={{

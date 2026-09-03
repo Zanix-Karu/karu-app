@@ -1,0 +1,19 @@
+# Karu — app.getkaru.io
+# Marketing pages live on www.getkaru.io and have their own robots.txt.
+
+User-agent: *
+Allow: /$
+Allow: /search
+Allow: /cars/
+Allow: /vendors
+Allow: /list-your-car
+
+# Signed-in surfaces and auth screens: nothing here is useful in an index,
+# and several are per-user.
+Disallow: /auth
+Disallow: /bookings
+Disallow: /vendor
+Disallow: /admin
+Disallow: /messages
+
+Sitemap: https://app.getkaru.io/sitemap.xml

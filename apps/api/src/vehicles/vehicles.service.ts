@@ -62,7 +62,10 @@ export class VehiclesService {
       // `count: 'exact'` so the UI can show "1–20 of 47" rather than guessing
       // whether another page exists.
       .from('vehicles')
-      .select('*, vendors!inner(status)', { count: 'exact' })
+      // SECURITY: explicit columns, never '*'. This route is @Public(), so a
+      // new sensitive column would otherwise ship to the world the day it is
+      // added — which is how registration_number came to be public.
+      .select('id, vendor_id, make, model, year, category, seats, transmission, fuel_type, daily_rate_xaf, weekly_rate_xaf, monthly_rate_xaf, driver_option, driver_daily_rate_xaf, city, pickup_locations, photos, photo_angles, description, status, created_at, updated_at, vendors!inner(status)', { count: 'exact' })
       .eq('status', 'active')
       .eq('vendors.status', 'verified');
 
@@ -158,8 +161,10 @@ export class VehiclesService {
   async getPublicDetail(id: string): Promise<VehicleDetail> {
     const { data, error } = await this.supabase.db
       .from('vehicles')
+      // SECURITY: same explicit list as browse — the plate stays out of the
+      // public payload until pickup.
       .select(
-        '*, vendors!inner(id, business_name, city, status, delivery_fee_xaf, airport_fee_xaf)',
+        'id, vendor_id, make, model, year, category, seats, transmission, fuel_type, daily_rate_xaf, weekly_rate_xaf, monthly_rate_xaf, driver_option, driver_daily_rate_xaf, city, pickup_locations, photos, photo_angles, description, status, created_at, updated_at, vendors!inner(id, business_name, city, status, delivery_fee_xaf, airport_fee_xaf)',
       )
       .eq('id', id)
       .single();
