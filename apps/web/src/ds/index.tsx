@@ -552,6 +552,7 @@ export function CarCard({
   perDayLabel = 'per day',
   viewLabel = 'View details',
   onView,
+  headingLevel = 'h3',
   style = {},
 }: {
   image?: string;
@@ -572,8 +573,12 @@ export function CarCard({
   perDayLabel?: string;
   viewLabel?: string;
   onView?: () => void;
+  /** Heading tag for the car name so a results list is navigable by structure
+   *  (A11Y-3). Defaults to h3; the search results pass h2. */
+  headingLevel?: 'h2' | 'h3';
   style?: CSSProperties;
 }) {
+  const NameTag = headingLevel;
   return (
     <div
       className="karu-car-card"
@@ -625,9 +630,9 @@ export function CarCard({
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div>
-          <span style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 30, color: 'var(--ink)' }}>
+          <NameTag style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 30, color: 'var(--ink)', margin: 0 }}>
             {name}
-          </span>
+          </NameTag>
           <div style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 16, color: 'var(--gray-500)', marginTop: 2 }}>
             {category}
           </div>
@@ -656,7 +661,9 @@ export function CarCard({
             </div>
           )}
           {subPrice && (
-            <div style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 13, color: 'var(--gray-400)' }}>
+            /* A11Y-3: gray-400 (#a3a2a2) on white was ~2.56:1 — below the 4.5:1
+               floor for this 13px text. gray-500 clears it. */
+            <div style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 13, color: 'var(--gray-500)' }}>
               {subPrice}
             </div>
           )}

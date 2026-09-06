@@ -3,6 +3,7 @@ export const en = {
   common: {
     brand: 'Karu',
     tagline: 'Karu: verified car rental for Cameroon · Douala & Yaoundé',
+    buildVersion: 'Build version',
     signIn: 'Sign in',
     signOut: 'Sign out',
     profile: 'Profile',
@@ -42,6 +43,68 @@ export const en = {
     operations: 'Operations',
     bookings: 'Bookings',
     chats: 'Chats',
+    feedback: 'Feedback',
+  },
+
+  feedback: {
+    title: 'Send feedback',
+    subtitle: 'Found a bug or have an idea? Tell us. Screenshots help.',
+    category: 'What is this about?',
+    categories: { bug: 'Something is broken', idea: 'A suggestion', other: 'Something else' },
+    message: 'Your message',
+    messagePlaceholder: 'Describe what happened, or what you would like to see…',
+    screenshots: 'Screenshots (optional)',
+    addImage: 'Add image',
+    removeImage: 'Remove image',
+    imageHint: 'Up to {{count}} images',
+    uploadFailed: 'Could not upload that image. Please try again.',
+    send: 'Send feedback',
+    sending: 'Sending…',
+    thanks: "Thanks, we've got it and will take a look.",
+    yourReports: 'Your reports',
+    emptyTitle: 'No reports yet',
+    emptyHint: 'Anything you send will show here with its status.',
+    statuses: { new: 'New', triaging: 'Looking into it', resolved: 'Resolved' },
+  },
+
+  assistant: {
+    title: 'Karu Assistant',
+    subtitle: 'Quick answers about using Karu',
+    launch: 'Open help',
+    close: 'Close help',
+    back: 'All topics',
+    intro: 'Pick a topic. For anything else, report an issue or message the provider in your booking.',
+    reportCta: 'Report an issue',
+    topics: {
+      how_it_works: {
+        q: 'How does Karu work?',
+        a: 'Karu connects you with verified car-rental providers in Douala and Yaoundé. You browse cars, send a booking request, and the provider confirms within 24 hours. Every provider is document-checked before they can list, and the total price you see is what you pay, with no surprises at the counter.',
+      },
+      book: {
+        q: 'How do I book a car?',
+        a: 'Open a car, choose your pick-up and return dates, and send the request. The provider confirms within 24 hours, and nothing is charged when you request. You see the full price up front, including any driver or delivery fee.',
+      },
+      cancel: {
+        q: 'How do I cancel a booking?',
+        a: 'Open the booking from “My bookings” and use Cancel. You can cancel free of charge any time before pick-up.',
+      },
+      list_car: {
+        q: 'How do I list my car?',
+        a: 'Create a provider account, add your car with its photos and daily rate, and upload your documents. Once our team verifies them your listing goes live and you start receiving booking requests, so you choose which to accept.',
+      },
+      verification: {
+        q: 'How does verification work?',
+        a: 'Upload your RCCM (or a national ID / passport if you are not registered), plus each car’s carte grise, insurance and roadworthiness. Our team reviews within one business day. A car needs all six photos and approved documents before it can go live.',
+      },
+      payments: {
+        q: 'How do payments work?',
+        a: 'Prices are in XAF and shown in full before you book. Online payment (MTN Mobile Money / Orange Money) is being rolled out; until then the Karu team arranges the deposit with you directly and nothing is charged automatically.',
+      },
+      privacy: {
+        q: 'Is my contact information private?',
+        a: 'Yes. Phone numbers and email addresses are removed from chat messages automatically, so contact runs through Karu rather than being exposed. You only ever deal with document-verified providers.',
+      },
+    },
   },
   city: { douala: 'Douala', yaounde: 'Yaoundé', other: 'Other' },
   category: {
@@ -657,7 +720,7 @@ export const en = {
       internal: '(internal)',
       identity: 'Identity verified',
       business: 'Business verified (RCCM)',
-      identityOnly: '— operating on an identity document',
+      identityOnly: '· operating on an identity document',
       registration: 'registration',
       insurance: 'insurance',
       roadworthiness: 'roadworthiness',
@@ -685,9 +748,16 @@ export const en = {
       cars: 'Cars',
       bookings: 'Bookings',
       chats: 'Chats',
+      feedback: 'Feedback',
     },
     filterStatus: 'Filter by status',
     all: 'All',
+    feedback: {
+      none: 'No feedback yet',
+      noneHint: 'Reports from customers and providers will appear here.',
+      role: { customer: 'Customer', vendor: 'Provider', admin: 'Admin' },
+      markAs: { new: 'Mark new', triaging: 'Start triage', resolved: 'Mark resolved' },
+    },
     overview: {
       alertAssistance: '{{count}} booking(s) where someone has asked Karu for help',
       needsAttention: 'Needs attention',

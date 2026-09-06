@@ -10,6 +10,7 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { PaymentsModule } from './payments/payments.module';
 import { MessagesModule } from './messages/messages.module';
 import { AdminModule } from './admin/admin.module';
+import { FeedbackModule } from './feedback/feedback.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -26,6 +27,7 @@ import { HealthController } from './health.controller';
     PaymentsModule,
     MessagesModule,
     AdminModule,
+    FeedbackModule,
   ],
   controllers: [HealthController],
 })

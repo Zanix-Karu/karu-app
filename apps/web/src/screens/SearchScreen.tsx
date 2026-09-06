@@ -270,6 +270,7 @@ export function SearchScreen() {
             {cars?.map((v) => (
               <CarCard
                 key={v.id}
+                headingLevel="h2"
                 image={primaryPhoto(v)}
                 name={`${v.make} ${v.model}`}
                 category={`${t('search.orSimilar', { category: CATEGORY_LABEL[v.category] })}${v.year ? ` · ${v.year}` : ''}`}
