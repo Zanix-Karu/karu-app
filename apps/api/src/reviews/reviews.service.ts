@@ -174,6 +174,19 @@ export class ReviewsService {
     return (data ?? []) as Review[];
   }
 
+  /** Reviews written about the caller as a customer, for the bookings they ask about. */
+  async receivedForBookings(userId: string, bookingIds: string[]): Promise<Review[]> {
+    if (bookingIds.length === 0) return [];
+    const { data, error } = await this.supabase.db
+      .from('reviews')
+      .select('id, booking_id, author_id, target, rating, comment, language, created_at, bookings!inner(customer_id)')
+      .eq('target', 'customer')
+      .eq('bookings.customer_id', userId)
+      .in('booking_id', bookingIds);
+    if (error) throw new BadRequestException(error.message);
+    return ((data ?? []) as Array<Review & { bookings: unknown }>).map(({ bookings: _bookings, ...review }) => review);
+  }
+
   /** Public reviews written about a vendor, newest first. */
   async listForVendor(vendorId: string, limit = 20) {
     const { data, error } = await this.supabase.db

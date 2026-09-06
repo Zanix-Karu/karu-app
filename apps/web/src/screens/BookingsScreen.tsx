@@ -6,6 +6,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { prettyDate, xaf } from '../lib/format';
 import { ReviewForm } from '../components/ReviewForm';
+import { ReceivedReview } from '../components/ReceivedReview';
 import { Skeleton, SkeletonCard } from '../components/Skeleton';
 import { ConfirmButton } from '../components/ConfirmButton';
 import { Button, Card, EmptyState, ErrorNote, StatusBadge } from '../ui';
@@ -47,6 +48,15 @@ export function BookingsScreen() {
     enabled: completedIds.length > 0,
   });
   const reviewed = new Set((reviewsQuery.data ?? []).map((r) => r.booking_id));
+
+  // The vendor's review of the customer, keyed by booking so each card can
+  // show its own if one exists.
+  const receivedQuery = useQuery({
+    queryKey: ['reviews-about-me', completedIds.join(',')],
+    queryFn: () => api<Review[]>(`/reviews/about-me?booking_ids=${completedIds.join(',')}`),
+    enabled: completedIds.length > 0,
+  });
+  const receivedByBooking = new Map((receivedQuery.data ?? []).map((r) => [r.booking_id, r]));
 
   // UX-2: until this query settles `reviewed` is empty, so every completed
   // booking briefly offered a review form — including ones already reviewed,
@@ -133,6 +143,10 @@ export function BookingsScreen() {
                   // contents down when it resolves.
                   <Skeleton height={38} style={{ marginTop: 12 }} />
                 ))}
+
+              {receivedByBooking.has(b.id) && (
+                <ReceivedReview review={receivedByBooking.get(b.id)!} />
+              )}
             </Card>
           );
         })}

@@ -335,6 +335,7 @@ export const fr = {
     publishing: 'Publication…',
     thanks: 'Merci, votre avis est publié ✓',
     rating: 'Note',
+    providerRatedYou: 'Ce que le loueur a pensé de vous',
   },
   providers: {
     title: 'Loueurs vérifiés',

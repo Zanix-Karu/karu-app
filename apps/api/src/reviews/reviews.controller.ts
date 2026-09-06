@@ -25,6 +25,12 @@ export class ReviewsController {
     return this.reviews.mineForBookings(userId, bookingIds ? bookingIds.split(',') : []);
   }
 
+  /** Reviews written about the caller as a customer, for the bookings they ask about. */
+  @Get('reviews/about-me')
+  aboutMe(@CurrentUser('id') userId: string, @Query('booking_ids') bookingIds?: string) {
+    return this.reviews.receivedForBookings(userId, bookingIds ? bookingIds.split(',') : []);
+  }
+
   /** Moderation — remove a review outright. */
   @Roles('admin')
   @Delete('reviews/:id')
