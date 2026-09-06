@@ -8,6 +8,7 @@ export const fr = {
   common: {
     brand: 'Karu',
     tagline: 'Karu, location de voitures vérifiée au Cameroun · Douala et Yaoundé',
+    buildVersion: 'Version du build',
     signIn: 'Se connecter',
     signOut: 'Se déconnecter',
     profile: 'Profil',

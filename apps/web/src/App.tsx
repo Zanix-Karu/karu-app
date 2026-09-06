@@ -151,7 +151,10 @@ function Footer() {
   const { t } = useTranslation();
   return (
     <footer className="mx-auto max-w-6xl px-4 pb-8 text-center text-xs text-karu-mute">
-      {t('common.tagline')}
+      <p>{t('common.tagline')}</p>
+      <p className="mt-1 text-[11px] text-karu-mute/70" title={t('common.buildVersion')}>
+        v{__APP_VERSION__}
+      </p>
     </footer>
   );
 }

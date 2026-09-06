@@ -24,7 +24,7 @@ interface SignedUpload {
 }
 
 const MAX_IMAGES = 5;
-const APP_VERSION = (import.meta.env.VITE_APP_VERSION as string | undefined) ?? 'web';
+const APP_VERSION = __APP_VERSION__;
 
 const textareaClass =
   'w-full rounded-md border border-karu-ink/15 bg-white px-3 py-2 text-sm text-karu-ink ' +
