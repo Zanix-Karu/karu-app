@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import type { Booking, BookingStatus, Vehicle } from '@karu/shared';
+import type { Booking, BookingStatus, Review, Vehicle } from '@karu/shared';
 import { api } from '../lib/api';
 import { useView } from '../lib/auth';
 import { CATEGORY_LABEL, CITY_LABEL, prettyDate, rentalDays, xaf } from '../lib/format';
@@ -10,6 +10,7 @@ import { ErrorNote, StatusBadge } from '../ui';
 import { Skeleton, SkeletonCard } from '../components/Skeleton';
 import { useCurrency } from '../lib/currency';
 import { ReviewForm } from '../components/ReviewForm';
+import { ReceivedReview } from '../components/ReceivedReview';
 import { ConfirmButton } from '../components/ConfirmButton';
 import { BookingChat } from '../components/BookingChat';
 
@@ -81,6 +82,14 @@ export function BookingDetailScreen() {
       void qc.invalidateQueries({ queryKey: ['admin-bookings'] });
       void qc.invalidateQueries({ queryKey: ['vendor-stats'] });
     },
+  });
+
+  // The vendor's review of the customer, fetched only once the booking is
+  // known to be completed and this is the customer's own view of it.
+  const receivedReview = useQuery({
+    queryKey: ['reviews-about-me', id],
+    queryFn: () => api<Review[]>(`/reviews/about-me?booking_ids=${id}`),
+    enabled: view === 'customer' && data?.status === 'completed',
   });
 
   if (isLoading) {
@@ -305,6 +314,10 @@ export function BookingDetailScreen() {
             prompt={view === 'vendor' ? 'How was this customer?' : 'How was this rental? Rate the provider.'}
           />
         </div>
+      )}
+
+      {view === 'customer' && receivedReview.data && receivedReview.data.length > 0 && (
+        <ReceivedReview review={receivedReview.data[0]} />
       )}
 
       <div className="mt-6 flex items-center gap-2 text-xs text-karu-mute">

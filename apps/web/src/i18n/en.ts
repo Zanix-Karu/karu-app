@@ -332,6 +332,7 @@ export const en = {
     publishing: 'Publishing…',
     thanks: 'Thanks. Your review is published ✓',
     rating: 'Rating',
+    providerRatedYou: "How the provider rated you",
   },
   providers: {
     title: 'Verified providers',

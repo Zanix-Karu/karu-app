@@ -15,3 +15,5 @@ supabase/.temp/
 .env.local
 supabase/.branches
 supabase/.temp
+.vercel
+.obsidian/
