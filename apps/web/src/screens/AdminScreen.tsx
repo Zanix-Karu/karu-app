@@ -19,7 +19,7 @@ import {
   StatusBadge,
 } from '../ui';
 
-type Tab = 'overview' | 'vendors' | 'documents' | 'cars' | 'bookings' | 'chats';
+type Tab = 'overview' | 'vendors' | 'documents' | 'cars' | 'bookings' | 'chats' | 'feedback';
 
 const TAB_PATH: Record<Tab, string> = {
   overview: '/admin',
@@ -28,13 +28,14 @@ const TAB_PATH: Record<Tab, string> = {
   cars: '/admin/cars',
   bookings: '/admin/bookings',
   chats: '/admin/chats',
+  feedback: '/admin/feedback',
 };
 
 /** Tab comes from the URL so the header nav and the console agree. */
 function tabFromPath(pathname: string): Tab {
   const rest = pathname.replace(/^\/admin\/?/, '');
   return (
-    (['vendors', 'documents', 'cars', 'bookings', 'chats'] as Tab[]).find((t) =>
+    (['vendors', 'documents', 'cars', 'bookings', 'chats', 'feedback'] as Tab[]).find((t) =>
       rest.startsWith(t),
     ) ?? 'overview'
   );
@@ -68,6 +69,7 @@ export function AdminScreen() {
         {tabBtn('cars', t('admin.tabs.cars'))}
         {tabBtn('bookings', t('admin.tabs.bookings'))}
         {tabBtn('chats', t('admin.tabs.chats'))}
+        {tabBtn('feedback', t('admin.tabs.feedback'))}
       </div>
       <div className="mt-6">
         {tab === 'overview' && <Overview />}
@@ -76,6 +78,7 @@ export function AdminScreen() {
         {tab === 'cars' && <Cars />}
         {tab === 'bookings' && <Bookings />}
         {tab === 'chats' && <Chats />}
+        {tab === 'feedback' && <Feedback />}
       </div>
     </div>
   );
@@ -989,6 +992,110 @@ function Bookings() {
       {transition.isError && (
         <div className="mt-3">
           <ErrorNote>{(transition.error as Error).message}</ErrorNote>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Feedback (FEAT-3) -------------------------------------------------------
+
+interface AdminFeedback {
+  id: string;
+  author_role: 'customer' | 'vendor' | 'admin';
+  author?: { full_name: string | null } | null;
+  category: 'bug' | 'idea' | 'other';
+  message: string;
+  page: string | null;
+  status: 'new' | 'triaging' | 'resolved';
+  image_urls: string[];
+  created_at: string;
+}
+
+const FEEDBACK_STATUS_STYLE: Record<AdminFeedback['status'], string> = {
+  new: 'bg-karu-amber/20 text-karu-brown',
+  triaging: 'bg-blue-100 text-blue-800',
+  resolved: 'bg-green-100 text-green-800',
+};
+
+function Feedback() {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const [status, setStatus] = useState('');
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin-feedback', status],
+    queryFn: () => api<AdminFeedback[]>(`/admin/feedback${status ? `?status=${status}` : ''}`),
+  });
+
+  const setStatusMutation = useMutation({
+    mutationFn: ({ id, next }: { id: string; next: AdminFeedback['status'] }) =>
+      api(`/admin/feedback/${id}`, { method: 'PATCH', body: JSON.stringify({ status: next }) }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['admin-feedback'] }),
+  });
+
+  return (
+    <div>
+      <Field label={t('admin.filterStatus')} className="max-w-48">
+        <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+          <option value="">{t('admin.all')}</option>
+          <option value="new">{t('feedback.statuses.new')}</option>
+          <option value="triaging">{t('feedback.statuses.triaging')}</option>
+          <option value="resolved">{t('feedback.statuses.resolved')}</option>
+        </Select>
+      </Field>
+
+      {isLoading && <Spinner />}
+      {data?.length === 0 && (
+        <EmptyState title={t('admin.feedback.none')} hint={t('admin.feedback.noneHint')} />
+      )}
+
+      <div className="mt-4 space-y-3">
+        {data?.map((f) => (
+          <Card key={f.id} className="p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs uppercase tracking-wide text-karu-mute">
+                  {t(`feedback.categories.${f.category}`)} · {t(`admin.feedback.role.${f.author_role}`)}
+                  {f.author?.full_name ? ` · ${f.author.full_name}` : ''} · {prettyDate(f.created_at)}
+                  {f.page ? ` · ${f.page}` : ''}
+                </p>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-karu-ink">{f.message}</p>
+                {f.image_urls.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {f.image_urls.map((url, i) => (
+                      <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                        <img src={url} alt="" className="h-24 w-24 rounded-md object-cover" />
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <span
+                className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${FEEDBACK_STATUS_STYLE[f.status]}`}
+              >
+                {t(`feedback.statuses.${f.status}`)}
+              </span>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {(['new', 'triaging', 'resolved'] as const)
+                .filter((s) => s !== f.status)
+                .map((s) => (
+                  <Button
+                    key={s}
+                    variant="outline"
+                    disabled={setStatusMutation.isPending}
+                    onClick={() => setStatusMutation.mutate({ id: f.id, next: s })}
+                  >
+                    {t(`admin.feedback.markAs.${s}`)}
+                  </Button>
+                ))}
+            </div>
+          </Card>
+        ))}
+      </div>
+      {setStatusMutation.isError && (
+        <div className="mt-3">
+          <ErrorNote>{(setStatusMutation.error as Error).message}</ErrorNote>
         </div>
       )}
     </div>

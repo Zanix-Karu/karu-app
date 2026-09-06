@@ -15,6 +15,7 @@ import { HOME, NAV } from './lib/roles';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { CurrencySwitcher } from './components/CurrencySwitcher';
+import { AssistantPanel } from './components/AssistantPanel';
 import { CurrencyProvider } from './lib/currency';
 import { SearchScreen } from './screens/SearchScreen';
 import { CarDetailScreen } from './screens/CarDetailScreen';
@@ -41,6 +42,7 @@ const BookingDetailScreen = lazy(() => import('./screens/BookingDetailScreen').t
 const ProfileScreen = lazy(() => import('./screens/ProfileScreen').then((m) => ({ default: m.ProfileScreen })));
 const AdminScreen = lazy(() => import('./screens/AdminScreen').then((m) => ({ default: m.AdminScreen })));
 const LegalScreen = lazy(() => import('./screens/LegalScreen').then((m) => ({ default: m.LegalScreen })));
+const FeedbackScreen = lazy(() => import('./screens/FeedbackScreen').then((m) => ({ default: m.FeedbackScreen })));
 const VendorAreaScreen = lazy(() => import('./screens/VendorAreaScreen').then((m) => ({ default: m.VendorAreaScreen })));
 
 const queryClient = new QueryClient({
@@ -250,6 +252,15 @@ export default function App() {
                   </RequireView>
                 }
               />
+              {/* FEAT-3: customers and vendors report issues; admins triage. */}
+              <Route
+                path="/feedback"
+                element={
+                  <RequireView views={['customer', 'vendor', 'admin']}>
+                    <FeedbackScreen />
+                  </RequireView>
+                }
+              />
 
               {/* An unknown URL should say so rather than silently redirect. */}
               <Route path="*" element={<NotFoundScreen />} />
@@ -257,6 +268,8 @@ export default function App() {
             </Suspense>
           </main>
           <Footer />
+          {/* FEAT-2: rule-based help, on every page. */}
+          <AssistantPanel />
         </BrowserRouter>
         </CurrencyProvider>
       </AuthProvider>
