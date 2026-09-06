@@ -59,6 +59,7 @@ export const NAV: Record<View, NavItem[]> = {
     { to: '/vendors', label: 'nav.providers' },
     { to: '/bookings', label: 'nav.myBookings' },
     { to: '/list-your-car', label: 'nav.listYourCar' },
+    { to: '/feedback', label: 'nav.feedback' },
   ],
   vendor: [
     { to: '/vendor', label: 'nav.dashboard' },
@@ -66,6 +67,7 @@ export const NAV: Record<View, NavItem[]> = {
     { to: '/vendor/cars', label: 'nav.myCars' },
     { to: '/vendor/documents', label: 'nav.documents' },
     { to: '/search', label: 'nav.viewMarketplace' },
+    { to: '/feedback', label: 'nav.feedback' },
   ],
   // Superadmin sees its own console first, then every other surface.
   admin: [
@@ -81,10 +83,12 @@ export const NAV: Record<View, NavItem[]> = {
 /** Route prefixes each view may open. Anything else redirects to its HOME. */
 const ALLOWED: Record<View, string[]> = {
   guest: ['/search', '/vendors', '/cars', '/auth', '/list-your-car'],
-  customer: ['/search', '/vendors', '/cars', '/bookings', '/profile', '/auth', '/list-your-car'],
-  vendor: ['/search', '/vendors', '/cars', '/vendor', '/profile', '/auth'],
+  customer: ['/search', '/vendors', '/cars', '/bookings', '/profile', '/auth', '/list-your-car', '/feedback'],
+  // '/bookings' lets a vendor open a booking's detail page from their request
+  // list (the shared /bookings/:id route already admits vendors) — VER-2.
+  vendor: ['/search', '/vendors', '/cars', '/vendor', '/bookings', '/profile', '/auth', '/feedback'],
   // An admin is a superadmin: every route any other view can reach.
-  admin: ['/search', '/vendors', '/cars', '/admin', '/vendor', '/bookings', '/profile', '/auth', '/list-your-car'],
+  admin: ['/search', '/vendors', '/cars', '/admin', '/vendor', '/bookings', '/profile', '/auth', '/list-your-car', '/feedback'],
 };
 
 export function canOpen(view: View, path: string): boolean {
