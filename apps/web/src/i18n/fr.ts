@@ -52,7 +52,7 @@ export const fr = {
   },
   feedback: {
     title: 'Envoyer un commentaire',
-    subtitle: 'Un bug ou une idée ? Dites-le-nous — les captures d’écran aident.',
+    subtitle: 'Un bug ou une idée ? Dites-le-nous. Les captures d’écran aident.',
     category: 'De quoi s’agit-il ?',
     categories: { bug: 'Quelque chose ne marche pas', idea: 'Une suggestion', other: 'Autre chose' },
     message: 'Votre message',
@@ -61,10 +61,10 @@ export const fr = {
     addImage: 'Ajouter une image',
     removeImage: 'Retirer l’image',
     imageHint: 'Jusqu’à {{count}} images',
-    uploadFailed: 'Impossible d’envoyer cette image — veuillez réessayer.',
+    uploadFailed: 'Impossible d’envoyer cette image, veuillez réessayer.',
     send: 'Envoyer',
     sending: 'Envoi…',
-    thanks: 'Merci — bien reçu, nous allons regarder.',
+    thanks: 'Merci, bien reçu, nous allons regarder.',
     yourReports: 'Vos signalements',
     emptyTitle: 'Aucun signalement pour l’instant',
     emptyHint: 'Ce que vous envoyez apparaîtra ici avec son statut.',
@@ -81,7 +81,7 @@ export const fr = {
     topics: {
       how_it_works: {
         q: 'Comment fonctionne Karu ?',
-        a: 'Karu vous met en relation avec des loueurs vérifiés à Douala et Yaoundé. Vous parcourez les voitures, envoyez une demande de réservation, et le loueur confirme sous 24 heures. Chaque loueur est vérifié sur pièces avant de pouvoir publier, et le prix total affiché est celui que vous payez — aucune surprise au comptoir.',
+        a: 'Karu vous met en relation avec des loueurs vérifiés à Douala et Yaoundé. Vous parcourez les voitures, envoyez une demande de réservation, et le loueur confirme sous 24 heures. Chaque loueur est vérifié sur pièces avant de pouvoir publier, et le prix total affiché est celui que vous payez, sans surprise au comptoir.',
       },
       book: {
         q: 'Comment réserver une voiture ?',
@@ -93,7 +93,7 @@ export const fr = {
       },
       list_car: {
         q: 'Comment proposer ma voiture ?',
-        a: 'Créez un compte loueur, ajoutez votre voiture avec ses photos et son tarif journalier, puis téléversez vos documents. Une fois vérifiés par notre équipe, votre annonce est publiée et vous recevez des demandes — vous choisissez celles à accepter.',
+        a: 'Créez un compte loueur, ajoutez votre voiture avec ses photos et son tarif journalier, puis téléversez vos documents. Une fois vérifiés par notre équipe, votre annonce est publiée et vous recevez des demandes, et vous choisissez celles à accepter.',
       },
       verification: {
         q: 'Comment se passe la vérification ?',
@@ -723,7 +723,7 @@ export const fr = {
       internal: '(interne)',
       identity: 'Identité vérifiée',
       business: 'Entreprise vérifiée (RCCM)',
-      identityOnly: '— opère avec une pièce d’identité',
+      identityOnly: '· opère avec une pièce d’identité',
       registration: 'immatriculation',
       insurance: 'assurance',
       roadworthiness: 'visite technique',
