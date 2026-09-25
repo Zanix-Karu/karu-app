@@ -67,6 +67,40 @@ export class AdminService {
       return n ?? 0;
     };
 
+    /**
+     * REQ-12: insurance, carte grise and roadworthiness lapse quietly —
+     * nothing today re-checks `expires_at` after a document is approved, so a
+     * car keeps renting on paperwork nobody has looked at in months. A
+     * rejected document isn't the operative one (a replacement is expected),
+     * so only pending/approved rows count.
+     */
+    const DOC_EXPIRY_WARNING_DAYS = 30;
+    const now = new Date();
+    const warnBefore = new Date(now.getTime() + DOC_EXPIRY_WARNING_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const nowIso = now.toISOString();
+
+    const expiredDocumentCount = async () => {
+      const { count: n, error } = await this.supabase.db
+        .from('vendor_documents')
+        .select('*', { count: 'exact', head: true })
+        .neq('status', 'rejected')
+        .not('expires_at', 'is', null)
+        .lt('expires_at', nowIso);
+      if (error) throw new BadRequestException(error.message);
+      return n ?? 0;
+    };
+
+    const documentsExpiringSoonCount = async () => {
+      const { count: n, error } = await this.supabase.db
+        .from('vendor_documents')
+        .select('*', { count: 'exact', head: true })
+        .neq('status', 'rejected')
+        .gte('expires_at', nowIso)
+        .lte('expires_at', warnBefore);
+      if (error) throw new BadRequestException(error.message);
+      return n ?? 0;
+    };
+
     const [
       pendingVendors,
       requestedBookings,
@@ -75,6 +109,8 @@ export class AdminService {
       pendingDocuments,
       staleRequests,
       openAssistance,
+      expiredDocuments,
+      documentsExpiringSoon,
     ] = await Promise.all([
       count('vendors', { status: 'pending' }),
       count('bookings', { status: 'requested' }),
@@ -83,6 +119,8 @@ export class AdminService {
       count('vendor_documents', { status: 'pending' }),
       staleRequestCount(),
       openAssistanceCount(),
+      expiredDocumentCount(),
+      documentsExpiringSoonCount(),
     ]);
     return {
       pendingVendors,
@@ -95,6 +133,11 @@ export class AdminService {
       /** Bookings where a party asked for Karu and no admin has closed it. */
       openAssistance,
       replyWindowHours: REPLY_WINDOW_HOURS,
+      /** Approved/pending vendor documents whose expires_at has passed. */
+      expiredDocuments,
+      /** ...expiring within docExpiryWarningDays, not yet expired. */
+      documentsExpiringSoon,
+      docExpiryWarningDays: DOC_EXPIRY_WARNING_DAYS,
     };
   }
 
