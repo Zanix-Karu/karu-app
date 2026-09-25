@@ -13,6 +13,7 @@ import {
   type VendorStatus,
 } from '@karu/shared';
 import { SupabaseService } from '../supabase/supabase.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   AdminCreateVehicleDto,
   AdminCreateVendorDto,
@@ -23,7 +24,10 @@ import {
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   /** Ops dashboard counters: what needs attention right now. */
   async overview() {
@@ -122,9 +126,18 @@ export class AdminService {
     if (!canTransitionVendor(from, dto.status)) {
       throw new ConflictException(`A ${from} vendor cannot be moved to ${dto.status}`);
     }
+    // REQ-9: a suspension with no recorded reason leaves the vendor guessing
+    // and leaves a later admin with no record of what triggered it.
+    if (dto.status === 'suspended' && !dto.reason?.trim()) {
+      throw new BadRequestException('A reason is required when suspending a vendor');
+    }
 
     const patch: Record<string, unknown> = { status: dto.status };
     if (dto.status === 'verified') patch.verified_at = new Date().toISOString();
+    if (dto.status === 'suspended') patch.suspension_reason = dto.reason!.trim();
+    // Reinstating clears the old reason — it described a problem that's now
+    // resolved, so it shouldn't linger as if still in force.
+    if (from === 'suspended' && dto.status === 'verified') patch.suspension_reason = null;
 
     const { data, error } = await this.supabase.db
       .from('vendors')
@@ -144,6 +157,25 @@ export class AdminService {
         .update({ status: 'rejected' })
         .eq('vendor_id', vendorId)
         .eq('status', 'requested');
+    }
+
+    // REQ-9: tell the vendor either way, and — only for a fresh suspension —
+    // tell any customer holding a standing booking that their provider is
+    // under review. This is a transparency notice, not a cancellation: ops
+    // still makes the cancel-vs-honour call case by case, per the comment
+    // above. Best-effort: notifications never block or fail this response.
+    if (dto.status === 'suspended') {
+      await this.notifications.notifyVendorSuspended(data as Vendor, dto.reason!.trim());
+      const { data: standing } = await this.supabase.db
+        .from('bookings')
+        .select('*')
+        .eq('vendor_id', vendorId)
+        .in('status', ['confirmed', 'in_progress']);
+      for (const booking of (standing ?? []) as Booking[]) {
+        await this.notifications.notifyCustomerVendorUnderReview(booking);
+      }
+    } else if (from === 'suspended' && dto.status === 'verified') {
+      await this.notifications.notifyVendorReinstated(data as Vendor);
     }
     return data as Vendor;
   }

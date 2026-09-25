@@ -225,6 +225,8 @@ export interface Vendor {
   airport_fee_xaf: number | null;
   status: VendorStatus;
   verified_at: string | null;
+  /** REQ-9: why this vendor is currently suspended. Null otherwise — cleared on reinstatement. */
+  suspension_reason: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -248,6 +250,7 @@ export type PublicVendor = Omit<
   | 'whatsapp_number'
   | 'address'
   | 'rccm_number'
+  | 'suspension_reason'
 >;
 
 export interface VendorDocument {
