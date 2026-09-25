@@ -591,17 +591,21 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
 
 /** Transitions a vendor may drive, per current status. Labels are i18n keys. */
 const VENDOR_ACTIONS: Partial<
-  Record<BookingStatus, Array<{ to: BookingStatus; label: string; danger?: boolean; confirm?: string }>>
+  Record<
+    BookingStatus,
+    Array<{ to: BookingStatus; label: string; danger?: boolean; confirm?: string; needsCode?: boolean }>
+  >
 > = {
   requested: [
     { to: 'confirmed', label: 'vendor.actions.confirm' },
     { to: 'rejected', label: 'vendor.actions.reject', danger: true, confirm: 'vendor.actions.rejectConfirm' },
   ],
   confirmed: [
-    { to: 'in_progress', label: 'vendor.actions.startTrip' },
+    // REQ-6: read the code back from the customer rather than a plain click.
+    { to: 'in_progress', label: 'vendor.actions.startTrip', needsCode: true },
     { to: 'cancelled', label: 'vendor.actions.cancel', danger: true, confirm: 'vendor.actions.cancelConfirm' },
   ],
-  in_progress: [{ to: 'completed', label: 'vendor.actions.complete' }],
+  in_progress: [{ to: 'completed', label: 'vendor.actions.complete', needsCode: true }],
 };
 
 function VendorBookings({ asVendorId }: { asVendorId?: string }) {
@@ -616,10 +620,18 @@ function VendorBookings({ asVendorId }: { asVendorId?: string }) {
   });
 
   const transition = useMutation({
-    mutationFn: ({ id, to }: { id: string; to: BookingStatus }) =>
-      api<Booking>(`/bookings/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status: to }) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['my-bookings'] }),
+    mutationFn: ({ id, to, code }: { id: string; to: BookingStatus; code?: string }) =>
+      api<Booking>(`/bookings/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status: to, code }) }),
+    onSuccess: () => {
+      setCodePrompt(null);
+      setCodeDraft('');
+      void qc.invalidateQueries({ queryKey: ['my-bookings'] });
+    },
   });
+  // REQ-6: which booking + target status currently has its code prompt open
+  // (one at a time — a vendor confirms one handover/return at a time).
+  const [codePrompt, setCodePrompt] = useState<{ bookingId: string; to: BookingStatus } | null>(null);
+  const [codeDraft, setCodeDraft] = useState('');
 
   if (isLoading) {
     return (
@@ -672,30 +684,68 @@ function VendorBookings({ asVendorId }: { asVendorId?: string }) {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <StatusBadge status={b.status} />
-              {VENDOR_ACTIONS[b.status]?.map((a) =>
-                a.confirm ? (
-                  <ConfirmButton
-                    key={a.to}
-                    as={Button}
-                    size="sm"
-                    variant={a.danger ? 'danger' : 'primary'}
-                    disabled={transition.isPending}
-                    confirmLabel={t(a.confirm)}
-                    onConfirm={() => transition.mutate({ id: b.id, to: a.to })}
-                  >
-                    {t(a.label)}
-                  </ConfirmButton>
-                ) : (
+              {codePrompt?.bookingId === b.id ? (
+                <>
+                  <Input
+                    value={codeDraft}
+                    onChange={(e) => setCodeDraft(e.target.value)}
+                    placeholder={t('vendor.actions.codePlaceholder')}
+                    autoFocus
+                    style={{ width: 140 }}
+                  />
                   <Button
-                    key={a.to}
                     size="sm"
-                    variant={a.danger ? 'danger' : 'primary'}
-                    disabled={transition.isPending}
-                    onClick={() => transition.mutate({ id: b.id, to: a.to })}
+                    disabled={!codeDraft.trim() || transition.isPending}
+                    onClick={() => transition.mutate({ id: b.id, to: codePrompt.to, code: codeDraft.trim() })}
                   >
-                    {t(a.label)}
+                    {transition.isPending
+                      ? t('common.saving')
+                      : t(VENDOR_ACTIONS[b.status]?.find((a) => a.to === codePrompt.to)?.label ?? '')}
                   </Button>
-                ),
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => { setCodePrompt(null); setCodeDraft(''); }}
+                  >
+                    {t('common.cancel')}
+                  </Button>
+                </>
+              ) : (
+                VENDOR_ACTIONS[b.status]?.map((a) =>
+                  a.confirm ? (
+                    <ConfirmButton
+                      key={a.to}
+                      as={Button}
+                      size="sm"
+                      variant={a.danger ? 'danger' : 'primary'}
+                      disabled={transition.isPending}
+                      confirmLabel={t(a.confirm)}
+                      onConfirm={() => transition.mutate({ id: b.id, to: a.to })}
+                    >
+                      {t(a.label)}
+                    </ConfirmButton>
+                  ) : a.needsCode ? (
+                    <Button
+                      key={a.to}
+                      size="sm"
+                      variant={a.danger ? 'danger' : 'primary'}
+                      disabled={transition.isPending}
+                      onClick={() => { setCodePrompt({ bookingId: b.id, to: a.to }); setCodeDraft(''); }}
+                    >
+                      {t(a.label)}
+                    </Button>
+                  ) : (
+                    <Button
+                      key={a.to}
+                      size="sm"
+                      variant={a.danger ? 'danger' : 'primary'}
+                      disabled={transition.isPending}
+                      onClick={() => transition.mutate({ id: b.id, to: a.to })}
+                    >
+                      {t(a.label)}
+                    </Button>
+                  ),
+                )
               )}
             </div>
           </Card>

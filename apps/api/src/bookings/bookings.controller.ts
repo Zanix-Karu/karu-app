@@ -73,7 +73,7 @@ export class BookingsController {
     @CurrentUser('role') role: UserRole,
     @Body() dto: TransitionBookingDto,
   ) {
-    return this.bookings.transition(id, userId, role, dto.status, dto.vendor_note);
+    return this.bookings.transition(id, userId, role, dto.status, dto.vendor_note, dto.code);
   }
 
   /**

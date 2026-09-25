@@ -25,6 +25,16 @@ function shortName(fullName: string | null | undefined): string {
   return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`;
 }
 
+/**
+ * REQ-6: a short, easy-to-read-aloud handover/return code — same idea as a
+ * food-delivery PIN. Not a security boundary (no cryptographic guarantee is
+ * needed here, just a courtesy confirmation that the right person is in
+ * front of the right car), so plain Math.random() is fine.
+ */
+function generateHandoverCode(): string {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
 /** Status changes each role is permitted to drive (on top of the state machine). */
 const ALLOWED_BY_ROLE: Record<UserRole, BookingStatus[]> = {
   customer: ['cancelled'],
@@ -167,7 +177,18 @@ export class BookingsService {
     // admin: no filter — sees all
     const { data, error } = await q.order('created_at', { ascending: false });
     if (error) throw new NotFoundException(error.message);
-    return (data ?? []) as Booking[];
+    return ((data ?? []) as Booking[]).map((b) => this.hideCodesUnlessCustomer(b, role));
+  }
+
+  /**
+   * REQ-6: handover_code/return_code are for the customer to hold and read
+   * aloud at the exchange — a vendor (or admin) reading them straight from
+   * the API would defeat the point of a verbal handshake, the same way the
+   * app never hands a vendor the customer's phone number directly.
+   */
+  private hideCodesUnlessCustomer(booking: Booking, role: UserRole): Booking {
+    if (role === 'customer') return booking;
+    return { ...booking, handover_code: null, return_code: null };
   }
 
   /**
@@ -180,6 +201,7 @@ export class BookingsService {
     role: UserRole,
     next: BookingStatus,
     vendorNote?: string,
+    code?: string,
   ): Promise<Booking> {
     const booking = await this.getOwned(bookingId, userId, role);
 
@@ -189,9 +211,35 @@ export class BookingsService {
     if (!ALLOWED_BY_ROLE[role].includes(next)) {
       throw new ForbiddenException(`A ${role} cannot set status ${next}`);
     }
+    /**
+     * REQ-6: a vendor driving the handover or return in person confirms it
+     * against the code the customer holds — Uber-Eats style — rather than a
+     * click alone deciding a car changed hands. Admin keeps the unconditional
+     * override it already has everywhere else, for the case the code is lost
+     * or disputed; ops resolves that by hand, same as everything else it
+     * already overrides.
+     */
+    if (role === 'vendor') {
+      if (booking.status === 'confirmed' && next === 'in_progress') {
+        if (!code || code !== booking.handover_code) {
+          throw new BadRequestException('Incorrect or missing handover code');
+        }
+      }
+      if (booking.status === 'in_progress' && next === 'completed') {
+        if (!code || code !== booking.return_code) {
+          throw new BadRequestException('Incorrect or missing return code');
+        }
+      }
+    }
 
     const patch: Record<string, unknown> = { status: next };
-    if (next === 'confirmed') patch.confirmed_at = new Date().toISOString();
+    if (next === 'confirmed') {
+      patch.confirmed_at = new Date().toISOString();
+      // Minted now, well before either handover moment, so both are already
+      // on the booking the instant the customer can see it.
+      patch.handover_code = generateHandoverCode();
+      patch.return_code = generateHandoverCode();
+    }
     if (vendorNote !== undefined) patch.vendor_note = vendorNote;
 
     const { data, error } = await this.supabase.db
@@ -213,12 +261,12 @@ export class BookingsService {
     if (next === 'confirmed' || next === 'rejected' || next === 'cancelled') {
       await this.notifications.notifyBookingEvent(updated, next);
     }
-    return updated;
+    return this.hideCodesUnlessCustomer(updated, role);
   }
 
   /** A single booking, only if the caller is a party to it (or admin). */
   async getForUser(bookingId: string, userId: string, role: UserRole): Promise<Booking> {
-    return this.getOwned(bookingId, userId, role);
+    return this.hideCodesUnlessCustomer(await this.getOwned(bookingId, userId, role), role);
   }
 
   /**
@@ -235,7 +283,7 @@ export class BookingsService {
    *               coordinates pick-ups by hand.
    */
   async getDetailForUser(bookingId: string, userId: string, role: UserRole) {
-    const booking = await this.getOwned(bookingId, userId, role);
+    const booking = this.hideCodesUnlessCustomer(await this.getOwned(bookingId, userId, role), role);
 
     const [vehicleRes, vendorRes, customerRes] = await Promise.all([
       this.supabase.db

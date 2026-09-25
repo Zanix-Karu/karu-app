@@ -609,6 +609,7 @@ export const en = {
       cancel: 'Cancel',
       cancelConfirm: 'Cancel this booking?',
       complete: 'Complete',
+      codePlaceholder: 'Code from customer',
     },
     cars: {
       title: 'My cars',

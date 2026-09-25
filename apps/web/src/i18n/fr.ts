@@ -612,6 +612,7 @@ export const fr = {
       cancel: 'Annuler',
       cancelConfirm: 'Annuler cette réservation ?',
       complete: 'Terminer',
+      codePlaceholder: 'Code du client',
     },
     cars: {
       title: 'Mes voitures',
