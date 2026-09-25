@@ -13,6 +13,7 @@ import {
   type VendorStatus,
 } from '@karu/shared';
 import { SupabaseService } from '../supabase/supabase.service';
+import { dbErrorMessage } from '../supabase/db-error';
 import {
   AdminCreateVehicleDto,
   AdminCreateVendorDto,
@@ -31,7 +32,7 @@ export class AdminService {
       let q = this.supabase.db.from(table).select('*', { count: 'exact', head: true });
       for (const [col, val] of Object.entries(filters)) q = q.eq(col, val);
       const { count: n, error } = await q;
-      if (error) throw new BadRequestException(error.message);
+      if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not load overview counters'));
       return n ?? 0;
     };
 
@@ -51,7 +52,7 @@ export class AdminService {
         .select('*', { count: 'exact', head: true })
         .eq('status', 'requested')
         .lt('created_at', staleBefore);
-      if (error) throw new BadRequestException(error.message);
+      if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not load overview counters'));
       return n ?? 0;
     };
 
@@ -63,7 +64,7 @@ export class AdminService {
         .select('*', { count: 'exact', head: true })
         .not('assistance_requested_at', 'is', null)
         .is('assistance_resolved_at', null);
-      if (error) throw new BadRequestException(error.message);
+      if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not load overview counters'));
       return n ?? 0;
     };
 
@@ -104,7 +105,7 @@ export class AdminService {
     let q = this.supabase.db.from('vendors').select('*');
     if (status) q = q.eq('status', status);
     const { data, error } = await q.order('created_at', { ascending: false });
-    if (error) throw new BadRequestException(error.message);
+    if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not list vendors'));
     return (data ?? []) as Vendor[];
   }
 
@@ -157,7 +158,7 @@ export class AdminService {
     if (status) q = q.eq('status', status);
     if (vendorId) q = q.eq('vendor_id', vendorId);
     const { data, error } = await q.order('created_at', { ascending: false });
-    if (error) throw new BadRequestException(error.message);
+    if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not list documents'));
     return data ?? [];
   }
 
@@ -180,7 +181,7 @@ export class AdminService {
       .from('vendor-documents')
       .createSignedUrl((doc as { file_path: string }).file_path, expiresIn);
     if (signError || !data) {
-      throw new BadRequestException(signError?.message ?? 'Could not create download link');
+      throw new BadRequestException(dbErrorMessage(signError, 'Could not create download link'));
     }
     return { url: data.signedUrl, expiresIn };
   }
@@ -220,7 +221,7 @@ export class AdminService {
       user_metadata: { role: 'vendor', full_name: dto.full_name ?? dto.business_name, locale: dto.locale ?? 'fr' },
     });
     if (authError || !created?.user) {
-      throw new ConflictException(authError?.message ?? 'Could not create vendor user');
+      throw new ConflictException(dbErrorMessage(authError, 'Could not create vendor user'));
     }
 
     const { data, error } = await this.supabase.db
@@ -240,7 +241,7 @@ export class AdminService {
       })
       .select('*')
       .single();
-    if (error || !data) throw new ConflictException(error?.message ?? 'Could not create vendor');
+    if (error || !data) throw new ConflictException(dbErrorMessage(error, 'Could not create vendor'));
     return data as Vendor;
   }
 
@@ -270,7 +271,7 @@ export class AdminService {
       .insert({ ...rest, vendor_id, status: status ?? 'draft' })
       .select('*')
       .single();
-    if (error || !data) throw new BadRequestException(error?.message ?? 'Could not create vehicle');
+    if (error || !data) throw new BadRequestException(dbErrorMessage(error, 'Could not create vehicle'));
     return data as Vehicle;
   }
 
@@ -287,7 +288,7 @@ export class AdminService {
       if (error.code === '23P01') {
         throw new ConflictException('An overlapping block already exists for this vehicle');
       }
-      throw new BadRequestException(error.message);
+      throw new BadRequestException(dbErrorMessage(error, 'Could not create block'));
     }
     return data;
   }
@@ -297,7 +298,7 @@ export class AdminService {
       .from('vehicle_blocks')
       .delete({ count: 'exact' })
       .eq('id', blockId);
-    if (error) throw new BadRequestException(error.message);
+    if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not delete block'));
     if (!count) throw new NotFoundException('Block not found');
     return { deleted: true };
   }
@@ -308,7 +309,7 @@ export class AdminService {
     let q = this.supabase.db.from('bookings').select('*');
     if (status) q = q.eq('status', status);
     const { data, error } = await q.order('created_at', { ascending: false });
-    if (error) throw new BadRequestException(error.message);
+    if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not list bookings'));
     return (data ?? []) as Booking[];
   }
 }
