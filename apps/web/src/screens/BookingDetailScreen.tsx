@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { Booking, BookingStatus, Review, Vehicle } from '@karu/shared';
@@ -25,33 +26,33 @@ interface BookingDetail extends Booking {
   customer: { display_name: string; full_name?: string | null; phone?: string | null; email?: string | null } | null;
 }
 
-/** Transitions each view may drive from this screen. */
+/** Transitions each view may drive from this screen. Labels are i18n keys. */
 const ACTIONS: Record<string, Partial<Record<BookingStatus, Array<{ to: BookingStatus; label: string; danger?: boolean }>>>> = {
   customer: {
-    requested: [{ to: 'cancelled', label: 'Cancel booking', danger: true }],
-    confirmed: [{ to: 'cancelled', label: 'Cancel booking', danger: true }],
+    requested: [{ to: 'cancelled', label: 'booking.action.cancelBooking', danger: true }],
+    confirmed: [{ to: 'cancelled', label: 'booking.action.cancelBooking', danger: true }],
   },
   vendor: {
     requested: [
-      { to: 'confirmed', label: 'Confirm' },
-      { to: 'rejected', label: 'Reject', danger: true },
+      { to: 'confirmed', label: 'booking.action.confirm' },
+      { to: 'rejected', label: 'booking.action.reject', danger: true },
     ],
     confirmed: [
-      { to: 'in_progress', label: 'Start trip' },
-      { to: 'cancelled', label: 'Cancel booking', danger: true },
+      { to: 'in_progress', label: 'booking.action.startTrip' },
+      { to: 'cancelled', label: 'booking.action.cancelBooking', danger: true },
     ],
-    in_progress: [{ to: 'completed', label: 'Complete trip' }],
+    in_progress: [{ to: 'completed', label: 'booking.action.completeTrip' }],
   },
   admin: {
     requested: [
-      { to: 'confirmed', label: 'Confirm' },
-      { to: 'rejected', label: 'Reject', danger: true },
+      { to: 'confirmed', label: 'booking.action.confirm' },
+      { to: 'rejected', label: 'booking.action.reject', danger: true },
     ],
     confirmed: [
-      { to: 'in_progress', label: 'Start trip' },
-      { to: 'cancelled', label: 'Cancel booking', danger: true },
+      { to: 'in_progress', label: 'booking.action.startTrip' },
+      { to: 'cancelled', label: 'booking.action.cancelBooking', danger: true },
     ],
-    in_progress: [{ to: 'completed', label: 'Complete trip' }],
+    in_progress: [{ to: 'completed', label: 'booking.action.completeTrip' }],
   },
 };
 
@@ -62,6 +63,7 @@ function daysUntil(date: string): number {
 }
 
 export function BookingDetailScreen() {
+  const { t } = useTranslation();
   const { id = '' } = useParams();
   const view = useView();
   const { secondary } = useCurrency();
@@ -105,7 +107,7 @@ export function BookingDetailScreen() {
     );
   }
   if (error || !data) {
-    return <ErrorNote>{(error as Error | undefined)?.message ?? 'Booking not found.'}</ErrorNote>;
+    return <ErrorNote>{(error as Error | undefined)?.message ?? t('booking.notFound')}</ErrorNote>;
   }
 
   const b = data;
@@ -128,14 +130,14 @@ export function BookingDetailScreen() {
         onClick={() => navigate(-1)}
         className="text-sm font-semibold text-karu-brown underline"
       >
-        ← Back
+        ← {t('common.back')}
       </button>
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="font-mono text-xs text-karu-mute">{b.reference ?? b.id}</p>
           <h1 className="font-display text-3xl font-bold">
-            {b.vehicle ? `${b.vehicle.make} ${b.vehicle.model}` : 'Booking'}
+            {b.vehicle ? `${b.vehicle.make} ${b.vehicle.model}` : t('booking.fallbackTitle')}
             {b.vehicle?.year ? <span className="text-karu-mute"> {b.vehicle.year}</span> : null}
           </h1>
         </div>
@@ -144,51 +146,54 @@ export function BookingDetailScreen() {
 
       {showCountdown && (
         <div className="mt-4 rounded-xl bg-karu-yellow/20 px-4 py-3 text-sm font-semibold text-karu-brown">
-          {until === 0 ? 'Pick-up is today' : until === 1 ? 'Pick-up in 1 day' : `Pick-up in ${until} days`}
+          {until === 0 ? t('booking.pickupToday') : t('booking.pickupInDays', { count: until })}
         </div>
       )}
       {b.status === 'in_progress' && (
         <div className="mt-4 rounded-xl bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-800">
-          Trip in progress — due back {prettyDate(b.end_date)}
+          {t('booking.tripInProgress', { date: prettyDate(b.end_date) })}
         </div>
       )}
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <Card>
-          <h2 className="font-display text-lg font-bold">Trip</h2>
+          <h2 className="font-display text-lg font-bold">{t('booking.trip')}</h2>
           <div className="mt-2">
-            {row('Pick-up', prettyDate(b.start_date))}
-            {row('Return', prettyDate(b.end_date))}
-            {row('Duration', `${days} day${days > 1 ? 's' : ''}`)}
+            {row(t('booking.pickupDate'), prettyDate(b.start_date))}
+            {row(t('booking.returnDate'), prettyDate(b.end_date))}
+            {row(t('booking.duration'), t('common.day', { count: days }))}
             {row(
-              'Collection',
+              t('booking.collection'),
               b.delivery_type === 'airport'
-                ? `Airport meet${b.delivery_address ? ` · ${b.delivery_address}` : ''}`
+                ? `${t('booking.airportMeet')}${b.delivery_address ? ` · ${b.delivery_address}` : ''}`
                 : b.delivery_type === 'address'
-                  ? `Delivery · ${b.delivery_address}`
-                  : (b.pickup_location ?? 'To be arranged'),
+                  ? `${t('booking.deliveryLabel')} · ${b.delivery_address}`
+                  : (b.pickup_location ?? t('booking.toBeArranged')),
             )}
-            {b.pickup_time ? row('Time', b.pickup_time.slice(0, 5)) : null}
-            {row('Driver', b.with_driver ? 'With a driver' : 'Self-drive')}
+            {b.pickup_time ? row(t('booking.time'), b.pickup_time.slice(0, 5)) : null}
+            {row(t('booking.driverLabel'), b.with_driver ? t('booking.withDriver') : t('booking.selfDrive'))}
           </div>
         </Card>
 
         <Card>
-          <h2 className="font-display text-lg font-bold">Price</h2>
+          <h2 className="font-display text-lg font-bold">{t('booking.price')}</h2>
           <div className="mt-2">
-            {row('Daily rate', xaf(b.daily_rate_xaf))}
+            {row(t('booking.dailyRate'), xaf(b.daily_rate_xaf))}
             {/* The vehicle line is the total less the extras — with a driver
                 or a delivery, days x daily rate is no longer the total. */}
             {row(
-              `${days} day${days > 1 ? 's' : ''}`,
+              t('common.day', { count: days }),
               xaf(b.total_xaf - b.driver_fee_xaf - b.delivery_fee_xaf),
             )}
-            {b.driver_fee_xaf > 0 ? row('Driver', xaf(b.driver_fee_xaf)) : null}
+            {b.driver_fee_xaf > 0 ? row(t('booking.driverLabel'), xaf(b.driver_fee_xaf)) : null}
             {b.delivery_fee_xaf > 0
-              ? row(b.delivery_type === 'airport' ? 'Airport meet' : 'Delivery', xaf(b.delivery_fee_xaf))
+              ? row(
+                  b.delivery_type === 'airport' ? t('booking.airportMeet') : t('booking.deliveryLabel'),
+                  xaf(b.delivery_fee_xaf),
+                )
               : null}
             {row(
-              'Total (all fees in)',
+              t('booking.total'),
               <>
                 {xaf(b.total_xaf)}
                 {secondary(b.total_xaf) && (
@@ -196,7 +201,7 @@ export function BookingDetailScreen() {
                 )}
               </>,
             )}
-            {b.deposit_xaf ? row('Deposit (15%)', xaf(b.deposit_xaf)) : null}
+            {b.deposit_xaf ? row(t('booking.depositPercent'), xaf(b.deposit_xaf)) : null}
           </div>
           <DepositBlock bookingId={b.id} view={view} />
         </Card>
@@ -204,17 +209,17 @@ export function BookingDetailScreen() {
         {/* Provider — shown to customers and admins. */}
         {b.vendor && (
           <Card>
-            <h2 className="font-display text-lg font-bold">Provider</h2>
+            <h2 className="font-display text-lg font-bold">{t('booking.provider')}</h2>
             <div className="mt-2">
               {row(
-                'Business',
+                t('booking.business'),
                 <Link to={`/vendors/${b.vendor.id}`} className="underline">
                   {b.vendor.business_name}
                 </Link>,
               )}
-              {row('City', CITY_LABEL[b.vendor.city] ?? b.vendor.city)}
-              {b.vendor.contact_phone ? row('Phone', b.vendor.contact_phone) : null}
-              {b.vendor.contact_email ? row('Email', b.vendor.contact_email) : null}
+              {row(t('booking.city'), CITY_LABEL[b.vendor.city] ?? b.vendor.city)}
+              {b.vendor.contact_phone ? row(t('booking.phone'), b.vendor.contact_phone) : null}
+              {b.vendor.contact_email ? row(t('auth.email'), b.vendor.contact_email) : null}
             </div>
           </Card>
         )}
@@ -222,42 +227,39 @@ export function BookingDetailScreen() {
         {/* Customer — vendors get a display name only; admins get everything. */}
         {b.customer && (
           <Card>
-            <h2 className="font-display text-lg font-bold">Customer</h2>
+            <h2 className="font-display text-lg font-bold">{t('booking.customer')}</h2>
             <div className="mt-2">
-              {row('Name', b.customer.display_name)}
-              {b.customer.phone ? row('Phone', b.customer.phone) : null}
-              {b.customer.email ? row('Email', b.customer.email) : null}
+              {row(t('booking.name'), b.customer.display_name)}
+              {b.customer.phone ? row(t('booking.phone'), b.customer.phone) : null}
+              {b.customer.email ? row(t('auth.email'), b.customer.email) : null}
             </div>
             {view === 'vendor' && (
-              <p className="mt-3 text-xs text-karu-mute">
-                Customer contact details stay with Karu. Use the chat below — messages go
-                straight to the customer, with Karu in the room.
-              </p>
+              <p className="mt-3 text-xs text-karu-mute">{t('booking.contactPrivate')}</p>
             )}
           </Card>
         )}
 
         {b.vehicle && (
           <Card>
-            <h2 className="font-display text-lg font-bold">Vehicle</h2>
+            <h2 className="font-display text-lg font-bold">{t('booking.vehicle')}</h2>
             <div className="mt-2">
-              {row('Category', CATEGORY_LABEL[b.vehicle.category] ?? b.vehicle.category)}
-              {row('Gearbox', b.vehicle.transmission === 'automatic' ? 'Automatic' : 'Manual')}
-              {b.vehicle.seats ? row('Seats', b.vehicle.seats) : null}
-              {row('City', CITY_LABEL[b.vehicle.city] ?? b.vehicle.city)}
+              {row(t('booking.category'), CATEGORY_LABEL[b.vehicle.category] ?? b.vehicle.category)}
+              {row(t('booking.gearbox'), b.vehicle.transmission === 'automatic' ? t('common.automatic') : t('common.manual'))}
+              {b.vehicle.seats ? row(t('booking.seats'), b.vehicle.seats) : null}
+              {row(t('booking.city'), CITY_LABEL[b.vehicle.city] ?? b.vehicle.city)}
             </div>
             <Link
               to={`/cars/${b.vehicle.id}`}
               className="mt-3 inline-block text-sm font-semibold text-karu-brown underline"
             >
-              View listing
+              {t('booking.viewListing')}
             </Link>
           </Card>
         )}
 
         {b.customer_note && (
           <Card>
-            <h2 className="font-display text-lg font-bold">Customer note</h2>
+            <h2 className="font-display text-lg font-bold">{t('booking.customerNote')}</h2>
             <p className="mt-2 text-sm">&ldquo;{b.customer_note}&rdquo;</p>
           </Card>
         )}
@@ -265,7 +267,7 @@ export function BookingDetailScreen() {
 
       {actions.length > 0 && (
         <Card style={{ marginTop: 16 }}>
-          <h2 className="font-display text-lg font-bold">Actions</h2>
+          <h2 className="font-display text-lg font-bold">{t('booking.actions')}</h2>
           <div className="mt-3 flex flex-wrap gap-2">
             {actions.map((a) =>
               a.danger ? (
@@ -274,10 +276,10 @@ export function BookingDetailScreen() {
                   as={Button}
                   variant="danger"
                   loading={transition.isPending}
-                  confirmLabel={`${a.label}?`}
+                  confirmLabel={`${t(a.label)}?`}
                   onConfirm={() => transition.mutate(a.to)}
                 >
-                  {a.label}
+                  {t(a.label)}
                 </ConfirmButton>
               ) : (
                 <Button
@@ -286,7 +288,7 @@ export function BookingDetailScreen() {
                   disabled={transition.isPending}
                   onClick={() => transition.mutate(a.to)}
                 >
-                  {transition.isPending ? 'Working…' : a.label}
+                  {transition.isPending ? t('common.oneMoment') : t(a.label)}
                 </Button>
               ),
             )}
@@ -311,7 +313,7 @@ export function BookingDetailScreen() {
         <div className="mt-4">
           <ReviewForm
             bookingId={b.id}
-            prompt={view === 'vendor' ? 'How was this customer?' : 'How was this rental? Rate the provider.'}
+            prompt={view === 'vendor' ? t('review.rateCustomer') : t('review.ratePrompt')}
           />
         </div>
       )}
@@ -321,20 +323,22 @@ export function BookingDetailScreen() {
       )}
 
       <div className="mt-6 flex items-center gap-2 text-xs text-karu-mute">
-        <Badge variant="neutral">Requested {prettyDate(b.requested_at.slice(0, 10))}</Badge>
-        {b.confirmed_at && <Badge variant="success">Confirmed {prettyDate(b.confirmed_at.slice(0, 10))}</Badge>}
+        <Badge variant="neutral">{t('booking.requestedOn', { date: prettyDate(b.requested_at.slice(0, 10)) })}</Badge>
+        {b.confirmed_at && (
+          <Badge variant="success">{t('booking.confirmedOn', { date: prettyDate(b.confirmed_at.slice(0, 10)) })}</Badge>
+        )}
       </div>
     </div>
   );
 }
 
-/** Status wording that never overstates what actually happened. */
+/** Status wording that never overstates what actually happened. Labels are i18n keys. */
 const PAYMENT_COPY: Record<string, { label: string; tone: 'neutral' | 'success' | 'danger' }> = {
-  pending: { label: 'Deposit not yet paid', tone: 'neutral' },
-  held: { label: 'Deposit received', tone: 'success' },
-  released: { label: 'Paid out to the provider', tone: 'success' },
-  refunded: { label: 'Deposit refunded', tone: 'neutral' },
-  failed: { label: 'Deposit payment failed', tone: 'danger' },
+  pending: { label: 'booking.depositNotPaid', tone: 'neutral' },
+  held: { label: 'booking.depositReceived', tone: 'success' },
+  released: { label: 'booking.depositReleased', tone: 'success' },
+  refunded: { label: 'booking.depositRefunded', tone: 'neutral' },
+  failed: { label: 'booking.depositFailed', tone: 'danger' },
 };
 
 /**
@@ -343,6 +347,7 @@ const PAYMENT_COPY: Record<string, { label: string; tone: 'neutral' | 'success' 
  * an admin records that the team actually received the money.
  */
 function DepositBlock({ bookingId, view }: { bookingId: string; view: string }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const { data } = useQuery({
     queryKey: ['payment', bookingId],
@@ -379,17 +384,14 @@ function DepositBlock({ bookingId, view }: { bookingId: string; view: string }) 
                 : 'text-karu-mute'
           }`}
         >
-          {copy.label}
+          {t(copy.label)}
         </p>
       ) : (
-        <p className="text-xs text-karu-mute">No deposit recorded yet.</p>
+        <p className="text-xs text-karu-mute">{t('booking.noDeposit')}</p>
       )}
 
       {!data?.chargingEnabled && (
-        <p className="mt-1 text-xs text-karu-mute">
-          Online payment isn&rsquo;t live yet — the Karu team arranges the deposit with you
-          directly. Nothing has been charged.
-        </p>
+        <p className="mt-1 text-xs text-karu-mute">{t('booking.chargingOff')}</p>
       )}
 
       {view === 'customer' && status !== 'held' && status !== 'released' && (
@@ -400,7 +402,7 @@ function DepositBlock({ bookingId, view }: { bookingId: string; view: string }) 
             loading={start.isPending}
             onClick={() => start.mutate()}
           >
-            How do I pay the deposit?
+            {t('booking.howToPay')}
           </Button>
           {start.isSuccess && (
             <p className="mt-2 text-xs text-karu-brown">{start.data?.instructions}</p>
@@ -422,6 +424,7 @@ function DepositBlock({ bookingId, view }: { bookingId: string; view: string }) 
  * system never infers it.
  */
 function RecordDeposit({ bookingId }: { bookingId: string }) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [status, setStatus] = useState<'held' | 'released' | 'refunded' | 'failed'>('held');
   const [reference, setReference] = useState('');
@@ -440,11 +443,8 @@ function RecordDeposit({ bookingId }: { bookingId: string }) {
 
   return (
     <Card style={{ marginTop: 16 }}>
-      <h2 className="font-display text-lg font-bold">Record deposit</h2>
-      <p className="mt-1 text-sm text-karu-mute">
-        Use this once the team has actually received or returned money. Nothing is marked paid
-        automatically.
-      </p>
+      <h2 className="font-display text-lg font-bold">{t('booking.recordDeposit.title')}</h2>
+      <p className="mt-1 text-sm text-karu-mute">{t('booking.recordDeposit.sub')}</p>
       <form
         className="mt-3 flex flex-wrap items-end gap-3"
         onSubmit={(e) => {
@@ -454,36 +454,36 @@ function RecordDeposit({ bookingId }: { bookingId: string }) {
       >
         <label className="text-sm">
           <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-karu-mute">
-            Status
+            {t('booking.recordDeposit.status')}
           </span>
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as typeof status)}
             className="rounded-lg border border-karu-ink/15 px-3 py-2 text-sm"
           >
-            <option value="held">Deposit received</option>
-            <option value="released">Paid out to provider</option>
-            <option value="refunded">Refunded to customer</option>
-            <option value="failed">Payment failed</option>
+            <option value="held">{t('booking.recordDeposit.statusHeld')}</option>
+            <option value="released">{t('booking.recordDeposit.statusReleased')}</option>
+            <option value="refunded">{t('booking.recordDeposit.statusRefunded')}</option>
+            <option value="failed">{t('booking.recordDeposit.statusFailed')}</option>
           </select>
         </label>
         <label className="text-sm">
           <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-karu-mute">
-            Reference (optional)
+            {t('booking.recordDeposit.reference')}
           </span>
           <input
             value={reference}
             onChange={(e) => setReference(e.target.value)}
-            placeholder="Bank/transfer ref"
+            placeholder={t('booking.recordDeposit.referencePlaceholder')}
             className="rounded-lg border border-karu-ink/15 px-3 py-2 text-sm"
           />
         </label>
         <Button type="submit" loading={record.isPending}>
-          Record
+          {t('booking.recordDeposit.submit')}
         </Button>
       </form>
       {record.isSuccess && (
-        <p className="mt-2 text-sm font-semibold text-green-700">Recorded ✓</p>
+        <p className="mt-2 text-sm font-semibold text-green-700">{t('booking.recordDeposit.recorded')}</p>
       )}
       {record.isError && (
         <div className="mt-2">
