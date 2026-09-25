@@ -14,6 +14,7 @@ import {
   type VehicleDetail,
 } from '@karu/shared';
 import { SupabaseService } from '../supabase/supabase.service';
+import { dbErrorMessage } from '../supabase/db-error';
 import { VendorsService } from '../vendors/vendors.service';
 import { BrowseVehiclesQuery, CreateVehicleDto } from './dto';
 import { assertValidWindow } from './dates';
@@ -28,6 +29,9 @@ export interface BrowseResult {
 
 /** Public bucket — listing photos are served directly by their public URL. */
 const PHOTOS_BUCKET = 'vehicle-photos';
+
+/** Mirrors the bucket's own allowed_mime_types (0026); belt and braces. */
+const ALLOWED_PHOTO_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 @Injectable()
 export class VehiclesService {
@@ -44,7 +48,7 @@ export class VehiclesService {
       .insert({ ...dto, vendor_id: vendor.id })
       .select('*')
       .single();
-    if (error || !data) throw new NotFoundException(error?.message ?? 'Could not create vehicle');
+    if (error || !data) throw new NotFoundException(dbErrorMessage(error, 'Could not create vehicle'));
     return data as Vehicle;
   }
 
@@ -98,7 +102,7 @@ export class VehiclesService {
     q = q.range(offset, offset + limit - 1);
 
     const { data, error, count } = await q;
-    if (error) throw new BadRequestException(error.message);
+    if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not load vehicles'));
     // Strip the joined vendors column used only for the verified filter.
     const items = (data ?? []).map(({ vendors: _vendors, ...v }) => v) as Vehicle[];
     return { items, total: count ?? items.length, limit, offset };
@@ -126,8 +130,8 @@ export class VehiclesService {
       overlap('bookings', { status: ['confirmed', 'in_progress'] }),
       overlap('vehicle_blocks'),
     ]);
-    if (bookings.error) throw new BadRequestException(bookings.error.message);
-    if (blocks.error) throw new BadRequestException(blocks.error.message);
+    if (bookings.error) throw new BadRequestException(dbErrorMessage(bookings.error, 'Could not check availability'));
+    if (blocks.error) throw new BadRequestException(dbErrorMessage(blocks.error, 'Could not check availability'));
 
     const conflicts = [...(bookings.data ?? []), ...(blocks.data ?? [])];
     return { available: conflicts.length === 0, conflicts };
@@ -148,8 +152,8 @@ export class VehiclesService {
         .lte('start_date', to)
         .gte('end_date', from),
     ]);
-    if (booked.error) throw new BadRequestException(booked.error.message);
-    if (blocked.error) throw new BadRequestException(blocked.error.message);
+    if (booked.error) throw new BadRequestException(dbErrorMessage(booked.error, 'Could not load vehicles'));
+    if (blocked.error) throw new BadRequestException(dbErrorMessage(blocked.error, 'Could not load vehicles'));
     const ids = [...(booked.data ?? []), ...(blocked.data ?? [])].map((r) => r.vehicle_id);
     return [...new Set(ids)];
   }
@@ -196,7 +200,7 @@ export class VehiclesService {
       .from(PHOTOS_BUCKET)
       .createSignedUploadUrl(path);
     if (error || !upload) {
-      throw new BadRequestException(error?.message ?? 'Could not create upload URL');
+      throw new BadRequestException(dbErrorMessage(error, 'Could not create upload URL'));
     }
     return { path: upload.path, token: upload.token, signedUrl: upload.signedUrl };
   }
@@ -224,8 +228,17 @@ export class VehiclesService {
     const { data: uploaded } = await this.supabase.db.storage
       .from(PHOTOS_BUCKET)
       .list(vehicleId, { search: objectName, limit: 1 });
-    if (!uploaded?.some((o) => o.name === objectName)) {
+    const object = uploaded?.find((o) => o.name === objectName);
+    if (!object) {
       throw new BadRequestException('Upload the file first, then attach it');
+    }
+    const mimetype = object.metadata?.mimetype;
+    if (!mimetype || !ALLOWED_PHOTO_MIME_TYPES.has(mimetype)) {
+      // The bucket's own allowed_mime_types (0026) should already have
+      // rejected this at upload time — this is a defensive second check in
+      // case that config is ever missing (e.g. a bucket recreated by hand).
+      await this.supabase.db.storage.from(PHOTOS_BUCKET).remove([path]);
+      throw new BadRequestException('Uploaded file is not a supported image type');
     }
 
     const { data: pub } = this.supabase.db.storage.from(PHOTOS_BUCKET).getPublicUrl(path);
@@ -248,7 +261,7 @@ export class VehiclesService {
       .eq('id', vehicleId)
       .select('*')
       .single();
-    if (error || !data) throw new BadRequestException(error?.message ?? 'Could not attach photo');
+    if (error || !data) throw new BadRequestException(dbErrorMessage(error, 'Could not attach photo'));
     return data as Vehicle;
   }
 
@@ -274,7 +287,7 @@ export class VehiclesService {
       .eq('id', vehicleId)
       .select('*')
       .single();
-    if (error || !data) throw new BadRequestException(error?.message ?? 'Could not remove photo');
+    if (error || !data) throw new BadRequestException(dbErrorMessage(error, 'Could not remove photo'));
 
     await this.deleteStoredPhoto(vehicleId, url);
     return data as Vehicle;
@@ -322,7 +335,7 @@ export class VehiclesService {
       .eq('id', vehicleId)
       .select('*')
       .single();
-    if (error || !data) throw new BadRequestException(error?.message ?? 'Could not update vehicle');
+    if (error || !data) throw new BadRequestException(dbErrorMessage(error, 'Could not update vehicle'));
     return data as Vehicle;
   }
 
@@ -340,19 +353,19 @@ export class VehiclesService {
       .from('bookings')
       .select('id', { count: 'exact', head: true })
       .eq('vehicle_id', vehicleId);
-    if (countError) throw new BadRequestException(countError.message);
+    if (countError) throw new BadRequestException(dbErrorMessage(countError, 'Could not remove vehicle'));
 
     if ((count ?? 0) > 0) {
       const { error } = await this.supabase.db
         .from('vehicles')
         .update({ status: 'inactive' })
         .eq('id', vehicleId);
-      if (error) throw new BadRequestException(error.message);
+      if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not deactivate vehicle'));
       return { removed: false, deactivated: true, bookings: count };
     }
 
     const { error } = await this.supabase.db.from('vehicles').delete().eq('id', vehicleId);
-    if (error) throw new BadRequestException(error.message);
+    if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not remove vehicle'));
     return { removed: true, deactivated: false, bookings: 0 };
   }
 
@@ -364,7 +377,7 @@ export class VehiclesService {
       .select('*')
       .eq('vehicle_id', vehicleId)
       .order('start_date');
-    if (error) throw new BadRequestException(error.message);
+    if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not load blocks'));
     return data ?? [];
   }
 
@@ -386,7 +399,7 @@ export class VehiclesService {
       if (error.code === '23P01') {
         throw new ConflictException('An overlapping block already exists for this vehicle');
       }
-      throw new BadRequestException(error.message);
+      throw new BadRequestException(dbErrorMessage(error, 'Could not create block'));
     }
     return data;
   }
@@ -398,7 +411,7 @@ export class VehiclesService {
       .delete({ count: 'exact' })
       .eq('id', blockId)
       .eq('vehicle_id', vehicleId);
-    if (error) throw new BadRequestException(error.message);
+    if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not delete block'));
     if (!count) throw new NotFoundException('Block not found');
     return { deleted: true };
   }
@@ -424,7 +437,7 @@ export class VehiclesService {
       q = q.eq('vendor_id', vendor.id);
     }
     const { data, error } = await q.order('created_at', { ascending: false });
-    if (error) throw new NotFoundException(error.message);
+    if (error) throw new NotFoundException(dbErrorMessage(error, 'Could not load vehicles'));
     return (data ?? []) as Vehicle[];
   }
 }

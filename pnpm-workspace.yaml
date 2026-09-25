@@ -4,3 +4,5 @@ packages:
 allowBuilds:
   '@nestjs/core': true
   esbuild: true
+overrides:
+  qs: '^6.16.0'

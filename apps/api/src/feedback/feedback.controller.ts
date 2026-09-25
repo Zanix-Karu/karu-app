@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { UserRole } from '@karu/shared';
 import { CurrentUser, Roles } from '../auth/decorators';
 import { FeedbackService } from './feedback.service';
@@ -9,6 +10,7 @@ export class FeedbackController {
   constructor(private readonly feedback: FeedbackService) {}
 
   /** Any signed-in user (customer or vendor — admins too) can send feedback. */
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('feedback')
   create(
     @CurrentUser('id') userId: string,

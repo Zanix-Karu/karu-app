@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -9,6 +10,10 @@ async function bootstrap() {
   // a re-serialised req.body would fail verification on any key reordering.
   const app = await NestFactory.create(AppModule, { rawBody: true });
   const config = app.get(ConfigService);
+
+  // JSON API only — no HTML is ever served here, so CSP/frame-ancestors add
+  // nothing and would only get in the way of Swagger-style tooling later.
+  app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }));
 
   app.setGlobalPrefix('api');
   app.useGlobalPipes(
