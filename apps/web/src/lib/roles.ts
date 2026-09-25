@@ -54,11 +54,15 @@ export const NAV: Record<View, NavItem[]> = {
     { to: '/vendors', label: 'nav.providers' },
     { to: '/list-your-car', label: 'nav.listYourCar' },
   ],
+  // REQ-8: a customer already has an account, so "List your car" isn't an
+  // acquisition CTA for them — it's noise, and it reads oddly next to "My
+  // bookings". The upgrade path stays reachable from Profile (BecomeVendor)
+  // and ALLOWED.customer below keeps admitting the route; only this nav
+  // entry point goes away.
   customer: [
     { to: '/search', label: 'nav.findCar' },
     { to: '/vendors', label: 'nav.providers' },
     { to: '/bookings', label: 'nav.myBookings' },
-    { to: '/list-your-car', label: 'nav.listYourCar' },
     { to: '/feedback', label: 'nav.feedback' },
   ],
   vendor: [

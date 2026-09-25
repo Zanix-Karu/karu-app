@@ -14,6 +14,7 @@ export const en = {
     loading: 'Loading…',
     oneMoment: 'One moment…',
     viewDetails: 'View details',
+    countryCode: 'Country code',
     perDay: 'per day',
     allFeesIn: 'all fees in',
     day_one: '{{count}} day',

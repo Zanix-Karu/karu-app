@@ -9,6 +9,7 @@ import {
 } from 'class-validator';
 import type { DocumentStatus, VendorStatus } from '@karu/shared';
 import { CreateVehicleDto } from '../vehicles/dto';
+import { NormalizeEmail } from '../lib/normalize';
 
 const VENDOR_STATUSES: VendorStatus[] = ['pending', 'verified', 'rejected', 'suspended'];
 const DOCUMENT_DECISIONS: DocumentStatus[] = ['approved', 'rejected'];
@@ -39,6 +40,10 @@ export class ReviewDocumentDto {
  * the vendor row in one go.
  */
 export class AdminCreateVendorDto {
+  // This email creates the Supabase Auth user directly (server-side, no
+  // client normalisation runs first), so REQ-7's whitespace/case guard
+  // matters here more than anywhere else in this file.
+  @NormalizeEmail()
   @IsEmail()
   contact_email!: string;
 
