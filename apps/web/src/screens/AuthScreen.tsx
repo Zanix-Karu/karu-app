@@ -63,6 +63,11 @@ export function AuthScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // REQ-5: set when a vendor-signup attempt turns out to be an existing
+  // account (see below) — the next successful sign-in in *this* screen
+  // instance should land on the self-service upgrade page, not wherever a
+  // plain login would normally go.
+  const [redirectAfterLogin, setRedirectAfterLogin] = useState<string | null>(null);
   const navigate = useNavigate();
   const from = intent?.from ?? null;
   const suggestion = domainSuggestion(email);
@@ -81,8 +86,9 @@ export function AuthScreen() {
       if (mode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        // Land where they were headed, or let the role decide (App routes "/").
-        navigate(from ?? '/', { replace: true });
+        // Land where they were headed, where the REQ-5 upgrade sent them, or
+        // let the role decide (App routes "/").
+        navigate(redirectAfterLogin ?? from ?? '/', { replace: true });
       } else if (mode === 'signup') {
         if (email.trim().toLowerCase() !== confirmEmail.trim().toLowerCase()) {
           throw new Error(t('auth.emailsDontMatch'));
@@ -101,6 +107,46 @@ export function AuthScreen() {
           },
         });
         if (error) throw error;
+        /**
+         * REQ-1/REQ-5: with "Confirm email" on (production), Supabase's own
+         * anti-enumeration behaviour makes signUp() for an email that
+         * *already has a confirmed account* return a fake success — no
+         * error, no session — identical on the surface to a genuine new
+         * signup awaiting confirmation. The one client-visible difference:
+         * `identities` comes back empty only in the already-registered case
+         * (a real new user gets one new identity). See Supabase's own docs
+         * on this exact pattern.
+         */
+        const alreadyExists = (data.user?.identities?.length ?? 1) === 0;
+        if (alreadyExists) {
+          if (account === 'vendor') {
+            // A signed-out person already has an account with this email
+            // and is trying to attach a vendor identity to it. We can't
+            // create the vendor record without them authenticated as that
+            // account, so send them to sign in and land on the self-service
+            // upgrade page (ListYourCarScreen's ConvertToVendor) rather than
+            // pretending this signup worked. Naming the account here (as
+            // opposed to REQ-1's neutral customer case, below) is fine: they
+            // just typed this exact email into their own signup form, so
+            // this confirms nothing an attacker probing addresses couldn't
+            // already suspect from the same response.
+            setRedirectAfterLogin('/list-your-car');
+            setMode('login');
+            setNotice(t('auth.alreadyHaveAccountVendor'));
+            return;
+          }
+          // Plain duplicate signup: keep the in-app copy identical to a
+          // genuine new signup (no confirmation either way), but still get
+          // something useful to the real owner's inbox. resetPasswordForEmail
+          // has the same anti-enumeration response either way, but it does
+          // send a real email when the account exists — a legitimate,
+          // non-enumerating way to reach them.
+          void supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+            redirectTo: window.location.origin + '/auth/reset',
+          });
+          setNotice(t('auth.checkInbox'));
+          return;
+        }
         // With email confirmation on (production), signUp() returns no session,
         // so the POST /vendors below never runs and the business details typed
         // above are discarded. Rather than pretend otherwise, tell a provider

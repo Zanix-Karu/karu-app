@@ -125,6 +125,7 @@ export const en = {
   },
   auth: {
     checkInboxVendor: 'Check your inbox to confirm your email. Once confirmed, sign in and we\'ll ask for your business details. They aren\'t saved until your account is confirmed.',
+    alreadyHaveAccountVendor: 'You already have a Karu account with this email. Sign in below, and we\'ll help you add your business to it.',
     createAccount: 'Create account',
     resetPassword: 'Reset password',
     accountType: 'Account type',
