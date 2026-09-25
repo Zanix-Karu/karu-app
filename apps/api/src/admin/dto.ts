@@ -16,6 +16,17 @@ const DOCUMENT_DECISIONS: DocumentStatus[] = ['approved', 'rejected'];
 export class SetVendorStatusDto {
   @IsIn(VENDOR_STATUSES)
   status!: VendorStatus;
+
+  /**
+   * REQ-9: required when status is 'suspended' (checked in the service,
+   * since class-validator's conditional decorators read awkwardly against
+   * a sibling field). Shown to the vendor and stored on the vendor row
+   * until reinstatement.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
 }
 
 export class ReviewDocumentDto {

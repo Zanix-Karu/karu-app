@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { Booking } from '@karu/shared';
+import type { Booking, Vendor } from '@karu/shared';
 import { SupabaseService } from '../supabase/supabase.service';
 import {
   renderBookingEmail,
@@ -143,6 +143,86 @@ export class NotificationsService {
     }
   }
 
+  /**
+   * REQ-9: tell a vendor why their account was suspended, or that it was
+   * reinstated. Vendors are Cameroon-local (see notifyBookingEvent above),
+   * so this defaults to French like every other vendor-facing mail here.
+   * Best-effort like every send in this file — never throws.
+   */
+  async notifyVendorSuspended(vendor: Vendor, reason: string): Promise<void> {
+    if (!vendor.contact_email) return;
+    await this.sendPlain({
+      to: vendor.contact_email,
+      locale: 'fr',
+      subject: 'Karu — votre compte prestataire a été suspendu',
+      body: [
+        `Bonjour,`,
+        ``,
+        `Votre compte prestataire Karu (${vendor.business_name}) a été suspendu.`,
+        `Motif : ${reason}`,
+        ``,
+        `Tant que la suspension est en vigueur, vos annonces ne sont plus visibles et vous ne pouvez pas recevoir de nouvelles demandes de réservation. Si vous pensez qu'il s'agit d'une erreur, contactez l'équipe Karu.`,
+      ].join('\n'),
+      template: 'vendor_suspended',
+      bookingId: null,
+    });
+  }
+
+  async notifyVendorReinstated(vendor: Vendor): Promise<void> {
+    if (!vendor.contact_email) return;
+    await this.sendPlain({
+      to: vendor.contact_email,
+      locale: 'fr',
+      subject: 'Karu — votre compte prestataire a été réactivé',
+      body: [
+        `Bonjour,`,
+        ``,
+        `Bonne nouvelle : votre compte prestataire Karu (${vendor.business_name}) a été réactivé. Vos annonces sont de nouveau visibles et vous pouvez recevoir des demandes de réservation.`,
+      ].join('\n'),
+      template: 'vendor_reinstated',
+      bookingId: null,
+    });
+  }
+
+  /**
+   * A customer holding a standing (confirmed/in_progress) booking under a
+   * vendor that just got suspended deserves to know something changed —
+   * without us claiming the booking is cancelled, since ops still decides
+   * that case-by-case (see AdminService.setVendorStatus). A transparency
+   * notice, not an alarm.
+   */
+  async notifyCustomerVendorUnderReview(booking: Booking): Promise<void> {
+    try {
+      const [vehicle, customer] = await Promise.all([
+        this.row('vehicles', booking.vehicle_id, 'make, model, year'),
+        this.customerContact(booking.customer_id),
+      ]);
+      if (!customer?.email) return;
+      const carName = vehicle
+        ? [vehicle.make, vehicle.model, vehicle.year].filter(Boolean).join(' ')
+        : 'your booking';
+      const ref = booking.reference ?? booking.id;
+      const subject =
+        customer.locale === 'fr'
+          ? `Karu — une mise à jour concernant votre réservation ${ref}`
+          : `Karu — an update about your booking ${ref}`;
+      const body =
+        customer.locale === 'fr'
+          ? `Nous vous informons que le prestataire de votre réservation ${ref} (${carName}) fait actuellement l'objet d'une vérification par notre équipe. Votre réservation reste en vigueur pour le moment — nous vous recontacterons si quoi que ce soit doit changer.`
+          : `We're letting you know that the provider for your booking ${ref} (${carName}) is currently under review by our team. Your booking stands for now — we'll reach out if anything needs to change.`;
+      await this.sendPlain({
+        to: customer.email,
+        locale: customer.locale,
+        subject,
+        body,
+        template: 'vendor_suspended_customer_notice',
+        bookingId: booking.id,
+      });
+    } catch (e) {
+      this.logger.warn(`notifyCustomerVendorUnderReview(${booking.id}) failed: ${(e as Error).message}`);
+    }
+  }
+
   /** Render, send via Resend, and log the attempt. Never throws. */
   /**
    * Relay a message about a booking to the Karu team.
@@ -233,6 +313,51 @@ export class NotificationsService {
       recipient: to,
       template,
       locale,
+      provider_id: providerId,
+      status: error ? 'failed' : 'sent',
+      error,
+    });
+  }
+
+  /**
+   * Same send-via-Resend-and-log contract as `send()` above, for mail that
+   * isn't one of the structured BookingEmailTemplate/BookingEmailVars pairs
+   * (vendor status changes aren't about a car or a booking's dates). Plain
+   * subject/body instead of a template key.
+   */
+  private async sendPlain(params: {
+    to: string;
+    locale: 'en' | 'fr';
+    subject: string;
+    body: string;
+    template: string;
+    bookingId: string | null;
+  }): Promise<void> {
+    let providerId: string | null = null;
+    let error: string | null = null;
+
+    try {
+      const apiKey = this.config.get<string>('RESEND_API_KEY');
+      if (!apiKey) throw new Error('RESEND_API_KEY not configured');
+
+      const from = this.config.get<string>('EMAIL_FROM') ?? 'Karu <onboarding@resend.dev>';
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from, to: params.to, subject: params.subject, text: params.body }),
+      });
+      if (!res.ok) throw new Error(`Resend ${res.status}: ${await res.text()}`);
+      providerId = ((await res.json()) as { id?: string }).id ?? null;
+    } catch (e) {
+      error = (e as Error).message;
+      this.logger.warn(`Email ${params.template} to ${params.to} failed: ${error}`);
+    }
+
+    await this.supabase.db.from('email_log').insert({
+      booking_id: params.bookingId,
+      recipient: params.to,
+      template: params.template,
+      locale: params.locale,
       provider_id: providerId,
       status: error ? 'failed' : 'sent',
       error,
