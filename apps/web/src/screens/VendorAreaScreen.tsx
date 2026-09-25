@@ -404,6 +404,13 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
     queryKey: ['vendor-reviews', vendor.id],
     queryFn: () => api<Review[]>(`/vendors/${vendor.id}/reviews`),
   });
+  // REQ-12: insurance, carte grise and roadworthiness lapse quietly once a
+  // document is approved — nothing else re-checks expires_at afterwards.
+  const { data: documents } = useQuery({
+    queryKey: ['vendor-docs', 'expiry', vendor.id, asAdmin],
+    queryFn: () =>
+      api<VendorDocument[]>(asAdmin ? `/admin/vendors/${vendor.id}/documents` : '/vendors/me/documents'),
+  });
 
   if (isLoading || !stats) {
     return (
@@ -444,7 +451,26 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
         const unread = (conversations ?? []).filter((c) => c.unread_count > 0);
         const escalated = (conversations ?? []).filter((c) => c.assistance_open);
         const pending = (bookings ?? []).filter((b) => b.status === 'requested');
-        if (unread.length === 0 && escalated.length === 0 && pending.length === 0) return null;
+        // REQ-12: mirrors the API's DOC_EXPIRY_WARNING_DAYS (admin.service.ts)
+        // — a rejected document isn't the operative one, a replacement is
+        // expected, so it doesn't count here either.
+        const DOC_EXPIRY_WARNING_DAYS = 30;
+        const now = Date.now();
+        const warnBy = now + DOC_EXPIRY_WARNING_DAYS * 24 * 60 * 60 * 1000;
+        const live = (documents ?? []).filter((d) => d.expires_at && d.status !== 'rejected');
+        const expiredDocs = live.filter((d) => new Date(d.expires_at!).getTime() < now);
+        const expiringDocs = live.filter((d) => {
+          const t = new Date(d.expires_at!).getTime();
+          return t >= now && t <= warnBy;
+        });
+        if (
+          unread.length === 0 &&
+          escalated.length === 0 &&
+          pending.length === 0 &&
+          expiredDocs.length === 0 &&
+          expiringDocs.length === 0
+        )
+          return null;
         return (
           <Card style={{ marginTop: 20, borderLeft: '4px solid var(--brand)' }}>
             <p style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 15 }}>
@@ -473,6 +499,23 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
                 <li key={`esc-${c.booking_id}`}>
                   <Link to={`/bookings/${c.booking_id}`}>
                     {t('vendor.attention.escalated', { ref: c.reference ?? '' })}
+                  </Link>
+                </li>
+              ))}
+              {expiredDocs.map((d) => (
+                <li key={`exp-${d.id}`} style={{ color: 'var(--danger)' }}>
+                  <Link to="/vendor/documents" style={{ color: 'inherit' }}>
+                    {t('vendor.attention.docExpired', { type: t(`vendor.docs.type.${d.type}`) })}
+                  </Link>
+                </li>
+              ))}
+              {expiringDocs.map((d) => (
+                <li key={`soon-${d.id}`}>
+                  <Link to="/vendor/documents">
+                    {t('vendor.attention.docExpiring', {
+                      type: t(`vendor.docs.type.${d.type}`),
+                      date: prettyDate(d.expires_at!),
+                    })}
                   </Link>
                 </li>
               ))}
