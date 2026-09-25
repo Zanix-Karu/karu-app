@@ -19,6 +19,7 @@ export const fr = {
     loading: 'Chargement…',
     oneMoment: 'Un instant…',
     viewDetails: 'Voir les détails',
+    countryCode: 'Indicatif pays',
     perDay: 'par jour',
     allFeesIn: 'tout compris',
     day_one: '{{count}} jour',
