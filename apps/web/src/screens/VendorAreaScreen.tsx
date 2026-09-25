@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
+  isBookingArchived,
   missingPhotoAngles,
   primaryPhoto,
   type Booking,
@@ -620,6 +621,11 @@ function VendorBookings({ asVendorId }: { asVendorId?: string }) {
       api<Booking>(`/bookings/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status: to }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['my-bookings'] }),
   });
+  // REQ-10: completed/rejected/cancelled requests are done — keep the working
+  // list to what still needs a vendor's attention.
+  const [tab, setTab] = useState<'active' | 'archived'>('active');
+  const shown = (data ?? []).filter((b) => isBookingArchived(b.status) === (tab === 'archived'));
+  const archivedCount = (data ?? []).filter((b) => isBookingArchived(b.status)).length;
 
   if (isLoading) {
     return (
@@ -640,12 +646,45 @@ function VendorBookings({ asVendorId }: { asVendorId?: string }) {
         {t('vendor.bookings.sub')}
       </p>
 
+      {data && data.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+          {(['active', 'archived'] as const).map((k) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setTab(k)}
+              style={{
+                borderRadius: 999,
+                padding: '7px 16px',
+                fontFamily: 'var(--font-ui)',
+                fontWeight: 600,
+                fontSize: 14,
+                border: 'none',
+                cursor: 'pointer',
+                background: tab === k ? 'var(--ink)' : 'transparent',
+                color: tab === k ? 'var(--text-on-dark)' : 'var(--gray-500)',
+              }}
+            >
+              {k === 'active'
+                ? t('vendor.bookings.tabActive')
+                : `${t('vendor.bookings.tabArchived')} (${archivedCount})`}
+            </button>
+          ))}
+        </div>
+      )}
+
       {data?.length === 0 && (
         <EmptyState title={t('vendor.bookings.none')} hint={t('vendor.bookings.noneHint')} />
       )}
+      {data && data.length > 0 && shown.length === 0 && (
+        <EmptyState
+          title={tab === 'archived' ? t('vendor.bookings.noneArchived') : t('vendor.bookings.none')}
+          hint={tab === 'archived' ? t('vendor.bookings.noneArchivedHint') : t('vendor.bookings.noneHint')}
+        />
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 20 }}>
-        {data?.map((b) => (
+        {shown.map((b) => (
           <Card key={b.id} style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 14 }}>
             <div>
               <div style={{ fontFamily: 'var(--font-ui)', fontSize: 12, color: 'var(--gray-400)' }}>

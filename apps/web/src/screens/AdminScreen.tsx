@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import type { Booking, BookingStatus, Vehicle, Vendor } from '@karu/shared';
+import { isBookingArchived, type Booking, type BookingStatus, type Vehicle, type Vendor } from '@karu/shared';
 import { api } from '../lib/api';
 import { PhotoStrip } from '../components/PhotoStrip';
 import { PhotoSlots, extraPhotos } from '../components/PhotoSlots';
@@ -942,25 +942,53 @@ function Bookings() {
       api(`/bookings/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status: to }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-bookings'] }),
   });
+  /**
+   * REQ-10: on top of the granular per-status filter above (which ops still
+   * wants — e.g. "just show me rejected"), a plain Active/Archived split so
+   * the default view isn't every booking the platform has ever seen. The two
+   * compose: picking a specific status narrows further within whichever tab
+   * is selected.
+   */
+  const [tab, setTab] = useState<'active' | 'archived'>('active');
+  const shown = (data ?? []).filter((b) => isBookingArchived(b.status) === (tab === 'archived'));
 
   return (
     <div>
-      <Field label="Filter by status" className="max-w-48">
-        <Select value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">All</option>
-          {['requested', 'confirmed', 'in_progress', 'completed', 'rejected', 'cancelled'].map((s) => (
-            <option key={s} value={s}>
-              {t(`status.${s}`)}
-            </option>
+      <div className="flex flex-wrap items-end gap-4">
+        <Field label="Filter by status" className="max-w-48">
+          <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="">All</option>
+            {['requested', 'confirmed', 'in_progress', 'completed', 'rejected', 'cancelled'].map((s) => (
+              <option key={s} value={s}>
+                {t(`status.${s}`)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <div className="flex gap-2 pb-1">
+          {(['active', 'archived'] as const).map((k) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setTab(k)}
+              className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
+                tab === k ? 'bg-karu-ink text-karu-cream' : 'text-karu-brown hover:bg-karu-ink/5'
+              }`}
+            >
+              {k === 'active' ? 'Active' : 'Archived'}
+            </button>
           ))}
-        </Select>
-      </Field>
+        </div>
+      </div>
 
       {isLoading && <Spinner />}
       {data?.length === 0 && <EmptyState title="No bookings" />}
+      {data && data.length > 0 && shown.length === 0 && (
+        <EmptyState title={tab === 'archived' ? 'Nothing archived' : 'Nothing active'} />
+      )}
 
       <div className="mt-4 space-y-3">
-        {data?.map((b) => (
+        {shown.map((b) => (
           <Card key={b.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
             <div>
               <p className="font-mono text-xs text-karu-mute">{b.reference ?? b.id}</p>
