@@ -4,7 +4,7 @@ import {
   ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
-import type { Booking } from '@karu/shared';
+import { isBookingArchived, type Booking } from '@karu/shared';
 import { BookingsService } from './bookings.service';
 import type { SupabaseService } from '../supabase/supabase.service';
 import type { VehiclesService } from '../vehicles/vehicles.service';
@@ -371,5 +371,19 @@ describe('BookingsService.create — booking request flow', () => {
         end_date: d('01'),
       } as never),
     ).rejects.toThrow(BadRequestException);
+  });
+});
+
+describe('isBookingArchived (REQ-10)', () => {
+  it('is true only for the three terminal statuses', () => {
+    expect(isBookingArchived('completed')).toBe(true);
+    expect(isBookingArchived('rejected')).toBe(true);
+    expect(isBookingArchived('cancelled')).toBe(true);
+  });
+
+  it('is false for statuses still in play', () => {
+    expect(isBookingArchived('requested')).toBe(false);
+    expect(isBookingArchived('confirmed')).toBe(false);
+    expect(isBookingArchived('in_progress')).toBe(false);
   });
 });
