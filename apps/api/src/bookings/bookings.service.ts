@@ -8,6 +8,7 @@ import {
 import { canTransitionBooking, quoteBooking } from '@karu/shared';
 import type { Booking, BookingStatus, UserRole } from '@karu/shared';
 import { SupabaseService } from '../supabase/supabase.service';
+import { dbErrorMessage } from '../supabase/db-error';
 import { VehiclesService } from '../vehicles/vehicles.service';
 import { VendorsService } from '../vendors/vendors.service';
 import { assertValidWindow } from '../vehicles/dates';
@@ -153,7 +154,7 @@ export class BookingsService {
       })
       .select('*')
       .single();
-    if (error || !data) throw new BadRequestException(error?.message ?? 'Could not create booking');
+    if (error || !data) throw new BadRequestException(dbErrorMessage(error, 'Could not create booking'));
 
     const booking = data as Booking;
     await this.notifications.notifyBookingEvent(booking, 'requested');
@@ -176,7 +177,7 @@ export class BookingsService {
     }
     // admin: no filter — sees all
     const { data, error } = await q.order('created_at', { ascending: false });
-    if (error) throw new NotFoundException(error.message);
+    if (error) throw new NotFoundException(dbErrorMessage(error, 'Could not load bookings'));
     return ((data ?? []) as Booking[]).map((b) => this.hideCodesUnlessCustomer(b, role));
   }
 
@@ -254,7 +255,7 @@ export class BookingsService {
       if (error?.code === '23P01') {
         throw new ConflictException('Those dates were just taken by another booking');
       }
-      throw new BadRequestException(error?.message ?? 'Transition failed');
+      throw new BadRequestException(dbErrorMessage(error, 'Transition failed'));
     }
 
     const updated = data as Booking;
@@ -414,7 +415,7 @@ export class BookingsService {
       .eq('id', bookingId)
       .select('*')
       .single();
-    if (error || !data) throw new BadRequestException(error?.message ?? 'Could not raise the request');
+    if (error || !data) throw new BadRequestException(dbErrorMessage(error, 'Could not raise the request'));
     return data as Booking;
   }
 

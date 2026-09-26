@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { UserRole } from '@karu/shared';
 import { CurrentUser, Roles } from '../auth/decorators';
 import { MessagesService } from './messages.service';
@@ -19,6 +20,7 @@ export class MessagesController {
   }
 
   /** Post to the thread. Admin posts appear as Karu Support. */
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('bookings/:id/messages')
   send(
     @Param('id') id: string,

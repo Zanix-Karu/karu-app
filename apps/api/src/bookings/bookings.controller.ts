@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { UserRole } from '@karu/shared';
 import { CurrentUser, Roles } from '../auth/decorators';
 import { BookingsService } from './bookings.service';
@@ -19,6 +20,7 @@ export class BookingsController {
    * do anything either party can.
    */
   @Roles('customer', 'admin')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post()
   create(@CurrentUser('id') customerId: string, @Body() dto: CreateBookingDto) {
     return this.bookings.create(customerId, dto);
@@ -41,6 +43,7 @@ export class BookingsController {
   }
 
   /** Message the Karu team about this booking (either party). */
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post(':id/message')
   message(
     @Param('id') id: string,
