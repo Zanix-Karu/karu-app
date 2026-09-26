@@ -179,10 +179,15 @@ function Vendors() {
   });
 
   const setVendorStatus = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      api(`/admin/vendors/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+    mutationFn: ({ id, status, reason }: { id: string; status: string; reason?: string }) =>
+      api(`/admin/vendors/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, reason }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-vendors'] }),
   });
+  // REQ-9: suspending requires a reason, so "Suspend" expands an inline
+  // prompt (this codebase deliberately avoids window.prompt/confirm — see
+  // ConfirmButton) rather than firing the mutation straight away.
+  const [suspendTargetId, setSuspendTargetId] = useState<string | null>(null);
+  const [suspendReason, setSuspendReason] = useState('');
 
   const emptyForm = {
     business_name: '',
@@ -242,33 +247,71 @@ function Vendors() {
                   {CITY_LABEL[v.city]} · {v.contact_email ?? t('admin.vendors.noEmail')} ·{' '}
                   {v.contact_phone ?? t('admin.vendors.noPhone')}
                 </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="rounded-full bg-karu-ink/5 px-2.5 py-0.5 text-xs font-semibold">
-                  {t(`vendor.status.${v.status}`)}
-                </span>
-                {v.status !== 'verified' && (
-                  <Button onClick={() => setVendorStatus.mutate({ id: v.id, status: 'verified' })}>
-                    {t('admin.vendors.verify')}
-                  </Button>
+                {v.status === 'suspended' && v.suspension_reason && (
+                  <p className="mt-1 text-xs text-karu-terracotta">
+                    {t('admin.vendors.suspensionReason', { reason: v.suspension_reason })}
+                  </p>
                 )}
-                {v.status === 'pending' && (
+              </div>
+
+              {suspendTargetId === v.id ? (
+                // REQ-9: a reason is required, so this replaces the row's
+                // usual actions rather than firing on the "Suspend" click.
+                <div className="flex flex-1 flex-wrap items-center gap-2">
+                  <Input
+                    value={suspendReason}
+                    onChange={(e) => setSuspendReason(e.target.value)}
+                    placeholder={t('admin.vendors.suspensionReasonPlaceholder')}
+                    className="min-w-48 flex-1"
+                    autoFocus
+                  />
                   <Button
                     variant="danger"
-                    onClick={() => setVendorStatus.mutate({ id: v.id, status: 'rejected' })}
+                    disabled={!suspendReason.trim() || setVendorStatus.isPending}
+                    onClick={() =>
+                      setVendorStatus.mutate(
+                        { id: v.id, status: 'suspended', reason: suspendReason.trim() },
+                        { onSuccess: () => { setSuspendTargetId(null); setSuspendReason(''); } },
+                      )
+                    }
                   >
-                    {t('admin.vendors.reject')}
+                    {t('admin.vendors.confirmSuspend')}
                   </Button>
-                )}
-                {v.status === 'verified' && (
                   <Button
                     variant="outline"
-                    onClick={() => setVendorStatus.mutate({ id: v.id, status: 'suspended' })}
+                    onClick={() => { setSuspendTargetId(null); setSuspendReason(''); }}
                   >
-                    {t('admin.vendors.suspend')}
+                    {t('common.cancel')}
                   </Button>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-karu-ink/5 px-2.5 py-0.5 text-xs font-semibold">
+                    {t(`vendor.status.${v.status}`)}
+                  </span>
+                  {v.status !== 'verified' && (
+                    <Button onClick={() => setVendorStatus.mutate({ id: v.id, status: 'verified' })}>
+                      {t('admin.vendors.verify')}
+                    </Button>
+                  )}
+                  {v.status === 'pending' && (
+                    <Button
+                      variant="danger"
+                      onClick={() => setVendorStatus.mutate({ id: v.id, status: 'rejected' })}
+                    >
+                      {t('admin.vendors.reject')}
+                    </Button>
+                  )}
+                  {v.status === 'verified' && (
+                    <Button
+                      variant="outline"
+                      onClick={() => { setSuspendTargetId(v.id); setSuspendReason(''); }}
+                    >
+                      {t('admin.vendors.suspend')}
+                    </Button>
+                  )}
+                </div>
+              )}
             </Card>
           ))}
         </div>

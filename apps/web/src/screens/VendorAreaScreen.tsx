@@ -252,6 +252,12 @@ function Onboarding({ vendor, onGo }: { vendor: Vendor; onGo: (to: string) => vo
           ? t('vendor.onboarding.subAttention', { status: t(`vendor.status.${vendor.status}`) })
           : t('vendor.onboarding.subOk')}
       </p>
+      {/* REQ-9: the vendor sees why, not just that something changed. */}
+      {vendor.status === 'suspended' && vendor.suspension_reason && (
+        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--danger)', marginTop: 6, fontWeight: 600 }}>
+          {t('vendor.onboarding.suspensionReason', { reason: vendor.suspension_reason })}
+        </p>
+      )}
 
       <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
         {steps.map((st, i) => (
