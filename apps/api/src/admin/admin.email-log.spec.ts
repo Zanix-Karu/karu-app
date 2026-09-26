@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { AdminService } from './admin.service';
 import type { SupabaseService } from '../supabase/supabase.service';
+import type { NotificationsService } from '../notifications/notifications.service';
 
 type Row = Record<string, unknown>;
+
+// listEmailLog() never touches notifications — a stub is enough.
+const noNotifications = {} as unknown as NotificationsService;
 
 /**
  * A minimal in-memory stand-in for the one chain listEmailLog() uses:
@@ -49,13 +53,13 @@ describe('AdminService.listEmailLog (REQ-4)', () => {
   ];
 
   it('returns every row, most recent first, with no filter', async () => {
-    const admin = new AdminService(fakeSupabase(rows));
+    const admin = new AdminService(fakeSupabase(rows), noNotifications);
     const result = (await admin.listEmailLog()) as Row[];
     expect(result.map((r) => r.id)).toEqual(['3', '2', '1']);
   });
 
   it('narrows to just the failures when asked', async () => {
-    const admin = new AdminService(fakeSupabase(rows));
+    const admin = new AdminService(fakeSupabase(rows), noNotifications);
     const result = (await admin.listEmailLog('failed')) as Row[];
     expect(result.map((r) => r.id)).toEqual(['3', '2']);
   });
@@ -66,7 +70,7 @@ describe('AdminService.listEmailLog (REQ-4)', () => {
       status: 'sent',
       created_at: new Date(2026, 0, 1, 0, 0, i).toISOString(),
     }));
-    const admin = new AdminService(fakeSupabase(many));
+    const admin = new AdminService(fakeSupabase(many), noNotifications);
     const result = (await admin.listEmailLog()) as Row[];
     expect(result).toHaveLength(100);
   });

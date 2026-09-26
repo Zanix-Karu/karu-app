@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { AdminService } from './admin.service';
 import type { SupabaseService } from '../supabase/supabase.service';
+import type { NotificationsService } from '../notifications/notifications.service';
 
 type Row = Record<string, unknown>;
+
+// overview() never touches notifications — a stub is enough.
+const noNotifications = {} as unknown as NotificationsService;
 
 /**
  * A minimal in-memory stand-in for supabase-js's query builder — just
@@ -78,7 +82,7 @@ describe('AdminService.overview — document expiry (REQ-12)', () => {
         { status: 'approved', expires_at: null }, // never expires
       ],
     });
-    const admin = new AdminService(supabase);
+    const admin = new AdminService(supabase, noNotifications);
     const result = await admin.overview();
     expect(result.expiredDocuments).toBe(2);
     expect(result.documentsExpiringSoon).toBe(2);
@@ -93,7 +97,7 @@ describe('AdminService.overview — document expiry (REQ-12)', () => {
       profiles: [],
       vendor_documents: [{ status: 'approved', expires_at: iso(90) }],
     });
-    const admin = new AdminService(supabase);
+    const admin = new AdminService(supabase, noNotifications);
     const result = await admin.overview();
     expect(result.expiredDocuments).toBe(0);
     expect(result.documentsExpiringSoon).toBe(0);

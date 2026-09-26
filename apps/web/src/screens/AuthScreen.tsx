@@ -155,7 +155,7 @@ export function AuthScreen() {
           // has the same anti-enumeration response either way, but it does
           // send a real email when the account exists — a legitimate,
           // non-enumerating way to reach them.
-          void supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+          void supabase.auth.resetPasswordForEmail(normalizedEmail, {
             redirectTo: window.location.origin + '/auth/reset',
           });
           setNotice(t('auth.checkInbox'));
