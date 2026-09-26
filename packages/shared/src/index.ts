@@ -69,6 +69,18 @@ export function canTransitionBooking(from: BookingStatus, to: BookingStatus): bo
 }
 
 /**
+ * REQ-10: a booking's active lists (customer, vendor, admin) should show
+ * requested/confirmed/in_progress and nothing else — completed, rejected and
+ * cancelled trips are done, and clutter the list they're trying to act on.
+ * "Archived" is derived from the state machine itself (a terminal status has
+ * no outgoing transitions) rather than a separate flag, so there's nothing
+ * to keep in sync if a transition rule ever changes.
+ */
+export function isBookingArchived(status: BookingStatus): boolean {
+  return BOOKING_TRANSITIONS[status].length === 0;
+}
+
+/**
  * Allowed vendor status transitions — same idea as BOOKING_TRANSITIONS, so a
  * fat-fingered admin click can't drive a vendor into a state that makes no
  * sense (e.g. rejected → suspended). Re-verification after a rejection or a
