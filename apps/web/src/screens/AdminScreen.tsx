@@ -19,7 +19,7 @@ import {
   StatusBadge,
 } from '../ui';
 
-type Tab = 'overview' | 'vendors' | 'documents' | 'cars' | 'bookings' | 'chats' | 'feedback';
+type Tab = 'overview' | 'vendors' | 'documents' | 'cars' | 'bookings' | 'chats' | 'feedback' | 'emails';
 
 const TAB_PATH: Record<Tab, string> = {
   overview: '/admin',
@@ -29,14 +29,15 @@ const TAB_PATH: Record<Tab, string> = {
   bookings: '/admin/bookings',
   chats: '/admin/chats',
   feedback: '/admin/feedback',
+  emails: '/admin/emails',
 };
 
 /** Tab comes from the URL so the header nav and the console agree. */
 function tabFromPath(pathname: string): Tab {
   const rest = pathname.replace(/^\/admin\/?/, '');
   return (
-    (['vendors', 'documents', 'cars', 'bookings', 'chats', 'feedback'] as Tab[]).find((t) =>
-      rest.startsWith(t),
+    (['vendors', 'documents', 'cars', 'bookings', 'chats', 'feedback', 'emails'] as Tab[]).find(
+      (t) => rest.startsWith(t),
     ) ?? 'overview'
   );
 }
@@ -70,6 +71,7 @@ export function AdminScreen() {
         {tabBtn('bookings', t('admin.tabs.bookings'))}
         {tabBtn('chats', t('admin.tabs.chats'))}
         {tabBtn('feedback', t('admin.tabs.feedback'))}
+        {tabBtn('emails', t('admin.tabs.emails'))}
       </div>
       <div className="mt-6">
         {tab === 'overview' && <Overview />}
@@ -79,6 +81,7 @@ export function AdminScreen() {
         {tab === 'bookings' && <Bookings />}
         {tab === 'chats' && <Chats />}
         {tab === 'feedback' && <Feedback />}
+        {tab === 'emails' && <EmailLog />}
       </div>
     </div>
   );
@@ -1098,6 +1101,83 @@ function Feedback() {
           <ErrorNote>{(setStatusMutation.error as Error).message}</ErrorNote>
         </div>
       )}
+    </div>
+  );
+}
+
+// --- Email log (REQ-4) -------------------------------------------------------
+
+interface EmailLogRow {
+  id: string;
+  recipient: string;
+  template: string;
+  locale: string;
+  status: 'sent' | 'failed';
+  error: string | null;
+  created_at: string;
+  bookings: { reference: string | null } | null;
+}
+
+/**
+ * REQ-4: "add send-failure logging/retry so bounces are visible, not
+ * swallowed." Every send already lands in email_log — the gap was that
+ * nothing surfaced it, so a failing Resend domain (the actual current
+ * problem, per docs/BACKLOG.md) was invisible outside the database.
+ *
+ * No retry button here on purpose: while the domain is unverified, every
+ * send fails identically, so retrying would just log a second failure. Once
+ * that's fixed (a dashboard action, not code), this view is how to confirm
+ * it actually worked — which is the more useful thing to build first.
+ */
+function EmailLog() {
+  const { t } = useTranslation();
+  const [status, setStatus] = useState('');
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['admin-email-log', status],
+    queryFn: () => api<EmailLogRow[]>(`/admin/email-log${status ? `?status=${status}` : ''}`),
+  });
+
+  return (
+    <div>
+      <Field label={t('admin.filterStatus')} className="max-w-48">
+        <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+          <option value="">{t('admin.all')}</option>
+          <option value="sent">{t('admin.emails.statusSent')}</option>
+          <option value="failed">{t('admin.emails.statusFailed')}</option>
+        </Select>
+      </Field>
+
+      {isLoading && <Spinner />}
+      {error && <ErrorNote>{(error as Error).message}</ErrorNote>}
+      {data?.length === 0 && <EmptyState title={t('admin.emails.none')} />}
+
+      <div className="mt-4 space-y-2">
+        {data?.map((row) => (
+          <Card key={row.id} className="p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold">
+                  {row.template}
+                  {row.bookings?.reference ? ` · ${row.bookings.reference}` : ''}
+                </p>
+                <p className="text-xs text-karu-mute">
+                  {t('admin.emails.to', { recipient: row.recipient })} · {row.locale} · {prettyDate(row.created_at)}
+                </p>
+                {row.error && (
+                  <p className="mt-1 font-mono text-xs text-karu-terracotta">{row.error}</p>
+                )}
+              </div>
+              <span
+                className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${
+                  row.status === 'failed' ? 'bg-karu-terracotta/15 text-karu-terracotta' : 'bg-green-100 text-green-800'
+                }`}
+              >
+                {t(`admin.emails.status${row.status === 'failed' ? 'Failed' : 'Sent'}`)}
+              </span>
+            </div>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }
