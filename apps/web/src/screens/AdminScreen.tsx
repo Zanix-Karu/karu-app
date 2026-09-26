@@ -95,6 +95,11 @@ interface OverviewData {
   staleRequests: number;
   replyWindowHours: number;
   openAssistance: number;
+  /** REQ-12: approved/pending vendor documents whose expires_at has passed. */
+  expiredDocuments: number;
+  /** ...expiring within docExpiryWarningDays, not yet expired. */
+  documentsExpiringSoon: number;
+  docExpiryWarningDays: number;
 }
 
 function Overview() {
@@ -135,6 +140,14 @@ function Overview() {
       t('admin.overview.alertStale', {
         count: data.staleRequests,
         hours: data.replyWindowHours,
+      }),
+    // REQ-12: expired outranks "expiring soon" for attention, so it leads.
+    data.expiredDocuments > 0 &&
+      t('admin.overview.alertDocumentsExpired', { count: data.expiredDocuments }),
+    data.documentsExpiringSoon > 0 &&
+      t('admin.overview.alertDocumentsExpiring', {
+        count: data.documentsExpiringSoon,
+        days: data.docExpiryWarningDays,
       }),
     data.pendingDocuments > 0 &&
       t('admin.overview.alertDocuments', { count: data.pendingDocuments }),
