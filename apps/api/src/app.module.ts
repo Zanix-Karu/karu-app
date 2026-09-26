@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { SupabaseModule } from './supabase/supabase.module';
 import { AuthModule } from './auth/auth.module';
 import { ProfilesModule } from './profiles/profiles.module';
@@ -17,6 +19,9 @@ import { HealthController } from './health.controller';
   imports: [
     // Loads the repo-root .env so the API and web app share one config file.
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ['../../.env', '.env'] }),
+    // Global baseline; individual write endpoints (bookings, messages,
+    // feedback) tighten this further with their own @Throttle().
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 120 }]),
     SupabaseModule,
     AuthModule,
     ProfilesModule,
@@ -30,5 +35,6 @@ import { HealthController } from './health.controller';
     FeedbackModule,
   ],
   controllers: [HealthController],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}
