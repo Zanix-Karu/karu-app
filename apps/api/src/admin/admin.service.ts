@@ -13,6 +13,8 @@ import {
   type VendorStatus,
 } from '@karu/shared';
 import { SupabaseService } from '../supabase/supabase.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { dbErrorMessage } from '../supabase/db-error';
 import {
   AdminCreateVehicleDto,
   AdminCreateVendorDto,
@@ -23,7 +25,10 @@ import {
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   /** Ops dashboard counters: what needs attention right now. */
   async overview() {
@@ -31,7 +36,7 @@ export class AdminService {
       let q = this.supabase.db.from(table).select('*', { count: 'exact', head: true });
       for (const [col, val] of Object.entries(filters)) q = q.eq(col, val);
       const { count: n, error } = await q;
-      if (error) throw new BadRequestException(error.message);
+      if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not load overview counters'));
       return n ?? 0;
     };
 
@@ -51,7 +56,7 @@ export class AdminService {
         .select('*', { count: 'exact', head: true })
         .eq('status', 'requested')
         .lt('created_at', staleBefore);
-      if (error) throw new BadRequestException(error.message);
+      if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not load overview counters'));
       return n ?? 0;
     };
 
@@ -63,6 +68,40 @@ export class AdminService {
         .select('*', { count: 'exact', head: true })
         .not('assistance_requested_at', 'is', null)
         .is('assistance_resolved_at', null);
+      if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not load overview counters'));
+      return n ?? 0;
+    };
+
+    /**
+     * REQ-12: insurance, carte grise and roadworthiness lapse quietly —
+     * nothing today re-checks `expires_at` after a document is approved, so a
+     * car keeps renting on paperwork nobody has looked at in months. A
+     * rejected document isn't the operative one (a replacement is expected),
+     * so only pending/approved rows count.
+     */
+    const DOC_EXPIRY_WARNING_DAYS = 30;
+    const now = new Date();
+    const warnBefore = new Date(now.getTime() + DOC_EXPIRY_WARNING_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const nowIso = now.toISOString();
+
+    const expiredDocumentCount = async () => {
+      const { count: n, error } = await this.supabase.db
+        .from('vendor_documents')
+        .select('*', { count: 'exact', head: true })
+        .neq('status', 'rejected')
+        .not('expires_at', 'is', null)
+        .lt('expires_at', nowIso);
+      if (error) throw new BadRequestException(error.message);
+      return n ?? 0;
+    };
+
+    const documentsExpiringSoonCount = async () => {
+      const { count: n, error } = await this.supabase.db
+        .from('vendor_documents')
+        .select('*', { count: 'exact', head: true })
+        .neq('status', 'rejected')
+        .gte('expires_at', nowIso)
+        .lte('expires_at', warnBefore);
       if (error) throw new BadRequestException(error.message);
       return n ?? 0;
     };
@@ -75,6 +114,8 @@ export class AdminService {
       pendingDocuments,
       staleRequests,
       openAssistance,
+      expiredDocuments,
+      documentsExpiringSoon,
     ] = await Promise.all([
       count('vendors', { status: 'pending' }),
       count('bookings', { status: 'requested' }),
@@ -83,6 +124,8 @@ export class AdminService {
       count('vendor_documents', { status: 'pending' }),
       staleRequestCount(),
       openAssistanceCount(),
+      expiredDocumentCount(),
+      documentsExpiringSoonCount(),
     ]);
     return {
       pendingVendors,
@@ -95,6 +138,11 @@ export class AdminService {
       /** Bookings where a party asked for Karu and no admin has closed it. */
       openAssistance,
       replyWindowHours: REPLY_WINDOW_HOURS,
+      /** Approved/pending vendor documents whose expires_at has passed. */
+      expiredDocuments,
+      /** ...expiring within docExpiryWarningDays, not yet expired. */
+      documentsExpiringSoon,
+      docExpiryWarningDays: DOC_EXPIRY_WARNING_DAYS,
     };
   }
 
@@ -104,7 +152,7 @@ export class AdminService {
     let q = this.supabase.db.from('vendors').select('*');
     if (status) q = q.eq('status', status);
     const { data, error } = await q.order('created_at', { ascending: false });
-    if (error) throw new BadRequestException(error.message);
+    if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not list vendors'));
     return (data ?? []) as Vendor[];
   }
 
@@ -122,9 +170,18 @@ export class AdminService {
     if (!canTransitionVendor(from, dto.status)) {
       throw new ConflictException(`A ${from} vendor cannot be moved to ${dto.status}`);
     }
+    // REQ-9: a suspension with no recorded reason leaves the vendor guessing
+    // and leaves a later admin with no record of what triggered it.
+    if (dto.status === 'suspended' && !dto.reason?.trim()) {
+      throw new BadRequestException('A reason is required when suspending a vendor');
+    }
 
     const patch: Record<string, unknown> = { status: dto.status };
     if (dto.status === 'verified') patch.verified_at = new Date().toISOString();
+    if (dto.status === 'suspended') patch.suspension_reason = dto.reason!.trim();
+    // Reinstating clears the old reason — it described a problem that's now
+    // resolved, so it shouldn't linger as if still in force.
+    if (from === 'suspended' && dto.status === 'verified') patch.suspension_reason = null;
 
     const { data, error } = await this.supabase.db
       .from('vendors')
@@ -145,6 +202,25 @@ export class AdminService {
         .eq('vendor_id', vendorId)
         .eq('status', 'requested');
     }
+
+    // REQ-9: tell the vendor either way, and — only for a fresh suspension —
+    // tell any customer holding a standing booking that their provider is
+    // under review. This is a transparency notice, not a cancellation: ops
+    // still makes the cancel-vs-honour call case by case, per the comment
+    // above. Best-effort: notifications never block or fail this response.
+    if (dto.status === 'suspended') {
+      await this.notifications.notifyVendorSuspended(data as Vendor, dto.reason!.trim());
+      const { data: standing } = await this.supabase.db
+        .from('bookings')
+        .select('*')
+        .eq('vendor_id', vendorId)
+        .in('status', ['confirmed', 'in_progress']);
+      for (const booking of (standing ?? []) as Booking[]) {
+        await this.notifications.notifyCustomerVendorUnderReview(booking);
+      }
+    } else if (from === 'suspended' && dto.status === 'verified') {
+      await this.notifications.notifyVendorReinstated(data as Vendor);
+    }
     return data as Vendor;
   }
 
@@ -157,6 +233,22 @@ export class AdminService {
     if (status) q = q.eq('status', status);
     if (vendorId) q = q.eq('vendor_id', vendorId);
     const { data, error } = await q.order('created_at', { ascending: false });
+    if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not list documents'));
+    return data ?? [];
+  }
+
+  /**
+   * REQ-4: "add send-failure logging/retry so bounces are visible, not
+   * swallowed" — every send already lands in email_log (migration 0012),
+   * but nothing surfaced it. This is that surface: the 100 most recent
+   * attempts, optionally narrowed to failures, with the booking's reference
+   * joined in so a failure reads as "KARU-20260801-0012 to jean@..." rather
+   * than a bare UUID.
+   */
+  async listEmailLog(status?: 'sent' | 'failed') {
+    let q = this.supabase.db.from('email_log').select('*, bookings(reference)');
+    if (status) q = q.eq('status', status);
+    const { data, error } = await q.order('created_at', { ascending: false }).limit(100);
     if (error) throw new BadRequestException(error.message);
     return data ?? [];
   }
@@ -180,7 +272,7 @@ export class AdminService {
       .from('vendor-documents')
       .createSignedUrl((doc as { file_path: string }).file_path, expiresIn);
     if (signError || !data) {
-      throw new BadRequestException(signError?.message ?? 'Could not create download link');
+      throw new BadRequestException(dbErrorMessage(signError, 'Could not create download link'));
     }
     return { url: data.signedUrl, expiresIn };
   }
@@ -220,7 +312,7 @@ export class AdminService {
       user_metadata: { role: 'vendor', full_name: dto.full_name ?? dto.business_name, locale: dto.locale ?? 'fr' },
     });
     if (authError || !created?.user) {
-      throw new ConflictException(authError?.message ?? 'Could not create vendor user');
+      throw new ConflictException(dbErrorMessage(authError, 'Could not create vendor user'));
     }
 
     const { data, error } = await this.supabase.db
@@ -240,7 +332,7 @@ export class AdminService {
       })
       .select('*')
       .single();
-    if (error || !data) throw new ConflictException(error?.message ?? 'Could not create vendor');
+    if (error || !data) throw new ConflictException(dbErrorMessage(error, 'Could not create vendor'));
     return data as Vendor;
   }
 
@@ -270,7 +362,7 @@ export class AdminService {
       .insert({ ...rest, vendor_id, status: status ?? 'draft' })
       .select('*')
       .single();
-    if (error || !data) throw new BadRequestException(error?.message ?? 'Could not create vehicle');
+    if (error || !data) throw new BadRequestException(dbErrorMessage(error, 'Could not create vehicle'));
     return data as Vehicle;
   }
 
@@ -287,7 +379,7 @@ export class AdminService {
       if (error.code === '23P01') {
         throw new ConflictException('An overlapping block already exists for this vehicle');
       }
-      throw new BadRequestException(error.message);
+      throw new BadRequestException(dbErrorMessage(error, 'Could not create block'));
     }
     return data;
   }
@@ -297,7 +389,7 @@ export class AdminService {
       .from('vehicle_blocks')
       .delete({ count: 'exact' })
       .eq('id', blockId);
-    if (error) throw new BadRequestException(error.message);
+    if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not delete block'));
     if (!count) throw new NotFoundException('Block not found');
     return { deleted: true };
   }
@@ -308,7 +400,7 @@ export class AdminService {
     let q = this.supabase.db.from('bookings').select('*');
     if (status) q = q.eq('status', status);
     const { data, error } = await q.order('created_at', { ascending: false });
-    if (error) throw new BadRequestException(error.message);
+    if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not list bookings'));
     return (data ?? []) as Booking[];
   }
 }

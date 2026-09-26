@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Profile } from '@karu/shared';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { Button, Card, ErrorNote, Field, Input, Select } from '../ui';
+import { Button, Card, ErrorNote, Field, Input, PhoneInput, Select } from '../ui';
 
 export function ProfileScreen() {
   const { t } = useTranslation();
@@ -54,11 +54,7 @@ export function ProfileScreen() {
             <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
           </Field>
           <Field label={t('profile.phone')}>
-            <Input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+237 6 XX XX XX XX"
-            />
+            <PhoneInput value={phone} onChange={setPhone} placeholder="6 XX XX XX XX" />
           </Field>
           <Field label={t('profile.preferredLanguage')}>
             <Select value={locale} onChange={(e) => setLocale(e.target.value as 'en' | 'fr')}>

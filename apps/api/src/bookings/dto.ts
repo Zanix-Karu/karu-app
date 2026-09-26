@@ -41,6 +41,8 @@ const TRANSITION_TARGETS: BookingStatus[] = [
 export class TransitionBookingDto {
   @IsIn(TRANSITION_TARGETS) status!: BookingStatus;
   @IsOptional() @IsString() @MaxLength(500) vendor_note?: string;
+  /** REQ-6: the handover/return code a vendor read back from the customer. */
+  @IsOptional() @IsString() @MaxLength(10) code?: string;
 }
 
 export class RelayMessageDto {

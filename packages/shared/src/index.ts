@@ -237,6 +237,8 @@ export interface Vendor {
   airport_fee_xaf: number | null;
   status: VendorStatus;
   verified_at: string | null;
+  /** REQ-9: why this vendor is currently suspended. Null otherwise — cleared on reinstatement. */
+  suspension_reason: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -260,6 +262,7 @@ export type PublicVendor = Omit<
   | 'whatsapp_number'
   | 'address'
   | 'rccm_number'
+  | 'suspension_reason'
 >;
 
 export interface VendorDocument {
@@ -428,6 +431,14 @@ export interface Booking {
   assistance_note: string | null;
   /** Set when an admin marked that request handled. */
   assistance_resolved_at: string | null;
+  /**
+   * REQ-6: generated on confirm, shown to the customer, entered by the
+   * vendor to drive confirmed -> in_progress / in_progress -> completed.
+   * Not a security boundary — a courtesy confirmation, same idea as a
+   * food-delivery handover PIN — so null until confirmed.
+   */
+  handover_code: string | null;
+  return_code: string | null;
 }
 
 /**

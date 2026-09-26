@@ -4,7 +4,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { api } from '../lib/api';
-import { Button, Card, ErrorNote, Field, Input, Select } from '../ui';
+import { Button, Card, ErrorNote, Field, Input, PhoneInput, Select } from '../ui';
 
 type Mode = 'login' | 'signup' | 'reset';
 /** The mockup's account-type switch: rent a car, or list one. */
@@ -26,6 +26,17 @@ const DOMAIN_TYPOS: Record<string, string> = {
   'outlok.com': 'outlook.com',
   'iclould.com': 'icloud.com',
 };
+
+/**
+ * REQ-7: an email like "m fnalaha @ g mail . com" — spaces inside or around
+ * it, however it got there (a stray space bar tap, a copy-paste artefact) —
+ * must not slip past as a distinct identity from the clean version. Strip
+ * every whitespace character, not just leading/trailing, and lowercase
+ * before it ever reaches Supabase Auth or the API.
+ */
+function normalizeEmail(raw: string): string {
+  return raw.replace(/\s+/g, '').toLowerCase();
+}
 
 function domainSuggestion(email: string): string | null {
   const domain = email.split('@')[1]?.toLowerCase();
@@ -63,9 +74,14 @@ export function AuthScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // REQ-5: set when a vendor-signup attempt turns out to be an existing
+  // account (see below) — the next successful sign-in in *this* screen
+  // instance should land on the self-service upgrade page, not wherever a
+  // plain login would normally go.
+  const [redirectAfterLogin, setRedirectAfterLogin] = useState<string | null>(null);
   const navigate = useNavigate();
   const from = intent?.from ?? null;
-  const suggestion = domainSuggestion(email);
+  const suggestion = domainSuggestion(normalizeEmail(email));
   const pitch = {
     title: t(`auth.${account}Title`),
     sub: t(`auth.${account}Sub`),
@@ -77,18 +93,22 @@ export function AuthScreen() {
     setBusy(true);
     setError(null);
     setNotice(null);
+    // REQ-7: normalise once, use everywhere below — a stray space must not
+    // create a second identity distinct from the clean address.
+    const normalizedEmail = normalizeEmail(email);
     try {
       if (mode === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
         if (error) throw error;
-        // Land where they were headed, or let the role decide (App routes "/").
-        navigate(from ?? '/', { replace: true });
+        // Land where they were headed, where the REQ-5 upgrade sent them, or
+        // let the role decide (App routes "/").
+        navigate(redirectAfterLogin ?? from ?? '/', { replace: true });
       } else if (mode === 'signup') {
-        if (email.trim().toLowerCase() !== confirmEmail.trim().toLowerCase()) {
+        if (normalizedEmail !== normalizeEmail(confirmEmail)) {
           throw new Error(t('auth.emailsDontMatch'));
         }
         const { data, error } = await supabase.auth.signUp({
-          email,
+          email: normalizedEmail,
           password,
           options: {
             data: {
@@ -101,6 +121,46 @@ export function AuthScreen() {
           },
         });
         if (error) throw error;
+        /**
+         * REQ-1/REQ-5: with "Confirm email" on (production), Supabase's own
+         * anti-enumeration behaviour makes signUp() for an email that
+         * *already has a confirmed account* return a fake success — no
+         * error, no session — identical on the surface to a genuine new
+         * signup awaiting confirmation. The one client-visible difference:
+         * `identities` comes back empty only in the already-registered case
+         * (a real new user gets one new identity). See Supabase's own docs
+         * on this exact pattern.
+         */
+        const alreadyExists = (data.user?.identities?.length ?? 1) === 0;
+        if (alreadyExists) {
+          if (account === 'vendor') {
+            // A signed-out person already has an account with this email
+            // and is trying to attach a vendor identity to it. We can't
+            // create the vendor record without them authenticated as that
+            // account, so send them to sign in and land on the self-service
+            // upgrade page (ListYourCarScreen's ConvertToVendor) rather than
+            // pretending this signup worked. Naming the account here (as
+            // opposed to REQ-1's neutral customer case, below) is fine: they
+            // just typed this exact email into their own signup form, so
+            // this confirms nothing an attacker probing addresses couldn't
+            // already suspect from the same response.
+            setRedirectAfterLogin('/list-your-car');
+            setMode('login');
+            setNotice(t('auth.alreadyHaveAccountVendor'));
+            return;
+          }
+          // Plain duplicate signup: keep the in-app copy identical to a
+          // genuine new signup (no confirmation either way), but still get
+          // something useful to the real owner's inbox. resetPasswordForEmail
+          // has the same anti-enumeration response either way, but it does
+          // send a real email when the account exists — a legitimate,
+          // non-enumerating way to reach them.
+          void supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+            redirectTo: window.location.origin + '/auth/reset',
+          });
+          setNotice(t('auth.checkInbox'));
+          return;
+        }
         // With email confirmation on (production), signUp() returns no session,
         // so the POST /vendors below never runs and the business details typed
         // above are discarded. Rather than pretend otherwise, tell a provider
@@ -125,7 +185,7 @@ export function AuthScreen() {
               declaration_accepted: declared,
               // The account email doubles as the business contact email until
               // the provider sets a different one from their dashboard.
-              contact_email: email,
+              contact_email: normalizedEmail,
             }),
           });
           navigate('/vendor', { replace: true });
@@ -133,7 +193,7 @@ export function AuthScreen() {
         }
         navigate(from ?? '/', { replace: true });
       } else {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
           redirectTo: window.location.origin + '/auth/reset',
         });
         if (error) throw error;
@@ -255,18 +315,10 @@ export function AuthScreen() {
                     </Select>
                   </Field>
                   <Field label={t('auth.businessPhone')}>
-                    <Input
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+237 6 XX XX XX XX"
-                    />
+                    <PhoneInput value={phone} onChange={setPhone} placeholder="6 XX XX XX XX" />
                   </Field>
                   <Field label={t('auth.whatsapp')}>
-                    <Input
-                      value={whatsapp}
-                      onChange={(e) => setWhatsapp(e.target.value)}
-                      placeholder="+237 6 XX XX XX XX"
-                    />
+                    <PhoneInput value={whatsapp} onChange={setWhatsapp} placeholder="6 XX XX XX XX" />
                     <span className="mt-1 block text-xs text-karu-mute">{t('auth.whatsappHint')}</span>
                   </Field>
                   <Field label={t('auth.businessAddress')}>
