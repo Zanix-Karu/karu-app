@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Button, Card, ErrorNote, Field, Input } from '../ui';
@@ -14,6 +15,7 @@ import { Spinner } from '../ui';
  * way to actually change anything — the flow dead-ended.
  */
 export function ResetPasswordScreen() {
+  const { t } = useTranslation();
   const [ready, setReady] = useState(false);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -38,7 +40,7 @@ export function ResetPasswordScreen() {
     e.preventDefault();
     setError(null);
     if (password !== confirm) {
-      setError("Those passwords don't match.");
+      setError(t('auth.passwordsDontMatch'));
       return;
     }
     setBusy(true);
@@ -57,28 +59,25 @@ export function ResetPasswordScreen() {
   if (done) {
     return (
       <div className="mx-auto max-w-md text-center">
-        <h1 className="font-display text-3xl font-bold">Password updated</h1>
-        <p className="mt-2 text-sm text-karu-mute">Signing you in…</p>
+        <h1 className="font-display text-3xl font-bold">{t('auth.passwordUpdated')}</h1>
+        <p className="mt-2 text-sm text-karu-mute">{t('auth.signingYouIn')}</p>
       </div>
     );
   }
 
   return (
     <div className="mx-auto max-w-md">
-      <h1 className="font-display text-3xl font-bold">Choose a new password</h1>
+      <h1 className="font-display text-3xl font-bold">{t('auth.chooseNewPassword')}</h1>
 
       {!ready ? (
         <Card className="mt-6 p-6">
-          <Spinner label="Checking your reset link…" />
-          <p className="text-center text-xs text-karu-mute">
-            If this doesn&rsquo;t clear, the link may have expired — request a new one from the
-            sign-in page.
-          </p>
+          <Spinner label={t('auth.checkingResetLink')} />
+          <p className="text-center text-xs text-karu-mute">{t('auth.resetLinkExpiredHint')}</p>
         </Card>
       ) : (
         <Card className="mt-6 p-6">
           <form onSubmit={submit} className="space-y-4">
-            <Field label="New password">
+            <Field label={t('auth.newPassword')}>
               <Input
                 type="password"
                 value={password}
@@ -88,7 +87,7 @@ export function ResetPasswordScreen() {
                 autoComplete="new-password"
               />
             </Field>
-            <Field label="Confirm new password">
+            <Field label={t('auth.confirmNewPassword')}>
               <Input
                 type="password"
                 value={confirm}
@@ -100,7 +99,7 @@ export function ResetPasswordScreen() {
             </Field>
             {error && <ErrorNote>{error}</ErrorNote>}
             <Button type="submit" disabled={busy} className="w-full">
-              {busy ? 'Saving…' : 'Update password'}
+              {busy ? t('common.saving') : t('auth.updatePassword')}
             </Button>
           </form>
         </Card>

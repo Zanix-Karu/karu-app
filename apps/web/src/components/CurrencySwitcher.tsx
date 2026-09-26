@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { DISPLAY_CURRENCIES, useCurrency } from '../lib/currency';
 
 /**
@@ -6,11 +7,12 @@ import { DISPLAY_CURRENCIES, useCurrency } from '../lib/currency';
  * customers.
  */
 export function CurrencySwitcher() {
+  const { t } = useTranslation();
   const { currency, setCurrency } = useCurrency();
 
   return (
     <label className="flex items-center">
-      <span className="sr-only">Currency</span>
+      <span className="sr-only">{t('common.currency')}</span>
       <select
         value={currency}
         onChange={(e) => setCurrency(e.target.value as typeof currency)}
