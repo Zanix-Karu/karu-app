@@ -11,6 +11,7 @@ import {
   Min,
 } from 'class-validator';
 import type { City, DocumentType } from '@karu/shared';
+import { NormalizeEmail } from '../lib/normalize';
 
 const CITIES: City[] = ['douala', 'yaounde', 'other'];
 const DOCUMENT_TYPES: DocumentType[] = [
@@ -70,6 +71,7 @@ export class CreateVendorDto {
   whatsapp_number?: string;
 
   @IsOptional()
+  @NormalizeEmail()
   @IsEmail()
   contact_email?: string;
 
@@ -101,7 +103,7 @@ export class UpdateVendorDto {
   @IsOptional() @IsString() @MaxLength(120) contact_person?: string;
   @IsOptional() @IsString() @MaxLength(30) contact_phone?: string;
   @IsOptional() @IsString() @MaxLength(30) whatsapp_number?: string;
-  @IsOptional() @IsEmail() contact_email?: string;
+  @IsOptional() @NormalizeEmail() @IsEmail() contact_email?: string;
   @IsOptional() @IsString() @MaxLength(240) address?: string;
   @IsOptional() @IsInt() @Min(0) delivery_fee_xaf?: number;
   @IsOptional() @IsInt() @Min(0) airport_fee_xaf?: number;

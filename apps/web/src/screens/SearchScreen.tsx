@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePageMeta } from '../lib/page-meta';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
@@ -104,6 +104,33 @@ export function SearchScreen() {
   const set = (k: keyof Filters) => (e: { target: { value: string } }) =>
     setDraft((d) => ({ ...d, [k]: e.target.value }));
 
+  /**
+   * Commit a filter set the moment it changes, unless the date range is
+   * half-picked (only "from" or only "to" set) — that one still needs the
+   * explicit Search/Apply click, since a half-set range isn't a valid query.
+   */
+  const commitIfValid = (next: Filters) => {
+    if (Boolean(next.from) === Boolean(next.to)) commit(next);
+  };
+
+  /** REQ-2: car type / driver / transmission apply immediately on change. */
+  const setAndApply = (k: keyof Filters) => (e: { target: { value: string } }) => {
+    const next = { ...draft, [k]: e.target.value };
+    setDraft(next);
+    commitIfValid(next);
+  };
+
+  // Seats and max price are free-typed numbers, so debounce the commit —
+  // applying on every keystroke would fire a request per digit.
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
+  const setAndApplyDebounced = (k: keyof Filters) => (e: { target: { value: string } }) => {
+    const next = { ...draft, [k]: e.target.value };
+    setDraft(next);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => commitIfValid(next), 450);
+  };
+
   const datesHalfSet = Boolean(draft.from) !== Boolean(draft.to);
   const apply = () => {
     if (!datesHalfSet) commit(draft); // a new filter set starts at page 1
@@ -194,7 +221,7 @@ export function SearchScreen() {
                   name="cartype"
                   value={value}
                   checked={draft.category === value}
-                  onChange={() => setDraft((d) => ({ ...d, category: value }))}
+                  onChange={() => setAndApply('category')({ target: { value } })}
                   style={{ accentColor: 'var(--gold-600)', width: 18, height: 18 }}
                 />
                 {l}
@@ -206,14 +233,14 @@ export function SearchScreen() {
               abroad for family at home, "with a driver" is the first question,
               and gearbox is often not a question at all. */}
           <Field label={t('search.driver')} style={{ marginTop: 24 }}>
-            <Select value={draft.with_driver} onChange={set('with_driver')}>
+            <Select value={draft.with_driver} onChange={setAndApply('with_driver')}>
               <option value="">{t('search.any')}</option>
               <option value="true">{t('search.withDriverOnly')}</option>
             </Select>
           </Field>
 
           <Field label={t('search.transmission')} style={{ marginTop: 24 }}>
-            <Select value={draft.transmission} onChange={set('transmission')}>
+            <Select value={draft.transmission} onChange={setAndApply('transmission')}>
               <option value="">{t('search.any')}</option>
               <option value="automatic">{t('common.automatic')}</option>
               <option value="manual">{t('common.manual')}</option>
@@ -221,11 +248,11 @@ export function SearchScreen() {
           </Field>
 
           <Field label={t('search.seatsAtLeast')} style={{ marginTop: 24 }}>
-            <Input type="number" min={1} placeholder="Any" value={draft.seats} onChange={set('seats')} />
+            <Input type="number" min={1} placeholder="Any" value={draft.seats} onChange={setAndApplyDebounced('seats')} />
           </Field>
 
           <Field label={t('search.maxPrice')} style={{ marginTop: 24 }}>
-            <Input type="number" min={0} step={5000} placeholder="Any" value={draft.max_price} onChange={set('max_price')} />
+            <Input type="number" min={0} step={5000} placeholder="Any" value={draft.max_price} onChange={setAndApplyDebounced('max_price')} />
           </Field>
 
           <Button full style={{ marginTop: 24 }} size="sm" onClick={apply} disabled={datesHalfSet}>
