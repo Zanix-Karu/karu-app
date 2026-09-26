@@ -756,6 +756,7 @@ export const en = {
       bookings: 'Bookings',
       chats: 'Chats',
       feedback: 'Feedback',
+      emails: 'Emails',
     },
     filterStatus: 'Filter by status',
     all: 'All',
@@ -764,6 +765,12 @@ export const en = {
       noneHint: 'Reports from customers and providers will appear here.',
       role: { customer: 'Customer', vendor: 'Provider', admin: 'Admin' },
       markAs: { new: 'Mark new', triaging: 'Start triage', resolved: 'Mark resolved' },
+    },
+    emails: {
+      none: 'No emails sent yet',
+      statusSent: 'Sent',
+      statusFailed: 'Failed',
+      to: 'to {{recipient}}',
     },
     overview: {
       alertAssistance: '{{count}} booking(s) where someone has asked Karu for help',

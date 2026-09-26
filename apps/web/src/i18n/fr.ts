@@ -759,6 +759,7 @@ export const fr = {
       bookings: 'Réservations',
       chats: 'Discussions',
       feedback: 'Commentaires',
+      emails: 'E-mails',
     },
     filterStatus: 'Filtrer par statut',
     all: 'Tous',
@@ -767,6 +768,12 @@ export const fr = {
       noneHint: 'Les signalements des clients et des loueurs apparaîtront ici.',
       role: { customer: 'Client', vendor: 'Loueur', admin: 'Admin' },
       markAs: { new: 'Marquer nouveau', triaging: 'Commencer le tri', resolved: 'Marquer résolu' },
+    },
+    emails: {
+      none: 'Aucun e-mail envoyé pour l’instant',
+      statusSent: 'Envoyé',
+      statusFailed: 'Échoué',
+      to: 'à {{recipient}}',
     },
     overview: {
       alertAssistance: '{{count}} réservation(s) où quelqu\'un a demandé l\'aide de Karu',

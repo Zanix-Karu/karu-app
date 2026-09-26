@@ -238,6 +238,22 @@ export class AdminService {
   }
 
   /**
+   * REQ-4: "add send-failure logging/retry so bounces are visible, not
+   * swallowed" — every send already lands in email_log (migration 0012),
+   * but nothing surfaced it. This is that surface: the 100 most recent
+   * attempts, optionally narrowed to failures, with the booking's reference
+   * joined in so a failure reads as "KARU-20260801-0012 to jean@..." rather
+   * than a bare UUID.
+   */
+  async listEmailLog(status?: 'sent' | 'failed') {
+    let q = this.supabase.db.from('email_log').select('*, bookings(reference)');
+    if (status) q = q.eq('status', status);
+    const { data, error } = await q.order('created_at', { ascending: false }).limit(100);
+    if (error) throw new BadRequestException(error.message);
+    return data ?? [];
+  }
+
+  /**
    * A short-lived signed URL for a verification document. The bucket is
    * private, so without this an admin is asked to approve an RCCM or
    * insurance certificate they cannot open — the verification gate would be
