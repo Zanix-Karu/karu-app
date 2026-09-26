@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
+  isBookingArchived,
   missingPhotoAngles,
   primaryPhoto,
   type Booking,
@@ -252,6 +253,12 @@ function Onboarding({ vendor, onGo }: { vendor: Vendor; onGo: (to: string) => vo
           ? t('vendor.onboarding.subAttention', { status: t(`vendor.status.${vendor.status}`) })
           : t('vendor.onboarding.subOk')}
       </p>
+      {/* REQ-9: the vendor sees why, not just that something changed. */}
+      {vendor.status === 'suspended' && vendor.suspension_reason && (
+        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--danger)', marginTop: 6, fontWeight: 600 }}>
+          {t('vendor.onboarding.suspensionReason', { reason: vendor.suspension_reason })}
+        </p>
+      )}
 
       <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
         {steps.map((st, i) => (
@@ -404,6 +411,13 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
     queryKey: ['vendor-reviews', vendor.id],
     queryFn: () => api<Review[]>(`/vendors/${vendor.id}/reviews`),
   });
+  // REQ-12: insurance, carte grise and roadworthiness lapse quietly once a
+  // document is approved — nothing else re-checks expires_at afterwards.
+  const { data: documents } = useQuery({
+    queryKey: ['vendor-docs', 'expiry', vendor.id, asAdmin],
+    queryFn: () =>
+      api<VendorDocument[]>(asAdmin ? `/admin/vendors/${vendor.id}/documents` : '/vendors/me/documents'),
+  });
 
   if (isLoading || !stats) {
     return (
@@ -444,7 +458,26 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
         const unread = (conversations ?? []).filter((c) => c.unread_count > 0);
         const escalated = (conversations ?? []).filter((c) => c.assistance_open);
         const pending = (bookings ?? []).filter((b) => b.status === 'requested');
-        if (unread.length === 0 && escalated.length === 0 && pending.length === 0) return null;
+        // REQ-12: mirrors the API's DOC_EXPIRY_WARNING_DAYS (admin.service.ts)
+        // — a rejected document isn't the operative one, a replacement is
+        // expected, so it doesn't count here either.
+        const DOC_EXPIRY_WARNING_DAYS = 30;
+        const now = Date.now();
+        const warnBy = now + DOC_EXPIRY_WARNING_DAYS * 24 * 60 * 60 * 1000;
+        const live = (documents ?? []).filter((d) => d.expires_at && d.status !== 'rejected');
+        const expiredDocs = live.filter((d) => new Date(d.expires_at!).getTime() < now);
+        const expiringDocs = live.filter((d) => {
+          const t = new Date(d.expires_at!).getTime();
+          return t >= now && t <= warnBy;
+        });
+        if (
+          unread.length === 0 &&
+          escalated.length === 0 &&
+          pending.length === 0 &&
+          expiredDocs.length === 0 &&
+          expiringDocs.length === 0
+        )
+          return null;
         return (
           <Card style={{ marginTop: 20, borderLeft: '4px solid var(--brand)' }}>
             <p style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 15 }}>
@@ -473,6 +506,23 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
                 <li key={`esc-${c.booking_id}`}>
                   <Link to={`/bookings/${c.booking_id}`}>
                     {t('vendor.attention.escalated', { ref: c.reference ?? '' })}
+                  </Link>
+                </li>
+              ))}
+              {expiredDocs.map((d) => (
+                <li key={`exp-${d.id}`} style={{ color: 'var(--danger)' }}>
+                  <Link to="/vendor/documents" style={{ color: 'inherit' }}>
+                    {t('vendor.attention.docExpired', { type: t(`vendor.docs.type.${d.type}`) })}
+                  </Link>
+                </li>
+              ))}
+              {expiringDocs.map((d) => (
+                <li key={`soon-${d.id}`}>
+                  <Link to="/vendor/documents">
+                    {t('vendor.attention.docExpiring', {
+                      type: t(`vendor.docs.type.${d.type}`),
+                      date: prettyDate(d.expires_at!),
+                    })}
                   </Link>
                 </li>
               ))}
@@ -591,17 +641,21 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
 
 /** Transitions a vendor may drive, per current status. Labels are i18n keys. */
 const VENDOR_ACTIONS: Partial<
-  Record<BookingStatus, Array<{ to: BookingStatus; label: string; danger?: boolean; confirm?: string }>>
+  Record<
+    BookingStatus,
+    Array<{ to: BookingStatus; label: string; danger?: boolean; confirm?: string; needsCode?: boolean }>
+  >
 > = {
   requested: [
     { to: 'confirmed', label: 'vendor.actions.confirm' },
     { to: 'rejected', label: 'vendor.actions.reject', danger: true, confirm: 'vendor.actions.rejectConfirm' },
   ],
   confirmed: [
-    { to: 'in_progress', label: 'vendor.actions.startTrip' },
+    // REQ-6: read the code back from the customer rather than a plain click.
+    { to: 'in_progress', label: 'vendor.actions.startTrip', needsCode: true },
     { to: 'cancelled', label: 'vendor.actions.cancel', danger: true, confirm: 'vendor.actions.cancelConfirm' },
   ],
-  in_progress: [{ to: 'completed', label: 'vendor.actions.complete' }],
+  in_progress: [{ to: 'completed', label: 'vendor.actions.complete', needsCode: true }],
 };
 
 function VendorBookings({ asVendorId }: { asVendorId?: string }) {
@@ -616,10 +670,23 @@ function VendorBookings({ asVendorId }: { asVendorId?: string }) {
   });
 
   const transition = useMutation({
-    mutationFn: ({ id, to }: { id: string; to: BookingStatus }) =>
-      api<Booking>(`/bookings/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status: to }) }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['my-bookings'] }),
+    mutationFn: ({ id, to, code }: { id: string; to: BookingStatus; code?: string }) =>
+      api<Booking>(`/bookings/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status: to, code }) }),
+    onSuccess: () => {
+      setCodePrompt(null);
+      setCodeDraft('');
+      void qc.invalidateQueries({ queryKey: ['my-bookings'] });
+    },
   });
+  // REQ-10: completed/rejected/cancelled requests are done — keep the working
+  // list to what still needs a vendor's attention.
+  const [tab, setTab] = useState<'active' | 'archived'>('active');
+  const shown = (data ?? []).filter((b) => isBookingArchived(b.status) === (tab === 'archived'));
+  const archivedCount = (data ?? []).filter((b) => isBookingArchived(b.status)).length;
+  // REQ-6: which booking + target status currently has its code prompt open
+  // (one at a time — a vendor confirms one handover/return at a time).
+  const [codePrompt, setCodePrompt] = useState<{ bookingId: string; to: BookingStatus } | null>(null);
+  const [codeDraft, setCodeDraft] = useState('');
 
   if (isLoading) {
     return (
@@ -640,12 +707,45 @@ function VendorBookings({ asVendorId }: { asVendorId?: string }) {
         {t('vendor.bookings.sub')}
       </p>
 
+      {data && data.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+          {(['active', 'archived'] as const).map((k) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setTab(k)}
+              style={{
+                borderRadius: 999,
+                padding: '7px 16px',
+                fontFamily: 'var(--font-ui)',
+                fontWeight: 600,
+                fontSize: 14,
+                border: 'none',
+                cursor: 'pointer',
+                background: tab === k ? 'var(--ink)' : 'transparent',
+                color: tab === k ? 'var(--text-on-dark)' : 'var(--gray-500)',
+              }}
+            >
+              {k === 'active'
+                ? t('vendor.bookings.tabActive')
+                : `${t('vendor.bookings.tabArchived')} (${archivedCount})`}
+            </button>
+          ))}
+        </div>
+      )}
+
       {data?.length === 0 && (
         <EmptyState title={t('vendor.bookings.none')} hint={t('vendor.bookings.noneHint')} />
       )}
+      {data && data.length > 0 && shown.length === 0 && (
+        <EmptyState
+          title={tab === 'archived' ? t('vendor.bookings.noneArchived') : t('vendor.bookings.none')}
+          hint={tab === 'archived' ? t('vendor.bookings.noneArchivedHint') : t('vendor.bookings.noneHint')}
+        />
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 20 }}>
-        {data?.map((b) => (
+        {shown.map((b) => (
           <Card key={b.id} style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 14 }}>
             <div>
               <div style={{ fontFamily: 'var(--font-ui)', fontSize: 12, color: 'var(--gray-400)' }}>
@@ -672,30 +772,68 @@ function VendorBookings({ asVendorId }: { asVendorId?: string }) {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <StatusBadge status={b.status} />
-              {VENDOR_ACTIONS[b.status]?.map((a) =>
-                a.confirm ? (
-                  <ConfirmButton
-                    key={a.to}
-                    as={Button}
-                    size="sm"
-                    variant={a.danger ? 'danger' : 'primary'}
-                    disabled={transition.isPending}
-                    confirmLabel={t(a.confirm)}
-                    onConfirm={() => transition.mutate({ id: b.id, to: a.to })}
-                  >
-                    {t(a.label)}
-                  </ConfirmButton>
-                ) : (
+              {codePrompt?.bookingId === b.id ? (
+                <>
+                  <Input
+                    value={codeDraft}
+                    onChange={(e) => setCodeDraft(e.target.value)}
+                    placeholder={t('vendor.actions.codePlaceholder')}
+                    autoFocus
+                    style={{ width: 140 }}
+                  />
                   <Button
-                    key={a.to}
                     size="sm"
-                    variant={a.danger ? 'danger' : 'primary'}
-                    disabled={transition.isPending}
-                    onClick={() => transition.mutate({ id: b.id, to: a.to })}
+                    disabled={!codeDraft.trim() || transition.isPending}
+                    onClick={() => transition.mutate({ id: b.id, to: codePrompt.to, code: codeDraft.trim() })}
                   >
-                    {t(a.label)}
+                    {transition.isPending
+                      ? t('common.saving')
+                      : t(VENDOR_ACTIONS[b.status]?.find((a) => a.to === codePrompt.to)?.label ?? '')}
                   </Button>
-                ),
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => { setCodePrompt(null); setCodeDraft(''); }}
+                  >
+                    {t('common.cancel')}
+                  </Button>
+                </>
+              ) : (
+                VENDOR_ACTIONS[b.status]?.map((a) =>
+                  a.confirm ? (
+                    <ConfirmButton
+                      key={a.to}
+                      as={Button}
+                      size="sm"
+                      variant={a.danger ? 'danger' : 'primary'}
+                      disabled={transition.isPending}
+                      confirmLabel={t(a.confirm)}
+                      onConfirm={() => transition.mutate({ id: b.id, to: a.to })}
+                    >
+                      {t(a.label)}
+                    </ConfirmButton>
+                  ) : a.needsCode ? (
+                    <Button
+                      key={a.to}
+                      size="sm"
+                      variant={a.danger ? 'danger' : 'primary'}
+                      disabled={transition.isPending}
+                      onClick={() => { setCodePrompt({ bookingId: b.id, to: a.to }); setCodeDraft(''); }}
+                    >
+                      {t(a.label)}
+                    </Button>
+                  ) : (
+                    <Button
+                      key={a.to}
+                      size="sm"
+                      variant={a.danger ? 'danger' : 'primary'}
+                      disabled={transition.isPending}
+                      onClick={() => transition.mutate({ id: b.id, to: a.to })}
+                    >
+                      {t(a.label)}
+                    </Button>
+                  ),
+                )
               )}
             </div>
           </Card>

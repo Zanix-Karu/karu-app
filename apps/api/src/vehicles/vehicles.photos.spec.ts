@@ -40,9 +40,10 @@ const makeSupabase = (vehicle: Record<string, unknown>) => {
           return { data: null, error: null };
         },
         getPublicUrl: (path: string) => ({ data: { publicUrl: `${PUBLIC_BASE}/${path}` } }),
-        // Attach verifies the object landed in storage; the stub says yes.
+        // Attach verifies the object landed in storage (with an allowed
+        // mimetype); the stub says yes, as a real JPEG upload would.
         list: async (_folder: string, opts?: { search?: string }) => ({
-          data: opts?.search ? [{ name: opts.search }] : [],
+          data: opts?.search ? [{ name: opts.search, metadata: { mimetype: 'image/jpeg' } }] : [],
           error: null,
         }),
       }),
@@ -134,6 +135,29 @@ describe('VehiclesService.attachPhoto (angle slots)', () => {
     expect(writes.angles).toEqual({ front: `${PUBLIC_BASE}/veh-1/new-front.jpg` });
     expect(writes.photos).toEqual([`${PUBLIC_BASE}/veh-1/new-front.jpg`]);
     expect(writes.removedPaths).toEqual(['veh-1/old-front.jpg']);
+  });
+
+  it('rejects an uploaded object whose mimetype is not an allowed image type', async () => {
+    const { supabase, writes } = makeSupabase({ id: 'veh-1', photos: [], photo_angles: {} });
+    // Override storage for this test: the object exists, but as an SVG.
+    (supabase.db as any).storage.from = () => ({
+      remove: async (paths: string[]) => {
+        writes.removedPaths.push(...paths);
+        return { data: null, error: null };
+      },
+      list: async (_folder: string, opts?: { search?: string }) => ({
+        data: opts?.search ? [{ name: opts.search, metadata: { mimetype: 'image/svg+xml' } }] : [],
+        error: null,
+      }),
+    });
+    const svc = new VehiclesService(supabase, noVendors);
+
+    await expect(
+      svc.attachPhoto('veh-1', 'admin-1', 'admin', 'veh-1/x-front.svg', 'front'),
+    ).rejects.toThrow(BadRequestException);
+    // The rejected object is deleted, and nothing is recorded on the listing.
+    expect(writes.removedPaths).toEqual(['veh-1/x-front.svg']);
+    expect(writes.photos).toBeNull();
   });
 });
 

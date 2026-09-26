@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import type { Booking, BookingStatus, Review } from '@karu/shared';
+import { isBookingArchived, type Booking, type BookingStatus, type Review } from '@karu/shared';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { prettyDate, xaf } from '../lib/format';
@@ -38,6 +39,11 @@ export function BookingsScreen() {
         : all;
     },
   });
+  // REQ-10: completed/rejected/cancelled trips are done — keep them out of
+  // the way rather than clutter the list of what still needs attention.
+  const [tab, setTab] = useState<'active' | 'archived'>('active');
+  const shown = (data ?? []).filter((b) => isBookingArchived(b.status) === (tab === 'archived'));
+  const archivedCount = (data ?? []).filter((b) => isBookingArchived(b.status)).length;
 
   // Which completed bookings the customer has already reviewed, so the form
   // is only offered once.
@@ -91,12 +97,41 @@ export function BookingsScreen() {
     <div className="mx-auto max-w-3xl">
       <h1 className="font-display text-3xl font-bold">{t('booking.myBookings')}</h1>
 
+      {data && data.length > 0 && (
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={() => setTab('active')}
+            className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
+              tab === 'active' ? 'bg-karu-ink text-karu-cream' : 'text-karu-brown hover:bg-karu-ink/5'
+            }`}
+          >
+            {t('booking.tabActive')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('archived')}
+            className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
+              tab === 'archived' ? 'bg-karu-ink text-karu-cream' : 'text-karu-brown hover:bg-karu-ink/5'
+            }`}
+          >
+            {t('booking.tabArchived')} ({archivedCount})
+          </button>
+        </div>
+      )}
+
       {data && data.length === 0 && (
         <EmptyState title={t('booking.noneTitle')} hint={t('booking.noneHint')} />
       )}
+      {data && data.length > 0 && shown.length === 0 && (
+        <EmptyState
+          title={tab === 'archived' ? t('booking.noneArchivedTitle') : t('booking.noneTitle')}
+          hint={tab === 'archived' ? t('booking.noneArchivedHint') : t('booking.noneHint')}
+        />
+      )}
 
       <div className="mt-6 space-y-4">
-        {data?.map((b) => {
+        {shown.map((b) => {
           const action = CUSTOMER_ACTIONS[b.status];
           return (
             <Card key={b.id} className="p-5">

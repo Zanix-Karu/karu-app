@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import type { Booking, BookingStatus, Vehicle, Vendor } from '@karu/shared';
+import { isBookingArchived, type Booking, type BookingStatus, type Vehicle, type Vendor } from '@karu/shared';
 import { api } from '../lib/api';
 import { PhotoStrip } from '../components/PhotoStrip';
 import { PhotoSlots, extraPhotos } from '../components/PhotoSlots';
@@ -19,7 +19,7 @@ import {
   StatusBadge,
 } from '../ui';
 
-type Tab = 'overview' | 'vendors' | 'documents' | 'cars' | 'bookings' | 'chats' | 'feedback';
+type Tab = 'overview' | 'vendors' | 'documents' | 'cars' | 'bookings' | 'chats' | 'feedback' | 'emails';
 
 const TAB_PATH: Record<Tab, string> = {
   overview: '/admin',
@@ -29,14 +29,15 @@ const TAB_PATH: Record<Tab, string> = {
   bookings: '/admin/bookings',
   chats: '/admin/chats',
   feedback: '/admin/feedback',
+  emails: '/admin/emails',
 };
 
 /** Tab comes from the URL so the header nav and the console agree. */
 function tabFromPath(pathname: string): Tab {
   const rest = pathname.replace(/^\/admin\/?/, '');
   return (
-    (['vendors', 'documents', 'cars', 'bookings', 'chats', 'feedback'] as Tab[]).find((t) =>
-      rest.startsWith(t),
+    (['vendors', 'documents', 'cars', 'bookings', 'chats', 'feedback', 'emails'] as Tab[]).find(
+      (t) => rest.startsWith(t),
     ) ?? 'overview'
   );
 }
@@ -70,6 +71,7 @@ export function AdminScreen() {
         {tabBtn('bookings', t('admin.tabs.bookings'))}
         {tabBtn('chats', t('admin.tabs.chats'))}
         {tabBtn('feedback', t('admin.tabs.feedback'))}
+        {tabBtn('emails', t('admin.tabs.emails'))}
       </div>
       <div className="mt-6">
         {tab === 'overview' && <Overview />}
@@ -79,6 +81,7 @@ export function AdminScreen() {
         {tab === 'bookings' && <Bookings />}
         {tab === 'chats' && <Chats />}
         {tab === 'feedback' && <Feedback />}
+        {tab === 'emails' && <EmailLog />}
       </div>
     </div>
   );
@@ -95,6 +98,11 @@ interface OverviewData {
   staleRequests: number;
   replyWindowHours: number;
   openAssistance: number;
+  /** REQ-12: approved/pending vendor documents whose expires_at has passed. */
+  expiredDocuments: number;
+  /** ...expiring within docExpiryWarningDays, not yet expired. */
+  documentsExpiringSoon: number;
+  docExpiryWarningDays: number;
 }
 
 function Overview() {
@@ -135,6 +143,14 @@ function Overview() {
       t('admin.overview.alertStale', {
         count: data.staleRequests,
         hours: data.replyWindowHours,
+      }),
+    // REQ-12: expired outranks "expiring soon" for attention, so it leads.
+    data.expiredDocuments > 0 &&
+      t('admin.overview.alertDocumentsExpired', { count: data.expiredDocuments }),
+    data.documentsExpiringSoon > 0 &&
+      t('admin.overview.alertDocumentsExpiring', {
+        count: data.documentsExpiringSoon,
+        days: data.docExpiryWarningDays,
       }),
     data.pendingDocuments > 0 &&
       t('admin.overview.alertDocuments', { count: data.pendingDocuments }),
@@ -179,10 +195,15 @@ function Vendors() {
   });
 
   const setVendorStatus = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      api(`/admin/vendors/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+    mutationFn: ({ id, status, reason }: { id: string; status: string; reason?: string }) =>
+      api(`/admin/vendors/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, reason }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-vendors'] }),
   });
+  // REQ-9: suspending requires a reason, so "Suspend" expands an inline
+  // prompt (this codebase deliberately avoids window.prompt/confirm — see
+  // ConfirmButton) rather than firing the mutation straight away.
+  const [suspendTargetId, setSuspendTargetId] = useState<string | null>(null);
+  const [suspendReason, setSuspendReason] = useState('');
 
   const emptyForm = {
     business_name: '',
@@ -242,33 +263,71 @@ function Vendors() {
                   {CITY_LABEL[v.city]} · {v.contact_email ?? t('admin.vendors.noEmail')} ·{' '}
                   {v.contact_phone ?? t('admin.vendors.noPhone')}
                 </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="rounded-full bg-karu-ink/5 px-2.5 py-0.5 text-xs font-semibold">
-                  {t(`vendor.status.${v.status}`)}
-                </span>
-                {v.status !== 'verified' && (
-                  <Button onClick={() => setVendorStatus.mutate({ id: v.id, status: 'verified' })}>
-                    {t('admin.vendors.verify')}
-                  </Button>
+                {v.status === 'suspended' && v.suspension_reason && (
+                  <p className="mt-1 text-xs text-karu-terracotta">
+                    {t('admin.vendors.suspensionReason', { reason: v.suspension_reason })}
+                  </p>
                 )}
-                {v.status === 'pending' && (
+              </div>
+
+              {suspendTargetId === v.id ? (
+                // REQ-9: a reason is required, so this replaces the row's
+                // usual actions rather than firing on the "Suspend" click.
+                <div className="flex flex-1 flex-wrap items-center gap-2">
+                  <Input
+                    value={suspendReason}
+                    onChange={(e) => setSuspendReason(e.target.value)}
+                    placeholder={t('admin.vendors.suspensionReasonPlaceholder')}
+                    className="min-w-48 flex-1"
+                    autoFocus
+                  />
                   <Button
                     variant="danger"
-                    onClick={() => setVendorStatus.mutate({ id: v.id, status: 'rejected' })}
+                    disabled={!suspendReason.trim() || setVendorStatus.isPending}
+                    onClick={() =>
+                      setVendorStatus.mutate(
+                        { id: v.id, status: 'suspended', reason: suspendReason.trim() },
+                        { onSuccess: () => { setSuspendTargetId(null); setSuspendReason(''); } },
+                      )
+                    }
                   >
-                    {t('admin.vendors.reject')}
+                    {t('admin.vendors.confirmSuspend')}
                   </Button>
-                )}
-                {v.status === 'verified' && (
                   <Button
                     variant="outline"
-                    onClick={() => setVendorStatus.mutate({ id: v.id, status: 'suspended' })}
+                    onClick={() => { setSuspendTargetId(null); setSuspendReason(''); }}
                   >
-                    {t('admin.vendors.suspend')}
+                    {t('common.cancel')}
                   </Button>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-karu-ink/5 px-2.5 py-0.5 text-xs font-semibold">
+                    {t(`vendor.status.${v.status}`)}
+                  </span>
+                  {v.status !== 'verified' && (
+                    <Button onClick={() => setVendorStatus.mutate({ id: v.id, status: 'verified' })}>
+                      {t('admin.vendors.verify')}
+                    </Button>
+                  )}
+                  {v.status === 'pending' && (
+                    <Button
+                      variant="danger"
+                      onClick={() => setVendorStatus.mutate({ id: v.id, status: 'rejected' })}
+                    >
+                      {t('admin.vendors.reject')}
+                    </Button>
+                  )}
+                  {v.status === 'verified' && (
+                    <Button
+                      variant="outline"
+                      onClick={() => { setSuspendTargetId(v.id); setSuspendReason(''); }}
+                    >
+                      {t('admin.vendors.suspend')}
+                    </Button>
+                  )}
+                </div>
+              )}
             </Card>
           ))}
         </div>
@@ -942,25 +1001,53 @@ function Bookings() {
       api(`/bookings/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status: to }) }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-bookings'] }),
   });
+  /**
+   * REQ-10: on top of the granular per-status filter above (which ops still
+   * wants — e.g. "just show me rejected"), a plain Active/Archived split so
+   * the default view isn't every booking the platform has ever seen. The two
+   * compose: picking a specific status narrows further within whichever tab
+   * is selected.
+   */
+  const [tab, setTab] = useState<'active' | 'archived'>('active');
+  const shown = (data ?? []).filter((b) => isBookingArchived(b.status) === (tab === 'archived'));
 
   return (
     <div>
-      <Field label="Filter by status" className="max-w-48">
-        <Select value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">All</option>
-          {['requested', 'confirmed', 'in_progress', 'completed', 'rejected', 'cancelled'].map((s) => (
-            <option key={s} value={s}>
-              {t(`status.${s}`)}
-            </option>
+      <div className="flex flex-wrap items-end gap-4">
+        <Field label="Filter by status" className="max-w-48">
+          <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="">All</option>
+            {['requested', 'confirmed', 'in_progress', 'completed', 'rejected', 'cancelled'].map((s) => (
+              <option key={s} value={s}>
+                {t(`status.${s}`)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <div className="flex gap-2 pb-1">
+          {(['active', 'archived'] as const).map((k) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setTab(k)}
+              className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
+                tab === k ? 'bg-karu-ink text-karu-cream' : 'text-karu-brown hover:bg-karu-ink/5'
+              }`}
+            >
+              {k === 'active' ? 'Active' : 'Archived'}
+            </button>
           ))}
-        </Select>
-      </Field>
+        </div>
+      </div>
 
       {isLoading && <Spinner />}
       {data?.length === 0 && <EmptyState title="No bookings" />}
+      {data && data.length > 0 && shown.length === 0 && (
+        <EmptyState title={tab === 'archived' ? 'Nothing archived' : 'Nothing active'} />
+      )}
 
       <div className="mt-4 space-y-3">
-        {data?.map((b) => (
+        {shown.map((b) => (
           <Card key={b.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
             <div>
               <p className="font-mono text-xs text-karu-mute">{b.reference ?? b.id}</p>
@@ -1098,6 +1185,83 @@ function Feedback() {
           <ErrorNote>{(setStatusMutation.error as Error).message}</ErrorNote>
         </div>
       )}
+    </div>
+  );
+}
+
+// --- Email log (REQ-4) -------------------------------------------------------
+
+interface EmailLogRow {
+  id: string;
+  recipient: string;
+  template: string;
+  locale: string;
+  status: 'sent' | 'failed';
+  error: string | null;
+  created_at: string;
+  bookings: { reference: string | null } | null;
+}
+
+/**
+ * REQ-4: "add send-failure logging/retry so bounces are visible, not
+ * swallowed." Every send already lands in email_log — the gap was that
+ * nothing surfaced it, so a failing Resend domain (the actual current
+ * problem, per docs/BACKLOG.md) was invisible outside the database.
+ *
+ * No retry button here on purpose: while the domain is unverified, every
+ * send fails identically, so retrying would just log a second failure. Once
+ * that's fixed (a dashboard action, not code), this view is how to confirm
+ * it actually worked — which is the more useful thing to build first.
+ */
+function EmailLog() {
+  const { t } = useTranslation();
+  const [status, setStatus] = useState('');
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['admin-email-log', status],
+    queryFn: () => api<EmailLogRow[]>(`/admin/email-log${status ? `?status=${status}` : ''}`),
+  });
+
+  return (
+    <div>
+      <Field label={t('admin.filterStatus')} className="max-w-48">
+        <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+          <option value="">{t('admin.all')}</option>
+          <option value="sent">{t('admin.emails.statusSent')}</option>
+          <option value="failed">{t('admin.emails.statusFailed')}</option>
+        </Select>
+      </Field>
+
+      {isLoading && <Spinner />}
+      {error && <ErrorNote>{(error as Error).message}</ErrorNote>}
+      {data?.length === 0 && <EmptyState title={t('admin.emails.none')} />}
+
+      <div className="mt-4 space-y-2">
+        {data?.map((row) => (
+          <Card key={row.id} className="p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold">
+                  {row.template}
+                  {row.bookings?.reference ? ` · ${row.bookings.reference}` : ''}
+                </p>
+                <p className="text-xs text-karu-mute">
+                  {t('admin.emails.to', { recipient: row.recipient })} · {row.locale} · {prettyDate(row.created_at)}
+                </p>
+                {row.error && (
+                  <p className="mt-1 font-mono text-xs text-karu-terracotta">{row.error}</p>
+                )}
+              </div>
+              <span
+                className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${
+                  row.status === 'failed' ? 'bg-karu-terracotta/15 text-karu-terracotta' : 'bg-green-100 text-green-800'
+                }`}
+              >
+                {t(`admin.emails.status${row.status === 'failed' ? 'Failed' : 'Sent'}`)}
+              </span>
+            </div>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }

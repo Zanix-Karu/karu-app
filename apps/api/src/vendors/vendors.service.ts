@@ -12,6 +12,7 @@ import {
   type Vendor,
 } from '@karu/shared';
 import { SupabaseService } from '../supabase/supabase.service';
+import { dbErrorMessage } from '../supabase/db-error';
 import { ReviewsService } from '../reviews/reviews.service';
 import { CreateVendorDto, UploadDocumentDto } from './dto';
 
@@ -70,7 +71,7 @@ export class VendorsService {
       })
       .select('*')
       .single();
-    if (error || !data) throw new ConflictException(error?.message ?? 'Could not create vendor');
+    if (error || !data) throw new ConflictException(dbErrorMessage(error, 'Could not create vendor'));
 
     await this.supabase.db.from('profiles').update({ role: 'vendor' }).eq('id', profileId);
     return data as Vendor;
@@ -91,7 +92,7 @@ export class VendorsService {
       .eq('id', vendor.id)
       .select('*')
       .single();
-    if (error || !data) throw new BadRequestException(error?.message ?? 'Could not update vendor');
+    if (error || !data) throw new BadRequestException(dbErrorMessage(error, 'Could not update vendor'));
     return data as Vendor;
   }
 
@@ -189,7 +190,7 @@ export class VendorsService {
       ? this.supabase.db.from('vendor_documents').update(row).eq('id', prior.id)
       : this.supabase.db.from('vendor_documents').insert(row);
     const { data, error } = await write.select('*').single();
-    if (error || !data) throw new BadRequestException(error?.message ?? 'Could not record document');
+    if (error || !data) throw new BadRequestException(dbErrorMessage(error, 'Could not record document'));
 
     return {
       document: data,
@@ -209,7 +210,7 @@ export class VendorsService {
       .select('*')
       .eq('vendor_id', vendor.id)
       .order('created_at', { ascending: false });
-    if (error) throw new BadRequestException(error.message);
+    if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not list documents'));
     return data ?? [];
   }
 
@@ -250,8 +251,8 @@ export class VendorsService {
         .lte('start_date', today)
         .gte('end_date', today),
     ]);
-    if (bookingsRes.error) throw new BadRequestException(bookingsRes.error.message);
-    if (vehiclesRes.error) throw new BadRequestException(vehiclesRes.error.message);
+    if (bookingsRes.error) throw new BadRequestException(dbErrorMessage(bookingsRes.error, 'Could not load booking stats'));
+    if (vehiclesRes.error) throw new BadRequestException(dbErrorMessage(vehiclesRes.error, 'Could not load fleet stats'));
 
     const bookings = (bookingsRes.data ?? []) as Array<{
       status: string;
@@ -341,7 +342,7 @@ export class VendorsService {
       )
       .eq('status', 'verified')
       .order('created_at', { ascending: false });
-    if (error) throw new NotFoundException(error.message);
+    if (error) throw new NotFoundException(dbErrorMessage(error, 'Could not list vendors'));
 
     const vendors = (data ?? []) as PublicVendor[];
     const ratings = await this.reviews.summaryByVendor(vendors.map((v) => v.id));

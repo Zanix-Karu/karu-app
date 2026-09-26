@@ -35,6 +35,12 @@ export class AdminController {
     return this.admin.overview();
   }
 
+  /** REQ-4: bounces visible, not swallowed. See AdminService.listEmailLog. */
+  @Get('email-log')
+  listEmailLog(@Query('status') status?: 'sent' | 'failed') {
+    return this.admin.listEmailLog(status);
+  }
+
   // --- vendor verification queue ---
 
   @Get('vendors')

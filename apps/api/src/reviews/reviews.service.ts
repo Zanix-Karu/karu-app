@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import type { Booking, Review, ReviewTarget, UserRole } from '@karu/shared';
 import { SupabaseService } from '../supabase/supabase.service';
+import { dbErrorMessage } from '../supabase/db-error';
 import { ConfigService } from '@nestjs/config';
 import { CreateReviewDto } from './dto';
 import {
@@ -83,7 +84,7 @@ export class ReviewsService {
       if (error.code === '23505') {
         throw new ConflictException('You have already reviewed this booking');
       }
-      throw new BadRequestException(error.message);
+      throw new BadRequestException(dbErrorMessage(error, 'Could not submit review'));
     }
     return data as Review;
   }
@@ -157,7 +158,7 @@ export class ReviewsService {
       .from('reviews')
       .delete({ count: 'exact' })
       .eq('id', reviewId);
-    if (error) throw new BadRequestException(error.message);
+    if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not delete review'));
     if (!count) throw new NotFoundException('Review not found');
     return { deleted: true };
   }
@@ -170,7 +171,7 @@ export class ReviewsService {
       .select('*')
       .eq('author_id', userId)
       .in('booking_id', bookingIds);
-    if (error) throw new BadRequestException(error.message);
+    if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not load reviews'));
     return (data ?? []) as Review[];
   }
 
@@ -183,7 +184,7 @@ export class ReviewsService {
       .eq('target', 'customer')
       .eq('bookings.customer_id', userId)
       .in('booking_id', bookingIds);
-    if (error) throw new BadRequestException(error.message);
+    if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not load reviews'));
     return ((data ?? []) as Array<Review & { bookings: unknown }>).map(({ bookings: _bookings, ...review }) => review);
   }
 
@@ -201,7 +202,7 @@ export class ReviewsService {
       .eq('bookings.vendor_id', vendorId)
       .order('created_at', { ascending: false })
       .limit(limit);
-    if (error) throw new BadRequestException(error.message);
+    if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not load reviews'));
     return data ?? [];
   }
 
@@ -219,7 +220,7 @@ export class ReviewsService {
       .select('rating, bookings!inner(vendor_id)')
       .eq('target', 'vendor')
       .in('bookings.vendor_id', vendorIds);
-    if (error) throw new BadRequestException(error.message);
+    if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not load reviews'));
 
     // PostgREST returns the joined row as an object for a to-one relation,
     // but the generated types model it as an array — accept either.

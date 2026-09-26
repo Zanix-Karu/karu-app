@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type { Booking, BookingMessage, UserRole } from '@karu/shared';
 import { SupabaseService } from '../supabase/supabase.service';
+import { dbErrorMessage } from '../supabase/db-error';
 import { BookingsService } from '../bookings/bookings.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { redactContactDetails } from './redact';
@@ -32,7 +33,7 @@ export class MessagesService {
       .select('*')
       .eq('booking_id', bookingId)
       .order('created_at', { ascending: true });
-    if (error) throw new BadRequestException(error.message);
+    if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not load messages'));
 
     // Cursor, not per-message flags: "read" means "opened the thread".
     await this.supabase.db
@@ -73,7 +74,7 @@ export class MessagesService {
       .select('*')
       .single();
     if (error || !data) {
-      throw new BadRequestException(error?.message ?? 'Could not send message');
+      throw new BadRequestException(dbErrorMessage(error, 'Could not send message'));
     }
     const message = data as BookingMessage;
 
@@ -104,7 +105,7 @@ export class MessagesService {
       .from('booking_messages')
       .select('booking_id, sender_role, body, redacted, created_at')
       .order('created_at', { ascending: false });
-    if (error) throw new BadRequestException(error.message);
+    if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not load conversations'));
     const messages = (data ?? []) as Array<
       Pick<BookingMessage, 'booking_id' | 'sender_role' | 'body' | 'redacted' | 'created_at'>
     >;

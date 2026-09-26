@@ -26,8 +26,22 @@ interface BookingDetail extends Booking {
   customer: { display_name: string; full_name?: string | null; phone?: string | null; email?: string | null } | null;
 }
 
-/** Transitions each view may drive from this screen. Labels are i18n keys. */
-const ACTIONS: Record<string, Partial<Record<BookingStatus, Array<{ to: BookingStatus; label: string; danger?: boolean }>>>> = {
+interface Action {
+  to: BookingStatus;
+  /** i18n key. */
+  label: string;
+  danger?: boolean;
+  /**
+   * REQ-6: a vendor driving this transition must read the code back from the
+   * customer rather than just clicking through — admin's identical-looking
+   * action is left without this flag, since admin keeps the override it
+   * already has everywhere else (ops/dispute resolution).
+   */
+  needsCode?: boolean;
+}
+
+/** Transitions each view may drive from this screen. */
+const ACTIONS: Record<string, Partial<Record<BookingStatus, Action[]>>> = {
   customer: {
     requested: [{ to: 'cancelled', label: 'booking.action.cancelBooking', danger: true }],
     confirmed: [{ to: 'cancelled', label: 'booking.action.cancelBooking', danger: true }],
@@ -38,10 +52,10 @@ const ACTIONS: Record<string, Partial<Record<BookingStatus, Array<{ to: BookingS
       { to: 'rejected', label: 'booking.action.reject', danger: true },
     ],
     confirmed: [
-      { to: 'in_progress', label: 'booking.action.startTrip' },
+      { to: 'in_progress', label: 'booking.action.startTrip', needsCode: true },
       { to: 'cancelled', label: 'booking.action.cancelBooking', danger: true },
     ],
-    in_progress: [{ to: 'completed', label: 'booking.action.completeTrip' }],
+    in_progress: [{ to: 'completed', label: 'booking.action.completeTrip', needsCode: true }],
   },
   admin: {
     requested: [
@@ -76,15 +90,20 @@ export function BookingDetailScreen() {
   });
 
   const transition = useMutation({
-    mutationFn: (to: BookingStatus) =>
-      api(`/bookings/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status: to }) }),
+    mutationFn: ({ to, code }: { to: BookingStatus; code?: string }) =>
+      api(`/bookings/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status: to, code }) }),
     onSuccess: () => {
+      setCodeActionTo(null);
+      setCodeDraft('');
       void qc.invalidateQueries({ queryKey: ['booking-detail', id] });
       void qc.invalidateQueries({ queryKey: ['my-bookings'] });
       void qc.invalidateQueries({ queryKey: ['admin-bookings'] });
       void qc.invalidateQueries({ queryKey: ['vendor-stats'] });
     },
   });
+  // REQ-6: which needsCode action currently has its inline code prompt open.
+  const [codeActionTo, setCodeActionTo] = useState<BookingStatus | null>(null);
+  const [codeDraft, setCodeDraft] = useState('');
 
   // The vendor's review of the customer, fetched only once the booking is
   // known to be completed and this is the customer's own view of it.
@@ -152,6 +171,24 @@ export function BookingDetailScreen() {
       {b.status === 'in_progress' && (
         <div className="mt-4 rounded-xl bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-800">
           {t('booking.tripInProgress', { date: prettyDate(b.end_date) })}
+        </div>
+      )}
+
+      {/*
+        REQ-6: only the customer's own view carries these (the API nulls
+        them out for a vendor/admin read — see hideCodesUnlessCustomer),
+        so no extra role check is needed here.
+      */}
+      {view === 'customer' && b.status === 'confirmed' && b.handover_code && (
+        <div className="mt-4 rounded-xl bg-karu-yellow/20 px-4 py-3 text-sm text-karu-brown">
+          <p className="font-semibold">{t('booking.handoverCode', { code: b.handover_code })}</p>
+          <p className="mt-1">{t('booking.handoverCodeHint')}</p>
+        </div>
+      )}
+      {view === 'customer' && b.status === 'in_progress' && b.return_code && (
+        <div className="mt-4 rounded-xl bg-karu-yellow/20 px-4 py-3 text-sm text-karu-brown">
+          <p className="font-semibold">{t('booking.returnCode', { code: b.return_code })}</p>
+          <p className="mt-1">{t('booking.returnCodeHint')}</p>
         </div>
       )}
 
@@ -268,31 +305,69 @@ export function BookingDetailScreen() {
       {actions.length > 0 && (
         <Card style={{ marginTop: 16 }}>
           <h2 className="font-display text-lg font-bold">{t('booking.actions')}</h2>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {actions.map((a) =>
-              a.danger ? (
-                <ConfirmButton
-                  key={a.to}
-                  as={Button}
-                  variant="danger"
-                  loading={transition.isPending}
-                  confirmLabel={`${t(a.label)}?`}
-                  onConfirm={() => transition.mutate(a.to)}
-                >
-                  {t(a.label)}
-                </ConfirmButton>
-              ) : (
-                <Button
-                  key={a.to}
-                  variant="primary"
-                  disabled={transition.isPending}
-                  onClick={() => transition.mutate(a.to)}
-                >
-                  {transition.isPending ? t('common.oneMoment') : t(a.label)}
-                </Button>
-              ),
-            )}
-          </div>
+          {codeActionTo ? (
+            // REQ-6: read the code back from the customer rather than a
+            // plain click — replaces the row's usual actions while open.
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <input
+                value={codeDraft}
+                onChange={(e) => setCodeDraft(e.target.value)}
+                placeholder={t('vendor.actions.codePlaceholder')}
+                autoFocus
+                className="w-40 rounded-lg border border-karu-ink/15 px-3 py-2 text-sm"
+              />
+              <Button
+                variant="primary"
+                disabled={!codeDraft.trim() || transition.isPending}
+                onClick={() => transition.mutate({ to: codeActionTo, code: codeDraft.trim() })}
+              >
+                {transition.isPending
+                  ? t('common.oneMoment')
+                  : t(actions.find((a) => a.to === codeActionTo)?.label ?? '')}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => { setCodeActionTo(null); setCodeDraft(''); }}
+              >
+                {t('common.cancel')}
+              </Button>
+            </div>
+          ) : (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {actions.map((a) =>
+                a.danger ? (
+                  <ConfirmButton
+                    key={a.to}
+                    as={Button}
+                    variant="danger"
+                    loading={transition.isPending}
+                    confirmLabel={`${t(a.label)}?`}
+                    onConfirm={() => transition.mutate({ to: a.to })}
+                  >
+                    {t(a.label)}
+                  </ConfirmButton>
+                ) : a.needsCode ? (
+                  <Button
+                    key={a.to}
+                    variant="primary"
+                    disabled={transition.isPending}
+                    onClick={() => { setCodeActionTo(a.to); setCodeDraft(''); }}
+                  >
+                    {t(a.label)}
+                  </Button>
+                ) : (
+                  <Button
+                    key={a.to}
+                    variant="primary"
+                    disabled={transition.isPending}
+                    onClick={() => transition.mutate({ to: a.to })}
+                  >
+                    {transition.isPending ? t('common.oneMoment') : t(a.label)}
+                  </Button>
+                ),
+              )}
+            </div>
+          )}
           {transition.isError && (
             <div className="mt-3">
               <ErrorNote>{(transition.error as Error).message}</ErrorNote>

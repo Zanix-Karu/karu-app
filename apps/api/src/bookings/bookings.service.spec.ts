@@ -4,7 +4,7 @@ import {
   ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
-import type { Booking } from '@karu/shared';
+import { isBookingArchived, type Booking } from '@karu/shared';
 import { BookingsService } from './bookings.service';
 import type { SupabaseService } from '../supabase/supabase.service';
 import type { VehiclesService } from '../vehicles/vehicles.service';
@@ -95,6 +95,8 @@ const baseBooking: Booking = {
   assistance_requested_by: null,
   assistance_note: null,
   assistance_resolved_at: null,
+  handover_code: null,
+  return_code: null,
 };
 
 const noVehicles = {} as VehiclesService;
@@ -127,6 +129,84 @@ describe('BookingsService.transition — state machine', () => {
     await expect(
       svc.transition('b1', 'vendor-profile', 'vendor', 'cancelled'),
     ).rejects.toThrow(BadRequestException);
+  });
+});
+
+describe('BookingsService.transition — handover/return codes (REQ-6)', () => {
+  it('mints both codes on confirm', async () => {
+    const { service: supabase, state } = makeSupabase(baseBooking, { vendorId: 'vend-1' });
+    const svc = new BookingsService(supabase, noVehicles, noVendors, noNotifications);
+    await svc.transition('b1', 'vendor-profile', 'vendor', 'confirmed');
+    expect(state.updated?.handover_code).toMatch(/^\d{4}$/);
+    expect(state.updated?.return_code).toMatch(/^\d{4}$/);
+  });
+
+  it('a vendor cannot confirm handover with no code', async () => {
+    const confirmedBooking = { ...baseBooking, status: 'confirmed' as const, handover_code: '1234' };
+    const { service: supabase } = makeSupabase(confirmedBooking, { vendorId: 'vend-1' });
+    const svc = new BookingsService(supabase, noVehicles, noVendors, noNotifications);
+    await expect(
+      svc.transition('b1', 'vendor-profile', 'vendor', 'in_progress'),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('a vendor cannot confirm handover with the wrong code', async () => {
+    const confirmedBooking = { ...baseBooking, status: 'confirmed' as const, handover_code: '1234' };
+    const { service: supabase } = makeSupabase(confirmedBooking, { vendorId: 'vend-1' });
+    const svc = new BookingsService(supabase, noVehicles, noVendors, noNotifications);
+    await expect(
+      svc.transition('b1', 'vendor-profile', 'vendor', 'in_progress', undefined, '0000'),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('a vendor confirms handover with the right code', async () => {
+    const confirmedBooking = { ...baseBooking, status: 'confirmed' as const, handover_code: '1234' };
+    const { service: supabase } = makeSupabase(confirmedBooking, { vendorId: 'vend-1' });
+    const svc = new BookingsService(supabase, noVehicles, noVendors, noNotifications);
+    const result = await svc.transition('b1', 'vendor-profile', 'vendor', 'in_progress', undefined, '1234');
+    expect(result.status).toBe('in_progress');
+  });
+
+  it('a vendor confirms return with the right return_code, not the handover_code', async () => {
+    const inProgress = {
+      ...baseBooking,
+      status: 'in_progress' as const,
+      handover_code: '1234',
+      return_code: '5678',
+    };
+    const { service: supabase } = makeSupabase(inProgress, { vendorId: 'vend-1' });
+    const svc = new BookingsService(supabase, noVehicles, noVendors, noNotifications);
+    // The handover code (from the earlier step) must NOT also confirm the return.
+    await expect(
+      svc.transition('b1', 'vendor-profile', 'vendor', 'completed', undefined, '1234'),
+    ).rejects.toThrow(BadRequestException);
+    const result = await svc.transition('b1', 'vendor-profile', 'vendor', 'completed', undefined, '5678');
+    expect(result.status).toBe('completed');
+  });
+
+  it('admin overrides the code requirement (ops/dispute escape hatch)', async () => {
+    const confirmedBooking = { ...baseBooking, status: 'confirmed' as const, handover_code: '1234' };
+    const { service: supabase } = makeSupabase(confirmedBooking);
+    const svc = new BookingsService(supabase, noVehicles, noVendors, noNotifications);
+    const result = await svc.transition('b1', 'admin-1', 'admin', 'in_progress');
+    expect(result.status).toBe('in_progress');
+  });
+
+  it('hides the codes from a vendor reading the booking back, but not from the customer', async () => {
+    const confirmedBooking = {
+      ...baseBooking,
+      status: 'confirmed' as const,
+      handover_code: '1234',
+      return_code: '5678',
+    };
+    const { service: supabase } = makeSupabase(confirmedBooking, { vendorId: 'vend-1' });
+    const svc = new BookingsService(supabase, noVehicles, noVendors, noNotifications);
+    const asVendor = await svc.getForUser('b1', 'vendor-profile', 'vendor');
+    expect(asVendor.handover_code).toBeNull();
+    expect(asVendor.return_code).toBeNull();
+    const asCustomer = await svc.getForUser('b1', 'cust-1', 'customer');
+    expect(asCustomer.handover_code).toBe('1234');
+    expect(asCustomer.return_code).toBe('5678');
   });
 });
 
@@ -371,5 +451,19 @@ describe('BookingsService.create — booking request flow', () => {
         end_date: d('01'),
       } as never),
     ).rejects.toThrow(BadRequestException);
+  });
+});
+
+describe('isBookingArchived (REQ-10)', () => {
+  it('is true only for the three terminal statuses', () => {
+    expect(isBookingArchived('completed')).toBe(true);
+    expect(isBookingArchived('rejected')).toBe(true);
+    expect(isBookingArchived('cancelled')).toBe(true);
+  });
+
+  it('is false for statuses still in play', () => {
+    expect(isBookingArchived('requested')).toBe(false);
+    expect(isBookingArchived('confirmed')).toBe(false);
+    expect(isBookingArchived('in_progress')).toBe(false);
   });
 });

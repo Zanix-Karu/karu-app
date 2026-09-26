@@ -69,6 +69,18 @@ export function canTransitionBooking(from: BookingStatus, to: BookingStatus): bo
 }
 
 /**
+ * REQ-10: a booking's active lists (customer, vendor, admin) should show
+ * requested/confirmed/in_progress and nothing else — completed, rejected and
+ * cancelled trips are done, and clutter the list they're trying to act on.
+ * "Archived" is derived from the state machine itself (a terminal status has
+ * no outgoing transitions) rather than a separate flag, so there's nothing
+ * to keep in sync if a transition rule ever changes.
+ */
+export function isBookingArchived(status: BookingStatus): boolean {
+  return BOOKING_TRANSITIONS[status].length === 0;
+}
+
+/**
  * Allowed vendor status transitions — same idea as BOOKING_TRANSITIONS, so a
  * fat-fingered admin click can't drive a vendor into a state that makes no
  * sense (e.g. rejected → suspended). Re-verification after a rejection or a
@@ -225,6 +237,8 @@ export interface Vendor {
   airport_fee_xaf: number | null;
   status: VendorStatus;
   verified_at: string | null;
+  /** REQ-9: why this vendor is currently suspended. Null otherwise — cleared on reinstatement. */
+  suspension_reason: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -248,6 +262,7 @@ export type PublicVendor = Omit<
   | 'whatsapp_number'
   | 'address'
   | 'rccm_number'
+  | 'suspension_reason'
 >;
 
 export interface VendorDocument {
@@ -416,6 +431,14 @@ export interface Booking {
   assistance_note: string | null;
   /** Set when an admin marked that request handled. */
   assistance_resolved_at: string | null;
+  /**
+   * REQ-6: generated on confirm, shown to the customer, entered by the
+   * vendor to drive confirmed -> in_progress / in_progress -> completed.
+   * Not a security boundary — a courtesy confirmation, same idea as a
+   * food-delivery handover PIN — so null until confirmed.
+   */
+  handover_code: string | null;
+  return_code: string | null;
 }
 
 /**
