@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { computeDepositXaf } from '@karu/shared';
 import type { Booking, PaymentStatus, UserRole } from '@karu/shared';
 import { SupabaseService } from '../supabase/supabase.service';
+import { dbErrorMessage } from '../supabase/db-error';
 import { BookingsService } from '../bookings/bookings.service';
 import {
   ManualPaymentProvider,
@@ -168,7 +169,7 @@ export class PaymentsService {
       .eq('id', row.id)
       .select('*')
       .single();
-    if (error || !data) throw new BadRequestException(error?.message ?? 'Could not update payment');
+    if (error || !data) throw new BadRequestException(dbErrorMessage(error, 'Could not update payment'));
     return data as PaymentRow;
   }
 
@@ -196,7 +197,7 @@ export class PaymentsService {
       .eq('provider_ref', event.providerRef)
       .select('*')
       .maybeSingle();
-    if (error) throw new BadRequestException(error.message);
+    if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not update payment status'));
     if (!data) throw new NotFoundException('No payment matches that reference');
     return { updated: true, status: event.status };
   }
@@ -218,7 +219,7 @@ export class PaymentsService {
       .insert(row)
       .select('*')
       .single();
-    if (error || !data) throw new BadRequestException(error?.message ?? 'Could not create payment');
+    if (error || !data) throw new BadRequestException(dbErrorMessage(error, 'Could not create payment'));
     return data as PaymentRow;
   }
 }
