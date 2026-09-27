@@ -338,7 +338,7 @@ export class VendorsService {
     const { data, error } = await this.supabase.db
       .from('vendors')
       .select(
-        'id, business_name, city, delivery_fee_xaf, airport_fee_xaf, status, verified_at, created_at, updated_at',
+        'id, business_name, city, delivery_fee_xaf, airport_fee_xaf, bio, status, verified_at, created_at, updated_at',
       )
       .eq('status', 'verified')
       .order('created_at', { ascending: false });

@@ -12,6 +12,7 @@ import { SkeletonCarCard } from '../components/Skeleton';
 import { useCurrency } from '../lib/currency';
 
 interface Filters {
+  q: string;
   city: string;
   category: string;
   transmission: string;
@@ -24,6 +25,7 @@ interface Filters {
 }
 
 const EMPTY: Filters = {
+  q: '',
   city: '',
   category: '',
   transmission: '',
@@ -163,6 +165,13 @@ export function SearchScreen() {
             alignItems: 'end',
           }}
         >
+          <Field label={t('search.keyword')} onDark>
+            <Input
+              value={draft.q}
+              onChange={setAndApplyDebounced('q')}
+              placeholder={t('search.keywordPlaceholder')}
+            />
+          </Field>
           <Field label={t('search.city')} onDark>
             <Select value={draft.city} onChange={set('city')}>
               <option value="">{t('search.allCities')}</option>

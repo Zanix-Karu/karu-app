@@ -11,7 +11,8 @@ import {
   Min,
 } from 'class-validator';
 import type { City, DocumentType } from '@karu/shared';
-import { NormalizeEmail } from '../lib/normalize';
+import { EmptyToNull, NormalizeEmail } from '../lib/normalize';
+import { WordCountRange } from '../lib/word-count-range.validator';
 
 const CITIES: City[] = ['douala', 'yaounde', 'other'];
 const DOCUMENT_TYPES: DocumentType[] = [
@@ -88,6 +89,14 @@ export class CreateVendorDto {
   @IsOptional()
   @IsBoolean()
   declaration_accepted?: boolean;
+
+  /** Customer-facing "about this provider" blurb. Blank is valid — 50-100 words if present. */
+  @IsOptional()
+  @EmptyToNull()
+  @IsString()
+  @MaxLength(1000)
+  @WordCountRange()
+  bio?: string;
 }
 
 /**
@@ -107,4 +116,5 @@ export class UpdateVendorDto {
   @IsOptional() @IsString() @MaxLength(240) address?: string;
   @IsOptional() @IsInt() @Min(0) delivery_fee_xaf?: number;
   @IsOptional() @IsInt() @Min(0) airport_fee_xaf?: number;
+  @IsOptional() @EmptyToNull() @IsString() @MaxLength(1000) @WordCountRange() bio?: string;
 }

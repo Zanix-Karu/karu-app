@@ -4,9 +4,12 @@ import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
+  countWords,
   isBookingArchived,
   missingPhotoAngles,
   primaryPhoto,
+  VENDOR_BIO_MAX_WORDS,
+  VENDOR_BIO_MIN_WORDS,
   type Booking,
   type BookingStatus,
   type Review,
@@ -369,6 +372,76 @@ function DeliverySettings({ vendor }: { vendor: Vendor }) {
   );
 }
 
+/**
+ * A short "about this provider" blurb shown on the public directory, profile
+ * and car pages. Blank is a real, valid answer (nothing shown publicly); if
+ * present it must be 50-100 words, same rule the API enforces via
+ * `@WordCountRange()` — the shared `countWords()` helper keeps this counter
+ * from ever disagreeing with what the server will actually accept.
+ */
+function BusinessProfileSettings({ vendor }: { vendor: Vendor }) {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const [bio, setBio] = useState(vendor.bio ?? '');
+
+  const count = countWords(bio);
+  const blank = bio.trim() === '';
+  const inRange = count >= VENDOR_BIO_MIN_WORDS && count <= VENDOR_BIO_MAX_WORDS;
+  const valid = blank || inRange;
+
+  const save = useMutation({
+    mutationFn: () =>
+      api<Vendor>('/vendors/me', {
+        method: 'PATCH',
+        body: JSON.stringify({ bio: blank ? '' : bio }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['vendor-me'] }),
+  });
+
+  return (
+    <>
+      <h2 style={{ margin: '32px 0 14px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
+        {t('vendor.profile.title')}
+      </h2>
+      <Card>
+        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', margin: '0 0 14px' }}>
+          {t('vendor.profile.sub')}
+        </p>
+        <Field label={t('vendor.profile.label')}>
+          <textarea
+            className="w-full rounded-md border border-karu-ink/15 bg-white px-3 py-2 text-sm text-karu-ink placeholder:text-karu-mute focus:border-karu-gold focus:outline-none focus:ring-2 focus:ring-karu-gold/30"
+            rows={4}
+            maxLength={1000}
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            placeholder={t('vendor.profile.placeholder')}
+          />
+        </Field>
+        <p
+          style={{
+            marginTop: 6,
+            fontFamily: 'var(--font-ui)',
+            fontSize: 12,
+            fontWeight: 600,
+            color: valid ? 'var(--success)' : 'var(--danger)',
+          }}
+        >
+          {t('vendor.profile.wordCount', { count })}
+        </p>
+        <Button size="sm" style={{ marginTop: 14 }} disabled={!valid || save.isPending} onClick={() => save.mutate()}>
+          {save.isPending ? t('vendor.saving') : t('vendor.profile.save')}
+        </Button>
+        {save.isError && <div style={{ marginTop: 10 }}><ErrorNote>{(save.error as Error).message}</ErrorNote></div>}
+        {save.isSuccess && (
+          <span style={{ marginLeft: 12, fontFamily: 'var(--font-ui)', fontSize: 14, fontWeight: 600, color: 'var(--success)' }}>
+            {t('vendor.saved')}
+          </span>
+        )}
+      </Card>
+    </>
+  );
+}
+
 function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: boolean }) {
   const { t } = useTranslation();
   const { data: stats, isLoading } = useQuery({
@@ -615,6 +688,7 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
       </div>
 
       {!asAdmin && <DeliverySettings vendor={vendor} />}
+      {!asAdmin && <BusinessProfileSettings vendor={vendor} />}
 
       <h2 style={{ margin: '32px 0 14px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
         {t('vendor.recentReviews')}

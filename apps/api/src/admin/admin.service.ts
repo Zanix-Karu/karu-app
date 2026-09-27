@@ -12,6 +12,7 @@ import {
   type Vehicle,
   type VendorStatus,
 } from '@karu/shared';
+import { createHash } from 'node:crypto';
 import { SupabaseService } from '../supabase/supabase.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { dbErrorMessage } from '../supabase/db-error';
@@ -22,6 +23,26 @@ import {
   ReviewDocumentDto,
   SetVendorStatusDto,
 } from './dto';
+
+const DOCUMENTS_BUCKET = 'vendor-documents';
+
+/**
+ * REQ-12: insurance, carte grise and roadworthiness lapse quietly. Shared by
+ * the dashboard's aggregate counters and each document's per-row flag so the
+ * two can never disagree about what "expiring soon" means.
+ */
+const DOC_EXPIRY_WARNING_DAYS = 30;
+
+/** Below this, a scan is likely blank/corrupt rather than a real document. */
+const TINY_DOCUMENT_BYTES = 20 * 1024;
+
+/** One document row as the admin Documents tab renders it. */
+export interface AdminDocumentRow extends VendorDocument {
+  vendors: { business_name: string } | null;
+  vehicles: { make: string; model: string; registration_number: string | null } | null;
+  /** Advisory only — the reviewer still decides. Never auto-rejects. */
+  flags: string[];
+}
 
 @Injectable()
 export class AdminService {
@@ -79,7 +100,6 @@ export class AdminService {
      * rejected document isn't the operative one (a replacement is expected),
      * so only pending/approved rows count.
      */
-    const DOC_EXPIRY_WARNING_DAYS = 30;
     const now = new Date();
     const warnBefore = new Date(now.getTime() + DOC_EXPIRY_WARNING_DAYS * 24 * 60 * 60 * 1000).toISOString();
     const nowIso = now.toISOString();
@@ -225,8 +245,13 @@ export class AdminService {
   }
 
   /** Documents awaiting (or past) review, with their vendor's name and, when
-   *  scoped to a car, the car — reviewers match plates against cartes grises. */
-  async listDocuments(status?: 'pending' | 'approved' | 'rejected', vendorId?: string) {
+   *  scoped to a car, the car — reviewers match plates against cartes grises.
+   *  Each row also carries automated red-flags (see `attachDocumentFlags`) —
+   *  advisory only, the reviewer still approves or rejects by hand. */
+  async listDocuments(
+    status?: 'pending' | 'approved' | 'rejected',
+    vendorId?: string,
+  ): Promise<AdminDocumentRow[]> {
     let q = this.supabase.db
       .from('vendor_documents')
       .select('*, vendors(business_name), vehicles(make, model, registration_number)');
@@ -234,7 +259,93 @@ export class AdminService {
     if (vendorId) q = q.eq('vendor_id', vendorId);
     const { data, error } = await q.order('created_at', { ascending: false });
     if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not list documents'));
-    return data ?? [];
+    return this.attachDocumentFlags((data ?? []) as Omit<AdminDocumentRow, 'flags'>[]);
+  }
+
+  /**
+   * Automated pre-checks surfaced to the admin reviewer before they decide —
+   * no external ID/OCR verification, no auto-reject. Three signals, each
+   * cheap and local:
+   *  - expired / expiring_soon: the same predicate the dashboard's aggregate
+   *    counters already use (see `overview()`), just evaluated per row.
+   *  - tiny_file: the stored object's size via `.list()` metadata — no
+   *    download, since documents can be up to 15 MiB and this runs on every
+   *    list-view render.
+   *  - duplicate_of_own: this document's content hash matches another
+   *    document already on file for the *same* vendor — catches one scan
+   *    reused across two different requirement types. Deliberately scoped to
+   *    one vendor's own (small, bounded) document set: hashing every
+   *    document across every vendor on every list call would be a real
+   *    cost/perf problem, not an oversight.
+   */
+  private async attachDocumentFlags(
+    rows: Omit<AdminDocumentRow, 'flags'>[],
+  ): Promise<AdminDocumentRow[]> {
+    const nowMs = Date.now();
+    const warnBeforeMs = nowMs + DOC_EXPIRY_WARNING_DAYS * 24 * 60 * 60 * 1000;
+
+    const vendorIds = [...new Set(rows.map((r) => r.vendor_id))];
+    const siblingsByVendor = new Map<string, Array<{ id: string; file_path: string }>>();
+    await Promise.all(
+      vendorIds.map(async (vendorId) => {
+        const { data } = await this.supabase.db
+          .from('vendor_documents')
+          .select('id, file_path')
+          .eq('vendor_id', vendorId);
+        siblingsByVendor.set(vendorId, (data ?? []) as Array<{ id: string; file_path: string }>);
+      }),
+    );
+
+    // Hashes are re-used across rows in the same call so one file is never
+    // downloaded/hashed twice just because two of its siblings are compared.
+    const hashCache = new Map<string, string | null>();
+    const hashOf = async (filePath: string): Promise<string | null> => {
+      if (hashCache.has(filePath)) return hashCache.get(filePath) ?? null;
+      const { data: blob, error } = await this.supabase.db.storage
+        .from(DOCUMENTS_BUCKET)
+        .download(filePath);
+      const hash = !error && blob ? createHash('sha256').update(Buffer.from(await blob.arrayBuffer())).digest('hex') : null;
+      hashCache.set(filePath, hash);
+      return hash;
+    };
+
+    return Promise.all(
+      rows.map(async (row) => {
+        const flags: string[] = [];
+
+        if (row.expires_at && row.status !== 'rejected') {
+          const expiresMs = new Date(row.expires_at).getTime();
+          if (expiresMs < nowMs) flags.push('expired');
+          else if (expiresMs <= warnBeforeMs) flags.push('expiring_soon');
+        }
+
+        const slashAt = row.file_path.indexOf('/');
+        if (slashAt !== -1) {
+          const folder = row.file_path.slice(0, slashAt);
+          const name = row.file_path.slice(slashAt + 1);
+          const { data: listed } = await this.supabase.db.storage
+            .from(DOCUMENTS_BUCKET)
+            .list(folder, { search: name, limit: 1 });
+          const size = listed?.find((o) => o.name === name)?.metadata?.size;
+          if (typeof size === 'number' && size < TINY_DOCUMENT_BYTES) flags.push('tiny_file');
+        }
+
+        const siblings = (siblingsByVendor.get(row.vendor_id) ?? []).filter((d) => d.id !== row.id);
+        if (siblings.length) {
+          const myHash = await hashOf(row.file_path);
+          if (myHash) {
+            for (const sibling of siblings) {
+              if ((await hashOf(sibling.file_path)) === myHash) {
+                flags.push('duplicate_of_own');
+                break;
+              }
+            }
+          }
+        }
+
+        return { ...row, flags } as AdminDocumentRow;
+      }),
+    );
   }
 
   /**

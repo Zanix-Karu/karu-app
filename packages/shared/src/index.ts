@@ -239,9 +239,22 @@ export interface Vendor {
   verified_at: string | null;
   /** REQ-9: why this vendor is currently suspended. Null otherwise — cleared on reinstatement. */
   suspension_reason: string | null;
+  /** Short "about this provider" blurb, 50-100 words. Customer-facing. */
+  bio: string | null;
   created_at: string;
   updated_at: string;
 }
+
+/** Word count of free text, for the vendor bio's 50-100 word rule. Shared so
+ *  the API validator and the web textarea's live counter can never disagree. */
+export function countWords(text: string): number {
+  const trimmed = text.trim();
+  if (!trimmed) return 0;
+  return trimmed.split(/\s+/).length;
+}
+
+export const VENDOR_BIO_MIN_WORDS = 50;
+export const VENDOR_BIO_MAX_WORDS = 100;
 
 /**
  * What an unauthenticated caller may see about a vendor.
@@ -377,6 +390,7 @@ export interface VehicleVendorSummary {
   status: VendorStatus;
   delivery_fee_xaf: number | null;
   airport_fee_xaf: number | null;
+  bio: string | null;
 }
 
 /**

@@ -20,7 +20,7 @@ function makeSupabase(row: Record<string, unknown>) {
   const chain: Record<string, unknown> = {};
   const self = () => chain;
   for (const m of [
-    'eq', 'neq', 'gte', 'lte', 'not', 'order', 'range', 'in', 'filter', 'or',
+    'eq', 'neq', 'gte', 'lte', 'not', 'order', 'range', 'in', 'filter', 'or', 'ilike', 'limit',
   ]) {
     chain[m] = self;
   }
@@ -65,6 +65,15 @@ describe('public vehicle projection', () => {
   it('getPublicDetail() never selects the number plate', async () => {
     const { supabase, selects } = makeSupabase(ROW);
     await new VehiclesService(supabase, vendors).getPublicDetail('v1');
+
+    expect(selects).toHaveLength(1);
+    expect(selects[0]).not.toContain('registration_number');
+    expect(selects[0]).not.toMatch(/^\*/);
+  });
+
+  it('compare() never selects the number plate', async () => {
+    const { supabase, selects } = makeSupabase(ROW);
+    await new VehiclesService(supabase, vendors).compare({ make: 'Toyota', model: 'Vitz' } as never);
 
     expect(selects).toHaveLength(1);
     expect(selects[0]).not.toContain('registration_number');

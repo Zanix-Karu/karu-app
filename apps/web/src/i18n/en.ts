@@ -211,6 +211,8 @@ export const en = {
     heroA: 'Rent the right car.',
     heroB: 'Right where you are.',
     sub: 'Every provider verified · Total price up front · No hidden fees.',
+    keyword: 'Make or model',
+    keywordPlaceholder: 'e.g. Toyota Corolla',
     city: 'City',
     allCities: 'All cities',
     pickUp: 'Pick-up',
@@ -243,6 +245,8 @@ export const en = {
   car: {
     verifiedProvider: 'Verified provider',
     pickupLocations: 'Pick-up locations',
+    aboutProvider: 'About the provider',
+    otherVendors: 'Other providers with this car',
     conditions: 'Cancel any time before pick-up at no cost · No hidden fees. What you see is what you pay',
     available: 'Available {{from}} → {{to}}',
     notAvailable: 'Not available for those dates. Try different ones.',
@@ -668,6 +672,14 @@ export const en = {
       notOffered: 'Not offered',
       save: 'Save delivery pricing',
     },
+    profile: {
+      title: 'Business profile',
+      sub: 'A short blurb customers see on your profile and car pages. Leave it blank, or write 50–100 words.',
+      label: 'About your business',
+      placeholder: 'Tell customers what makes your service reliable — fleet size, experience, what to expect.',
+      wordCount: '{{count}} words (50–100, or leave blank)',
+      save: 'Save business profile',
+    },
     saving: 'Saving…',
     saved: 'Saved ✓',
     bookings: {
@@ -895,6 +907,12 @@ export const en = {
       confirmReject: 'Confirm reject',
       cancel: 'Cancel',
       reasonPlaceholder: 'Reason the vendor will see',
+      flag: {
+        expired: '⚠ Expired',
+        expiringSoon: '⚠ Expiring soon',
+        tinyFile: '⚠ Unusually small file',
+        duplicateOwn: '⚠ Matches another of this vendor’s documents',
+      },
     },
     cars: {
       addTitle: 'Add a car',

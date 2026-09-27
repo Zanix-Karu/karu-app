@@ -5,7 +5,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { imageSize } from 'image-size';
 import {
   missingPhotoAngles,
   type PhotoAngle,
@@ -16,7 +17,7 @@ import {
 import { SupabaseService } from '../supabase/supabase.service';
 import { dbErrorMessage } from '../supabase/db-error';
 import { VendorsService } from '../vendors/vendors.service';
-import { BrowseVehiclesQuery, CreateVehicleDto } from './dto';
+import { BrowseVehiclesQuery, CompareVehiclesQuery, CreateVehicleDto } from './dto';
 import { assertValidWindow } from './dates';
 
 /** A page of listings, plus enough context for the UI to paginate. */
@@ -32,6 +33,10 @@ const PHOTOS_BUCKET = 'vehicle-photos';
 
 /** Mirrors the bucket's own allowed_mime_types (0026); belt and braces. */
 const ALLOWED_PHOTO_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
+/** Below this, a shot doesn't do the listing (or a fraud reviewer) any good. */
+const MIN_PHOTO_WIDTH_PX = 640;
+const MIN_PHOTO_HEIGHT_PX = 480;
 
 @Injectable()
 export class VehiclesService {
@@ -83,6 +88,13 @@ export class VehiclesService {
     if (query.seats !== undefined) q = q.gte('seats', query.seats);
     if (query.min_price !== undefined) q = q.gte('daily_rate_xaf', query.min_price);
     if (query.max_price !== undefined) q = q.lte('daily_rate_xaf', query.max_price);
+
+    if (query.q) {
+      // Strip characters meaningful to PostgREST's .or() filter syntax so a
+      // typed comma/paren can't produce a malformed filter.
+      const term = query.q.trim().replace(/[,()]/g, '');
+      if (term) q = q.or(`make.ilike.%${term}%,model.ilike.%${term}%`);
+    }
 
     if (query.from || query.to) {
       if (!query.from || !query.to) {
@@ -168,13 +180,45 @@ export class VehiclesService {
       // SECURITY: same explicit list as browse — the plate stays out of the
       // public payload until pickup.
       .select(
-        'id, vendor_id, make, model, year, category, seats, transmission, fuel_type, daily_rate_xaf, weekly_rate_xaf, monthly_rate_xaf, driver_option, driver_daily_rate_xaf, city, pickup_locations, photos, photo_angles, description, status, created_at, updated_at, vendors!inner(id, business_name, city, status, delivery_fee_xaf, airport_fee_xaf)',
+        'id, vendor_id, make, model, year, category, seats, transmission, fuel_type, daily_rate_xaf, weekly_rate_xaf, monthly_rate_xaf, driver_option, driver_daily_rate_xaf, city, pickup_locations, photos, photo_angles, description, status, created_at, updated_at, vendors!inner(id, business_name, city, status, delivery_fee_xaf, airport_fee_xaf, bio)',
       )
       .eq('id', id)
       .single();
     if (error || !data) throw new NotFoundException('Vehicle not found');
     const { vendors, ...vehicle } = data as Record<string, unknown> & { vendors: unknown };
     return { ...vehicle, vendor: vendors } as VehicleDetail;
+  }
+
+  /**
+   * "Other vendors with this car" — active listings from other verified
+   * vendors matching the same make+model(+year), cheapest first.
+   *
+   * Grouping is a normalized (trimmed, case-insensitive) match via `.ilike()`
+   * with no wildcards — not a canonical make/model catalog. That means a
+   * vendor typo ("Corola" vs "Corolla") won't match; accepted trade-off, not
+   * a bug to quietly fix later.
+   */
+  async compare(query: CompareVehiclesQuery): Promise<VehicleDetail[]> {
+    let q = this.supabase.db
+      .from('vehicles')
+      // SECURITY: same explicit list as browse/getPublicDetail.
+      .select(
+        'id, vendor_id, make, model, year, category, seats, transmission, fuel_type, daily_rate_xaf, weekly_rate_xaf, monthly_rate_xaf, driver_option, driver_daily_rate_xaf, city, pickup_locations, photos, photo_angles, description, status, created_at, updated_at, vendors!inner(id, business_name, city, status, delivery_fee_xaf, airport_fee_xaf, bio)',
+      )
+      .eq('status', 'active')
+      .eq('vendors.status', 'verified')
+      .ilike('make', query.make.trim())
+      .ilike('model', query.model.trim());
+    if (query.year !== undefined) q = q.eq('year', query.year);
+    if (query.exclude_vehicle_id) q = q.neq('id', query.exclude_vehicle_id);
+    q = q.order('daily_rate_xaf', { ascending: true }).limit(query.limit ?? 20);
+
+    const { data, error } = await q;
+    if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not load comparison'));
+    return (data ?? []).map((row) => {
+      const { vendors, ...vehicle } = row as Record<string, unknown> & { vendors: unknown };
+      return { ...vehicle, vendor: vendors } as VehicleDetail;
+    });
   }
 
   async getById(id: string): Promise<Vehicle> {
@@ -241,6 +285,51 @@ export class VehiclesService {
       throw new BadRequestException('Uploaded file is not a supported image type');
     }
 
+    const bytes = await this.downloadPhotoBytes(path);
+    if (!bytes) {
+      await this.supabase.db.storage.from(PHOTOS_BUCKET).remove([path]);
+      throw new BadRequestException('Could not read the uploaded file');
+    }
+
+    // Corrupt-file and minimum-resolution checks in one pass: imageSize()
+    // throws (or can't report usable dimensions) on anything it can't
+    // actually decode as an image.
+    let dims: { width: number; height: number };
+    try {
+      dims = imageSize(bytes);
+    } catch {
+      await this.supabase.db.storage.from(PHOTOS_BUCKET).remove([path]);
+      throw new BadRequestException('Uploaded file could not be read as an image — try a different photo');
+    }
+    if (dims.width < MIN_PHOTO_WIDTH_PX || dims.height < MIN_PHOTO_HEIGHT_PX) {
+      await this.supabase.db.storage.from(PHOTOS_BUCKET).remove([path]);
+      throw new BadRequestException(
+        `Photo is too small (${dims.width}×${dims.height}px) — minimum is ${MIN_PHOTO_WIDTH_PX}×${MIN_PHOTO_HEIGHT_PX}px`,
+      );
+    }
+
+    // Exact-duplicate check: a vendor reusing one photo across two required
+    // angles is a real onboarding mistake (spec §5 wants six distinct shots),
+    // not a hypothetical. Bounded to this vehicle's own small photo set, so
+    // re-downloading each one here is cheap and needs no schema change.
+    // The photo this exact call is about to replace (if any) is excluded —
+    // re-saving the same angle isn't "reused across two angles".
+    const replacedUrl = angle ? vehicle.photo_angles?.[angle] : undefined;
+    const newHash = createHash('sha256').update(bytes).digest('hex');
+    for (const existingUrl of vehicle.photos) {
+      if (existingUrl === replacedUrl) continue;
+      const existingPath = this.photoStoragePath(vehicleId, existingUrl);
+      if (!existingPath) continue;
+      const existingBytes = await this.downloadPhotoBytes(existingPath);
+      if (!existingBytes) continue;
+      if (createHash('sha256').update(existingBytes).digest('hex') === newHash) {
+        await this.supabase.db.storage.from(PHOTOS_BUCKET).remove([path]);
+        throw new BadRequestException(
+          'This exact photo is already attached to this listing — each required angle needs its own picture',
+        );
+      }
+    }
+
     const { data: pub } = this.supabase.db.storage.from(PHOTOS_BUCKET).getPublicUrl(path);
     const angles = { ...(vehicle.photo_angles ?? {}) };
     let photos = [...vehicle.photos];
@@ -299,12 +388,27 @@ export class VehiclesService {
    * Only paths under the vehicle's own prefix are ever touched.
    */
   private async deleteStoredPhoto(vehicleId: string, url: string): Promise<void> {
+    const path = this.photoStoragePath(vehicleId, url);
+    if (!path) return;
+    await this.supabase.db.storage.from(PHOTOS_BUCKET).remove([path]);
+  }
+
+  /** A photo's public URL back to its storage path, scoped to this vehicle's
+   *  own prefix (never touches another vehicle's object). */
+  private photoStoragePath(vehicleId: string, url: string): string | null {
     const marker = `/object/public/${PHOTOS_BUCKET}/`;
     const markerAt = url.indexOf(marker);
-    if (markerAt === -1) return;
+    if (markerAt === -1) return null;
     const path = decodeURIComponent(url.slice(markerAt + marker.length));
-    if (!path.startsWith(`${vehicleId}/`)) return;
-    await this.supabase.db.storage.from(PHOTOS_BUCKET).remove([path]);
+    if (!path.startsWith(`${vehicleId}/`)) return null;
+    return path;
+  }
+
+  /** Raw bytes of a stored photo, or null if it can't be read. */
+  private async downloadPhotoBytes(path: string): Promise<Buffer | null> {
+    const { data: blob, error } = await this.supabase.db.storage.from(PHOTOS_BUCKET).download(path);
+    if (error || !blob) return null;
+    return Buffer.from(await blob.arrayBuffer());
   }
 
   /** Edit a listing. Ownership-checked; vendor_id can never be reassigned. */

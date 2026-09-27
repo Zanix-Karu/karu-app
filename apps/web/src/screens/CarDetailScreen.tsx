@@ -3,15 +3,16 @@ import { PhotoCarousel } from '../components/PhotoCarousel';
 import { usePageMeta } from '../lib/page-meta';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { Booking, DeliveryType, VehicleDetail } from '@karu/shared';
-import { orderedPhotos, quoteBooking } from '@karu/shared';
+import { orderedPhotos, primaryPhoto, quoteBooking } from '@karu/shared';
 import { api } from '../lib/api';
 import { useAuth, useView } from '../lib/auth';
 import { CAN_BOOK } from '../lib/roles';
 import { useCurrency } from '../lib/currency';
 import { CATEGORY_LABEL, CITY_LABEL, prettyDate, todayISO, xaf } from '../lib/format';
 import { Button, Card, ErrorNote, Field, Input, Spinner } from '../ui';
+import { CarCard } from '../ds';
 
 interface Availability {
   available: boolean;
@@ -146,6 +147,20 @@ export function CarDetailScreen() {
             </ul>
           </div>
         )}
+
+        <div className="mt-5">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-karu-mute">
+            {t('car.aboutProvider')}
+          </h2>
+          <p className="mt-1 text-sm">
+            <Link to={`/vendors/${car.vendor.id}`} className="font-semibold text-karu-gold hover:underline">
+              {car.vendor.business_name}
+            </Link>
+          </p>
+          {car.vendor.bio && <p className="mt-1 max-w-prose text-sm leading-6">{car.vendor.bio}</p>}
+        </div>
+
+        <OtherVendorsWithThisCar car={car} />
 
         {/* State only what is enforced today. A timed free-cancellation window
             needs the refund path from the payments phase before it can be
@@ -388,6 +403,53 @@ export function CarDetailScreen() {
           </>
         )}
       </Card>
+    </div>
+  );
+}
+
+/**
+ * Other active listings matching this car's make/model(/year), cheapest
+ * first — grouped by a normalized match (see `compare()`), so a vendor typo
+ * won't surface a real match here. Renders nothing when there are none, not
+ * an empty state — this is a bonus, not a section the page promises.
+ */
+function OtherVendorsWithThisCar({ car }: { car: VehicleDetail }) {
+  const { t } = useTranslation();
+  const { secondary } = useCurrency();
+  const params = new URLSearchParams({ make: car.make, model: car.model, exclude_vehicle_id: car.id });
+  if (car.year) params.set('year', String(car.year));
+
+  const { data } = useQuery({
+    queryKey: ['vehicles-compare', car.id],
+    queryFn: () => api<VehicleDetail[]>(`/vehicles/compare?${params.toString()}`),
+  });
+
+  if (!data || data.length === 0) return null;
+
+  return (
+    <div className="mt-6">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-karu-mute">
+        {t('car.otherVendors')}
+      </h2>
+      <div className="mt-2 flex flex-col gap-4">
+        {data.map((v) => (
+          <Link key={v.id} to={`/cars/${v.id}`}>
+            <CarCard
+              image={primaryPhoto(v)}
+              name={`${v.make} ${v.model}`}
+              category={`${CATEGORY_LABEL[v.category]}${v.year ? ` · ${v.year}` : ''}`}
+              seats={v.seats ? t('common.seats', { count: v.seats }) : '—'}
+              transmission={v.transmission === 'automatic' ? t('common.automatic') : t('common.manual')}
+              extra={CITY_LABEL[v.city]}
+              provider={v.vendor.business_name}
+              price={v.daily_rate_xaf}
+              subPrice={t('common.allFeesIn')}
+              perDayLabel={t('common.perDay')}
+              secondaryPrice={secondary(v.daily_rate_xaf)}
+            />
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }

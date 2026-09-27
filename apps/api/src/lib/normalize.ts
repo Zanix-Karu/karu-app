@@ -17,3 +17,17 @@ export function NormalizeEmail() {
     typeof value === 'string' ? value.replace(/\s+/g, '').toLowerCase() : value,
   );
 }
+
+/**
+ * `@IsOptional()` only skips validation for `undefined`/`null`, not for an
+ * empty string — clearing an optional textarea submits `''`, which would
+ * otherwise reach a validator like `@WordCountRange()` as a real value rather
+ * than "not provided". Turning blank/whitespace-only into `null` here lets
+ * `@IsOptional()` correctly short-circuit, same ordering as `NormalizeEmail`
+ * (runs during class-transformer's plainToInstance pass, before validators).
+ */
+export function EmptyToNull() {
+  return Transform(({ value }) =>
+    typeof value === 'string' && value.trim() === '' ? null : value,
+  );
+}

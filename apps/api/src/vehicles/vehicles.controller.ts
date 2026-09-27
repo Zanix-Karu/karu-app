@@ -6,6 +6,7 @@ import {
   AttachPhotoDto,
   AvailabilityQuery,
   BrowseVehiclesQuery,
+  CompareVehiclesQuery,
   CreateBlockDto,
   CreateVehicleDto,
   RemovePhotoDto,
@@ -29,6 +30,14 @@ export class VehiclesController {
   @Get('mine')
   mine(@CurrentUser('id') profileId: string, @CurrentUser('role') role: UserRole) {
     return this.vehicles.listForVendorProfile(profileId, role);
+  }
+
+  /** Other vendors listing the same make/model(/year). Declared before :id
+   *  for the same reason as `mine` — otherwise 'compare' is captured as :id. */
+  @Public()
+  @Get('compare')
+  compare(@Query() query: CompareVehiclesQuery) {
+    return this.vehicles.compare(query);
   }
 
   @Public()
