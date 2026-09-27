@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { usePageMeta } from './lib/page-meta';
 import {
@@ -89,6 +89,9 @@ function Header() {
   const { session, profile, signOut } = useAuth();
   const view = useView();
   const navigate = useNavigate();
+  // No logo asset exists yet (Feature 3 prep) — the image is tried first and
+  // falls back to the text wordmark on 404 rather than showing a broken icon.
+  const [logoFailed, setLogoFailed] = useState(false);
 
   // px-3 on mobile so the row fits a 375px viewport without overflowing.
   const nav = ({ isActive }: { isActive: boolean }) =>
@@ -99,17 +102,27 @@ function Header() {
   return (
     <header className="sticky top-0 z-20 bg-karu-ink">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 py-3 sm:justify-between sm:gap-4">
-        <Link
-          to={HOME[view]}
-          className="shrink-0 text-[20px] sm:text-[26px]"
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontWeight: 700,
-            letterSpacing: '0.3em',
-            color: 'var(--gold-400)',
-          }}
-        >
-          KARU
+        <Link to={HOME[view]} className="shrink-0">
+          {logoFailed ? (
+            <span
+              className="text-[20px] sm:text-[26px]"
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontWeight: 700,
+                letterSpacing: '0.3em',
+                color: 'var(--gold-400)',
+              }}
+            >
+              KARU
+            </span>
+          ) : (
+            <img
+              src="/logo.svg"
+              alt="Karu"
+              className="h-6 sm:h-8"
+              onError={() => setLogoFailed(true)}
+            />
+          )}
         </Link>
         {/* Each view sees only its own items — see lib/roles.ts */}
         <nav className="karu-nav-strip flex flex-nowrap items-center justify-center gap-1 overflow-x-auto">

@@ -423,6 +423,16 @@ type AdminDocument = {
   notes: string | null;
   vendors: { business_name: string } | null;
   vehicles: { make: string; model: string; registration_number: string | null } | null;
+  /** Automated pre-checks for the reviewer — advisory only, never auto-reject. */
+  flags: string[];
+};
+
+/** API flag names -> the i18n key suffix under `admin.docs.flag`. */
+const FLAG_KEY: Record<string, string> = {
+  expired: 'expired',
+  expiring_soon: 'expiringSoon',
+  tiny_file: 'tinyFile',
+  duplicate_of_own: 'duplicateOwn',
 };
 
 function Documents() {
@@ -485,6 +495,18 @@ function Documents() {
                   <> · {t('admin.docs.expires', { date: new Date(d.expires_at).toLocaleDateString() })}</>
                 )}
               </p>
+              {d.flags.length > 0 && (
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {d.flags.map((flag) => (
+                    <span
+                      key={flag}
+                      className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800"
+                    >
+                      {t(`admin.docs.flag.${FLAG_KEY[flag] ?? flag}`)}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {/* Reviewing blind is not reviewing — open the file first. */}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { plainToInstance } from 'class-transformer';
-import { NormalizeEmail } from './normalize';
+import { EmptyToNull, NormalizeEmail } from './normalize';
 
 class Dto {
   @NormalizeEmail()
@@ -22,5 +22,30 @@ describe('NormalizeEmail', () => {
 
   it('passes through a non-string value untouched', () => {
     expect(plainToInstance(Dto, { email: undefined }).email).toBeUndefined();
+  });
+});
+
+class BlankableDto {
+  @EmptyToNull()
+  bio?: string;
+}
+
+describe('EmptyToNull', () => {
+  it('turns a blank string into null', () => {
+    expect(plainToInstance(BlankableDto, { bio: '' }).bio).toBeNull();
+  });
+
+  it('turns a whitespace-only string into null', () => {
+    expect(plainToInstance(BlankableDto, { bio: '   ' }).bio).toBeNull();
+  });
+
+  it('leaves non-empty text unchanged', () => {
+    expect(plainToInstance(BlankableDto, { bio: 'Family-run since 2019.' }).bio).toBe(
+      'Family-run since 2019.',
+    );
+  });
+
+  it('passes through a non-string value untouched', () => {
+    expect(plainToInstance(BlankableDto, { bio: undefined }).bio).toBeUndefined();
   });
 });

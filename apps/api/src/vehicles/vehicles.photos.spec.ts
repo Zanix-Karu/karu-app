@@ -6,8 +6,28 @@ import type { VendorsService } from '../vendors/vendors.service';
 
 const PUBLIC_BASE = 'https://proj.supabase.co/storage/v1/object/public/vehicle-photos';
 
+/**
+ * A minimal-but-valid PNG: `image-size` only reads the signature (bytes 0-7),
+ * the "IHDR" chunk-type marker (bytes 12-15) and the width/height uint32s
+ * (bytes 16-23) — it never validates chunk length, CRC or pixel data — so
+ * this is enough for `imageSize()` to report real dimensions without a real
+ * encoded image.
+ */
+function fakePng(width: number, height: number): Buffer {
+  const buf = Buffer.alloc(24);
+  buf.write('\x89PNG\r\n\x1a\n', 0, 'binary');
+  buf.write('IHDR', 12, 'ascii');
+  buf.writeUInt32BE(width, 16);
+  buf.writeUInt32BE(height, 20);
+  return buf;
+}
+
+const VALID_PHOTO = fakePng(1280, 960);
+const TOO_SMALL_PHOTO = fakePng(200, 150);
+const CORRUPT_BYTES = Buffer.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+
 /** Stub covering the queries the photo flows make; records what they write. */
-const makeSupabase = (vehicle: Record<string, unknown>) => {
+const makeSupabase = (vehicle: Record<string, unknown>, photoBytes: Record<string, Buffer> = {}) => {
   const writes = {
     photos: null as string[] | null,
     angles: null as Record<string, string> | null,
@@ -46,6 +66,13 @@ const makeSupabase = (vehicle: Record<string, unknown>) => {
           data: opts?.search ? [{ name: opts.search, metadata: { mimetype: 'image/jpeg' } }] : [],
           error: null,
         }),
+        // Defaults to a valid photo for any path a test doesn't care about,
+        // so existing angle-slot tests need no changes; a test exercising the
+        // new checks overrides specific paths via `photoBytes`.
+        download: async (path: string) => {
+          const bytes = photoBytes[path] ?? VALID_PHOTO;
+          return { data: { arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) }, error: null };
+        },
       }),
     },
   };
@@ -158,6 +185,78 @@ describe('VehiclesService.attachPhoto (angle slots)', () => {
     // The rejected object is deleted, and nothing is recorded on the listing.
     expect(writes.removedPaths).toEqual(['veh-1/x-front.svg']);
     expect(writes.photos).toBeNull();
+  });
+
+  it('rejects a file that cannot be read as an image (corrupt bytes)', async () => {
+    const { supabase, writes } = makeSupabase(
+      { id: 'veh-1', photos: [], photo_angles: {} },
+      { 'veh-1/x-front.jpg': CORRUPT_BYTES },
+    );
+    const svc = new VehiclesService(supabase, noVendors);
+
+    await expect(
+      svc.attachPhoto('veh-1', 'admin-1', 'admin', 'veh-1/x-front.jpg', 'front'),
+    ).rejects.toThrow(BadRequestException);
+    expect(writes.removedPaths).toEqual(['veh-1/x-front.jpg']);
+    expect(writes.photos).toBeNull();
+  });
+
+  it('rejects a photo below the minimum resolution', async () => {
+    const { supabase, writes } = makeSupabase(
+      { id: 'veh-1', photos: [], photo_angles: {} },
+      { 'veh-1/x-front.jpg': TOO_SMALL_PHOTO },
+    );
+    const svc = new VehiclesService(supabase, noVendors);
+
+    await expect(
+      svc.attachPhoto('veh-1', 'admin-1', 'admin', 'veh-1/x-front.jpg', 'front'),
+    ).rejects.toThrow(/too small/);
+    expect(writes.removedPaths).toEqual(['veh-1/x-front.jpg']);
+    expect(writes.photos).toBeNull();
+  });
+
+  it('accepts a valid photo at or above the minimum resolution', async () => {
+    const { supabase, writes } = makeSupabase(
+      { id: 'veh-1', photos: [], photo_angles: {} },
+      { 'veh-1/x-front.jpg': VALID_PHOTO },
+    );
+    const svc = new VehiclesService(supabase, noVendors);
+
+    await svc.attachPhoto('veh-1', 'admin-1', 'admin', 'veh-1/x-front.jpg', 'front');
+    expect(writes.photos).toEqual([`${PUBLIC_BASE}/veh-1/x-front.jpg`]);
+  });
+
+  it('rejects an exact duplicate of a photo already attached to this listing', async () => {
+    const existing = `${PUBLIC_BASE}/veh-1/aaa-front.jpg`;
+    const { supabase, writes } = makeSupabase(
+      { id: 'veh-1', photos: [existing], photo_angles: { front: existing } },
+      {
+        'veh-1/aaa-front.jpg': VALID_PHOTO,
+        'veh-1/bbb-rear.jpg': VALID_PHOTO, // identical bytes, reused for a different angle
+      },
+    );
+    const svc = new VehiclesService(supabase, noVendors);
+
+    await expect(
+      svc.attachPhoto('veh-1', 'admin-1', 'admin', 'veh-1/bbb-rear.jpg', 'rear'),
+    ).rejects.toThrow(/already attached/);
+    expect(writes.removedPaths).toEqual(['veh-1/bbb-rear.jpg']);
+    expect(writes.photos).toBeNull();
+  });
+
+  it('accepts two different photos for two different angles', async () => {
+    const existing = `${PUBLIC_BASE}/veh-1/aaa-front.jpg`;
+    const { supabase, writes } = makeSupabase(
+      { id: 'veh-1', photos: [existing], photo_angles: { front: existing } },
+      {
+        'veh-1/aaa-front.jpg': fakePng(1280, 960),
+        'veh-1/bbb-rear.jpg': fakePng(1000, 800), // different dimensions => different bytes/hash
+      },
+    );
+    const svc = new VehiclesService(supabase, noVendors);
+
+    await svc.attachPhoto('veh-1', 'admin-1', 'admin', 'veh-1/bbb-rear.jpg', 'rear');
+    expect(writes.angles).toEqual({ front: existing, rear: `${PUBLIC_BASE}/veh-1/bbb-rear.jpg` });
   });
 });
 

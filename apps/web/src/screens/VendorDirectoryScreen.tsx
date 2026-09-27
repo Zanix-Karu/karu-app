@@ -153,6 +153,20 @@ export function VendorProfileScreen() {
         </div>
       )}
 
+      {vendor.bio && (
+        <p
+          style={{
+            margin: '20px 0 0',
+            fontFamily: 'var(--font-ui)',
+            fontSize: 15,
+            lineHeight: 1.6,
+            color: 'var(--gray-600)',
+          }}
+        >
+          {vendor.bio}
+        </p>
+      )}
+
       <VendorReviews vendorId={id} />
 
       <h2 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22, margin: '28px 0 14px' }}>

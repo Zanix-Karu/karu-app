@@ -102,6 +102,27 @@ export class BrowseVehiclesQuery {
 
   /** Restrict to one vendor's fleet (vendor directory profile pages). */
   @IsOptional() @IsUUID() vendor_id?: string;
+
+  /** Free-text match against make or model (case-insensitive, partial). */
+  @IsOptional() @IsString() @MaxLength(80) q?: string;
+}
+
+/**
+ * "Other vendors with this car" — grouped by a normalized (trimmed,
+ * case-insensitive) make+model(+year) match, not a canonical catalog. A
+ * vendor typo ("Corola" vs "Corolla") won't match; that's an accepted
+ * trade-off, not a bug to silently fix later.
+ */
+export class CompareVehiclesQuery {
+  @IsString() @MaxLength(60) make!: string;
+  @IsString() @MaxLength(60) model!: string;
+
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1980) @Max(2100) year?: number;
+
+  /** Exclude the vehicle currently being viewed from its own comparison list. */
+  @IsOptional() @IsUUID() exclude_vehicle_id?: string;
+
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(50) limit?: number;
 }
 
 /**

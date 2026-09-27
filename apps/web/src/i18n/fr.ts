@@ -214,6 +214,8 @@ export const fr = {
     heroA: 'La bonne voiture.',
     heroB: 'Là où vous êtes.',
     sub: 'Loueurs vérifiés · Prix total affiché · Aucun frais caché.',
+    keyword: 'Marque ou modèle',
+    keywordPlaceholder: 'p. ex. Toyota Corolla',
     city: 'Ville',
     allCities: 'Toutes les villes',
     pickUp: 'Prise en charge',
@@ -246,6 +248,8 @@ export const fr = {
   car: {
     verifiedProvider: 'Loueur vérifié',
     pickupLocations: 'Points de prise en charge',
+    aboutProvider: 'À propos du loueur',
+    otherVendors: 'Autres loueurs proposant ce véhicule',
     conditions:
       'Annulation gratuite à tout moment avant la prise en charge · Aucun frais caché: le prix affiché est le prix payé',
     available: 'Disponible du {{from}} au {{to}}',
@@ -672,6 +676,14 @@ export const fr = {
       notOffered: 'Non proposé',
       save: 'Enregistrer les tarifs de livraison',
     },
+    profile: {
+      title: 'Profil de l’entreprise',
+      sub: 'Un court texte visible par les clients sur votre profil et vos annonces. Laissez-le vide, ou écrivez 50 à 100 mots.',
+      label: 'À propos de votre entreprise',
+      placeholder: 'Expliquez aux clients ce qui rend votre service fiable — taille de la flotte, expérience, ce à quoi s’attendre.',
+      wordCount: '{{count}} mots (50 à 100, ou laissez vide)',
+      save: 'Enregistrer le profil de l’entreprise',
+    },
     saving: 'Enregistrement…',
     saved: 'Enregistré ✓',
     bookings: {
@@ -899,6 +911,12 @@ export const fr = {
       confirmReject: 'Confirmer le refus',
       cancel: 'Annuler',
       reasonPlaceholder: 'Motif visible par le loueur',
+      flag: {
+        expired: '⚠ Expiré',
+        expiringSoon: '⚠ Expire bientôt',
+        tinyFile: '⚠ Fichier anormalement petit',
+        duplicateOwn: '⚠ Correspond à un autre document de ce loueur',
+      },
     },
     cars: {
       addTitle: 'Ajouter une voiture',
