@@ -64,9 +64,45 @@ Environment variables:
 | `VITE_API_URL` | `https://api.getkaru.io` |
 | `VITE_SUPABASE_URL` | `https://oxjkrfcwffdkycrstnxz.supabase.co` |
 | `VITE_SUPABASE_ANON_KEY` | anon key (safe to expose; RLS-gated) |
+| `SITE_ACCESS_CODE` | pre-launch only — the team's code for the coming-soon gate below. Production **and** Preview. |
 
 DNS: `CNAME app → cname.vercel-dns.com`, then add `app.getkaru.io` as the
 project domain in Vercel.
+
+### Pre-launch gate (coming soon)
+
+Until launch, `apps/web/middleware.ts` (Vercel Routing Middleware) answers
+every request to the web deployment — app.getkaru.io, karu-web.vercel.app and
+every preview — with a bilingual coming-soon page and nothing else: not the
+SPA shell, not the JS bundle, not a single asset. It runs on Vercel's side,
+so there is nothing in the browser to switch off. `pnpm dev` never loads it.
+
+**Getting in:** open **Team access** at the bottom of the page (or go straight
+to `/__access`) and enter the code. That sets a signed HttpOnly cookie, good
+for 30 days in that browser, and lands you on the page you asked for.
+
+**Setting the code** — from the repo root, then redeploy (env changes only
+reach new deployments):
+
+```bash
+CODE=$(openssl rand -hex 12) && echo "$CODE"   # save it in a password manager
+printf %s "$CODE" | vercel env add SITE_ACCESS_CODE production
+printf %s "$CODE" | vercel env add SITE_ACCESS_CODE preview
+```
+
+It fails closed: unset, or shorter than 12 characters, and nobody gets in.
+Changing it (someone left, it spread too far) revokes every pass already
+handed out.
+
+**Launch:** delete `apps/web/middleware.ts` and `apps/web/gate/`, drop them
+from the `include` lists in `apps/web/tsconfig.json` and
+`apps/web/vitest.config.ts`, remove `SITE_ACCESS_CODE`, and merge.
+
+What it does not cover: the API and Supabase Auth are separate hosts and still
+answer anyone who calls them directly (the Supabase URL and anon key were
+public while the site was). To close sign-ups too during pre-launch, turn off
+Supabase → Authentication → *Allow new users to sign up*; team accounts can
+still be invited from the dashboard.
 
 ## 3. Order of operations for go-live
 
@@ -76,6 +112,7 @@ project domain in Vercel.
    browser can call it.
 4. Verify the loop on production: sign up → browse seeded cars → request →
    confirm from the admin account → check `email_log`.
+5. Take the coming-soon gate down (see *Pre-launch gate* above).
 
 ## 4. Email go-live (Resend)
 
