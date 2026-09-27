@@ -11,3 +11,7 @@ import { gate } from './gate/gate';
 export default function middleware(request: Request) {
   return gate(request, process.env.SITE_ACCESS_CODE);
 }
+
+// Vercel's default for middleware.ts is Edge, which its build now flags as
+// deprecated. The gate only uses web-standard APIs, so either runtime works.
+export const config = { runtime: 'nodejs' };
