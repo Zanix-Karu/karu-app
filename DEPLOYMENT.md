@@ -82,12 +82,11 @@ to `/__access`) and enter the code. That sets a signed HttpOnly cookie, good
 for 30 days in that browser, and lands you on the page you asked for.
 
 **Setting the code** — from the repo root, then redeploy (env changes only
-reach new deployments):
+reach new deployments). It prints the code once; keep it in a password
+manager:
 
 ```bash
-CODE=$(openssl rand -hex 12) && echo "$CODE"   # save it in a password manager
-printf %s "$CODE" | vercel env add SITE_ACCESS_CODE production
-printf %s "$CODE" | vercel env add SITE_ACCESS_CODE preview
+CODE=$(openssl rand -hex 12) && vercel env add SITE_ACCESS_CODE production --value "$CODE" --yes && vercel env add SITE_ACCESS_CODE preview --value "$CODE" --yes && echo "Access code: $CODE"
 ```
 
 It fails closed: unset, or shorter than 12 characters, and nobody gets in.
