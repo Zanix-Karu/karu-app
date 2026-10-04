@@ -5,6 +5,53 @@
  * provider, "caution" for the deposit, "prise en charge" for pick-up.
  */
 export const fr = {
+  verify: {
+    title: "Vérifiez votre identité",
+    status: {
+      unverified: "Non vérifié",
+      pending: "En cours de vérification",
+      verified: "Vérifié",
+      rejected: "À revoir",
+    },
+    intro: {
+      unverified: "Un prestataire ne peut accepter une location sans chauffeur qu'une fois votre permis et votre pièce d'identité vérifiés par Karu. L'envoi prend quelques minutes et nous vérifions sous 24 heures.",
+      pending: "Merci. Karu vérifie vos documents, en général sous 24 heures. Vous recevrez un e-mail une fois terminé.",
+      verified: "Votre permis et votre pièce d'identité sont vérifiés. Le prestataire verra votre nom et votre photo lors de la remise, pour savoir que c'est bien vous.",
+      rejected: "Quelque chose ne correspond pas. Corrigez ce qui est indiqué ci-dessous, puis renvoyez.",
+    },
+    doc: {
+      licence_front: "Permis, recto",
+      licence_back: "Permis, verso",
+      national_id: "Carte nationale d'identité",
+      passport: "Passeport",
+      selfie: "Selfie",
+      identity: "CNI ou passeport",
+      date_of_birth: "Date de naissance",
+      licence_expiry: "Expiration du permis",
+    },
+    onFile: "Reçu · touchez pour remplacer",
+    add: "Touchez pour ajouter",
+    idHint: "Il faut le permis (recto et verso), une carte nationale d'identité ou un passeport, et un selfie bien éclairé.",
+    dob: "Date de naissance",
+    licenceExpiry: "Date d'expiration du permis",
+    stillNeeded: "Il manque : {{list}}",
+    submit: "Envoyer pour vérification",
+    uploadFailed: "Le fichier n'a pas été envoyé. Réessayez.",
+    privacy: "Vos documents sont conservés de façon privée et seule l'équipe Karu peut les voir. Les prestataires ne voient que votre nom et votre selfie, et uniquement pour une réservation qu'ils ont acceptée.",
+    banner: {
+      title: "Vérifiez votre identité pour que le prestataire puisse accepter",
+      body: "Les locations sans chauffeur exigent un permis vérifié. Envoyez-le maintenant pour éviter tout retard.",
+      cta: "Vérifier mon identité",
+      pendingTitle: "Votre identité est en cours de vérification",
+      pendingBody: "Le prestataire pourra accepter dès que Karu aura terminé, en général sous 24 heures.",
+    },
+    vendor: {
+      verified: "Identité vérifiée par Karu",
+      notVerified: "L'identité de ce client n'est pas vérifiée. Ne remettez pas le véhicule ; contactez le support Karu.",
+      selfieAlt: "La photo vérifiée du client",
+      checkHint: "Comparez ce visage et ce nom avec la personne et son permis physique avant de saisir le code.",
+    },
+  },
   inspection: {
     formCustomerReturn: "Votre constat du véhicule au retour (facultatif)",
     formCustomerHandover: "Votre constat du véhicule à la prise en charge (facultatif, mais il vous protège en cas de désaccord)",
@@ -919,8 +966,16 @@ export const fr = {
     },
   },
   admin: {
+    ids: {
+      none: "Aucune vérification ici",
+      noName: "Pas de nom sur le profil",
+      approve: "Vérifier",
+      reject: "Refuser",
+      rejectReason: "Que doit corriger le client ?",
+    },
     title: 'Opérations Karu',
     tabs: {
+      ids: "Identités clients",
       overview: 'Vue d’ensemble',
       vendors: 'Loueurs',
       documents: 'Documents',
@@ -945,6 +1000,8 @@ export const fr = {
       to: 'à {{recipient}}',
     },
     overview: {
+      alertCustomerIds_other: "{{count}} vérifications d'identité client en attente",
+      alertCustomerIds_one: "{{count}} vérification d'identité client en attente",
       alertFlaggedChats_other: "{{count}} conversations de ces {{days}} derniers jours parlent de passer hors de Karu",
       alertFlaggedChats_one: "{{count}} conversation de ces {{days}} derniers jours parle de passer hors de Karu",
       alertVendorCancelling: "{{name}} a annulé {{count}} réservations acceptées ces {{days}} derniers jours",

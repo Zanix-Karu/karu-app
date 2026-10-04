@@ -13,6 +13,7 @@ import {
   canTransitionBooking,
   depositRefundDue,
   quoteBooking,
+  selfDriveBlocker,
 } from '@karu/shared';
 import type { Booking, BookingStatus, UserRole } from '@karu/shared';
 import { SupabaseService } from '../supabase/supabase.service';
@@ -21,6 +22,7 @@ import { VehiclesService } from '../vehicles/vehicles.service';
 import { VendorsService } from '../vendors/vendors.service';
 import { assertValidWindow } from '../vehicles/dates';
 import { NotificationsService } from '../notifications/notifications.service';
+import { VerificationService } from '../verification/verification.service';
 import { CreateBookingDto } from './dto';
 
 /**
@@ -71,7 +73,51 @@ export class BookingsService {
     private readonly vendors: VendorsService,
     private readonly notifications: NotificationsService,
     @Optional() private readonly config?: ConfigService,
+    @Optional() private readonly verification?: VerificationService,
   ) {}
+
+  /** Self-drive needs a verified customer (0032). REQUIRE_CUSTOMER_VERIFICATION=false switches it off. */
+  private get customerVerificationRequired(): boolean {
+    return this.config?.get<string>('REQUIRE_CUSTOMER_VERIFICATION') !== 'false';
+  }
+
+  /**
+   * A provider accepting a self-drive request is about to hand a car to this
+   * person, so the ID check has to be done and has to cover the dates: old
+   * enough on day one, licence still valid on the last day. With a driver the
+   * customer never takes the wheel, so none of this applies.
+   */
+  private async assertCustomerMayDrive(booking: Booking): Promise<void> {
+    if (booking.with_driver || !this.customerVerificationRequired) return;
+    const { data } = await this.supabase.db
+      .from('profiles')
+      .select('verification_status, date_of_birth, licence_expires_at')
+      .eq('id', booking.customer_id)
+      .maybeSingle();
+    const p = data as {
+      verification_status?: 'unverified' | 'pending' | 'verified' | 'rejected';
+      date_of_birth?: string | null;
+      licence_expires_at?: string | null;
+    } | null;
+    const blocker = selfDriveBlocker({
+      status: p?.verification_status ?? 'unverified',
+      dateOfBirth: p?.date_of_birth ?? null,
+      licenceExpiresAt: p?.licence_expires_at ?? null,
+      startDate: booking.start_date,
+      endDate: booking.end_date,
+    });
+    if (blocker === 'not_verified') {
+      throw new BadRequestException(
+        "The customer's ID check isn't finished yet. You can accept once Karu has verified their licence.",
+      );
+    }
+    if (blocker === 'too_young') {
+      throw new BadRequestException('The customer is under the minimum age to drive themselves');
+    }
+    if (blocker === 'licence_expires') {
+      throw new BadRequestException("The customer's driving licence expires before the end of the rental");
+    }
+  }
 
   /**
    * Must the deposit be in before the car changes hands? On by default once a
@@ -251,6 +297,9 @@ export class BookingsService {
       throw new ForbiddenException(`A ${role} cannot set status ${next}`);
     }
 
+    // Admin keeps its override here too: ops may have checked ID in person.
+    if (next === 'confirmed' && role !== 'admin') await this.assertCustomerMayDrive(booking);
+
     const handingOver = booking.status === 'confirmed' && next === 'in_progress';
     const handingBack = booking.status === 'in_progress' && next === 'completed';
 
@@ -426,6 +475,11 @@ export class BookingsService {
     let customer: Record<string, unknown> | null = null;
     if (role === 'vendor') {
       customer = { display_name: shortName(customerRow?.full_name) };
+      // 0032: once accepted, the provider sees who to expect: the verified
+      // name and selfie, to match against the person and their licence.
+      if (accepted && booking.status !== 'completed' && this.verification) {
+        customer = { ...customer, identity: await this.verification.handoverIdentity(booking.customer_id) };
+      }
     } else if (role === 'admin') {
       const email = await this.emailOf(booking.customer_id);
       customer = {

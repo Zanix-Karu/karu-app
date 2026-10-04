@@ -1,5 +1,52 @@
 /** English copy. Keys are grouped by screen; `common` holds shared labels. */
 export const en = {
+  verify: {
+    title: "Verify your ID",
+    status: {
+      unverified: "Not verified",
+      pending: "Being checked",
+      verified: "Verified",
+      rejected: "Needs another look",
+    },
+    intro: {
+      unverified: "Providers can only accept a self-drive booking once Karu has checked your driving licence and ID. It takes a few minutes to send and we check within a day.",
+      pending: "Thanks. Karu is checking your documents, usually within a day. You'll get an email when it's done.",
+      verified: "Your licence and ID are checked. Providers will see your name and photo when you collect a car, so they know it's you.",
+      rejected: "Something didn't match. Fix what's described below, then send it again.",
+    },
+    doc: {
+      licence_front: "Licence, front",
+      licence_back: "Licence, back",
+      national_id: "National ID card",
+      passport: "Passport",
+      selfie: "Selfie",
+      identity: "National ID or passport",
+      date_of_birth: "Date of birth",
+      licence_expiry: "Licence expiry",
+    },
+    onFile: "On file · tap to replace",
+    add: "Tap to add",
+    idHint: "You need the licence (both sides), either a national ID card or a passport, and a selfie in good light.",
+    dob: "Date of birth",
+    licenceExpiry: "Licence expiry date",
+    stillNeeded: "Still needed: {{list}}",
+    submit: "Send for checking",
+    uploadFailed: "That file didn't upload. Try again.",
+    privacy: "Your documents are stored privately and only Karu's team can see them. Providers only ever see your name and selfie, and only for a booking they've accepted.",
+    banner: {
+      title: "Verify your ID so the provider can accept",
+      body: "Self-drive bookings need a checked driving licence. Send it now so there's no delay.",
+      cta: "Verify my ID",
+      pendingTitle: "Your ID is being checked",
+      pendingBody: "The provider can accept as soon as Karu has finished, usually within a day.",
+    },
+    vendor: {
+      verified: "ID checked by Karu",
+      notVerified: "This customer's ID isn't verified. Don't hand over the car; contact Karu support.",
+      selfieAlt: "The customer's verified photo",
+      checkHint: "Match this face and name to the person and their physical licence before entering the code.",
+    },
+  },
   inspection: {
     formCustomerReturn: "Your record of the car as you hand it back (optional)",
     formCustomerHandover: "Your record of the car as you collect it (optional, but it protects you if there's a disagreement later)",
@@ -915,8 +962,16 @@ export const en = {
     },
   },
   admin: {
+    ids: {
+      none: "No ID checks here",
+      noName: "No name on the profile",
+      approve: "Verify",
+      reject: "Reject",
+      rejectReason: "What does the customer need to fix?",
+    },
     title: 'Karu operations',
     tabs: {
+      ids: "Customer IDs",
       overview: 'Overview',
       vendors: 'Vendors',
       documents: 'Documents',
@@ -941,6 +996,8 @@ export const en = {
       to: 'to {{recipient}}',
     },
     overview: {
+      alertCustomerIds_other: "{{count}} customer ID checks waiting",
+      alertCustomerIds_one: "{{count}} customer ID check waiting",
       alertFlaggedChats_other: "{{count}} conversations in the last {{days}} days mention moving off Karu",
       alertFlaggedChats_one: "{{count}} conversation in the last {{days}} days mentions moving off Karu",
       alertVendorCancelling: "{{name}} cancelled {{count}} accepted bookings in the last {{days}} days",

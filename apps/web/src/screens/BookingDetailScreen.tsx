@@ -11,7 +11,7 @@ import {
   type Vehicle,
 } from '@karu/shared';
 import { api } from '../lib/api';
-import { useView } from '../lib/auth';
+import { useAuth, useView } from '../lib/auth';
 import { CATEGORY_LABEL, CITY_LABEL, prettyDate, rentalDays, xaf } from '../lib/format';
 import { Badge, Button, Card } from '../ds';
 import { ErrorNote, StatusBadge } from '../ui';
@@ -39,8 +39,16 @@ interface BookingDetail extends Booking {
     /** The phone is held back until the deposit is in or pick-up is close (0030). */
     contact_locked?: boolean;
   } | null;
-  /** Vendors get display_name only. Admins get the full record. */
-  customer: { display_name: string; full_name?: string | null; phone?: string | null; email?: string | null } | null;
+  /** Vendors get display_name only (plus the verified identity once accepted). Admins get the full record. */
+  customer: {
+    display_name: string;
+    full_name?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    identity?:
+      | { verified: false }
+      | { verified: true; full_name: string | null; selfie_url: string | null; licence_expires_at: string | null };
+  } | null;
 }
 
 interface Action {
@@ -120,6 +128,7 @@ export function BookingDetailScreen() {
   const { t } = useTranslation();
   const { id = '' } = useParams();
   const view = useView();
+  const { profile } = useAuth();
   const { secondary } = useCurrency();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -234,6 +243,27 @@ export function BookingDetailScreen() {
         <HandoverTicket kind="return" code={b.return_code} reference={b.reference ?? b.id} />
       )}
 
+      {/* 0032: a self-drive request can't be accepted until the customer's ID is checked. */}
+      {view === 'customer' &&
+        b.status === 'requested' &&
+        !b.with_driver &&
+        profile &&
+        profile.verification_status !== 'verified' && (
+          <div className="mt-4 rounded-xl bg-karu-yellow/20 px-4 py-3 text-sm text-karu-brown">
+            <p className="font-semibold">
+              {profile.verification_status === 'pending' ? t('verify.banner.pendingTitle') : t('verify.banner.title')}
+            </p>
+            <p className="mt-1">
+              {profile.verification_status === 'pending' ? t('verify.banner.pendingBody') : t('verify.banner.body')}
+            </p>
+            {profile.verification_status !== 'pending' && (
+              <Link to="/profile#verify" className="mt-2 inline-block font-semibold underline">
+                {t('verify.banner.cta')}
+              </Link>
+            )}
+          </div>
+        )}
+
       {b.code_locked_at && (b.status === 'confirmed' || b.status === 'in_progress') && (
         <div className="mt-4 rounded-xl bg-karu-terracotta/10 px-4 py-3 text-sm font-semibold text-karu-terracotta">
           {t('booking.codeLocked')}
@@ -333,6 +363,9 @@ export function BookingDetailScreen() {
               {b.customer.phone ? row(t('booking.phone'), b.customer.phone) : null}
               {b.customer.email ? row(t('auth.email'), b.customer.email) : null}
             </div>
+            {view === 'vendor' && b.customer.identity && (
+              <HandoverIdentity identity={b.customer.identity} />
+            )}
             {view === 'vendor' && (
               <p className="mt-3 text-xs text-karu-mute">{t('booking.contactPrivate')}</p>
             )}
@@ -504,6 +537,38 @@ export function BookingDetailScreen() {
         {b.confirmed_at && (
           <Badge variant="success">{t('booking.confirmedOn', { date: prettyDate(b.confirmed_at.slice(0, 10)) })}</Badge>
         )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Who to expect at the handover (0032): the name and selfie Karu verified
+ * against their licence. Check the face and the physical licence match
+ * before entering the code.
+ */
+function HandoverIdentity({
+  identity,
+}: {
+  identity: NonNullable<NonNullable<BookingDetail['customer']>['identity']>;
+}) {
+  const { t } = useTranslation();
+  if (!identity.verified) {
+    return <p className="mt-3 text-sm font-semibold text-karu-terracotta">{t('verify.vendor.notVerified')}</p>;
+  }
+  return (
+    <div className="mt-3 flex items-center gap-3 rounded-xl bg-green-50 p-3 karu-fade-in">
+      {identity.selfie_url ? (
+        <img
+          src={identity.selfie_url}
+          alt={t('verify.vendor.selfieAlt')}
+          className="h-16 w-16 flex-none rounded-full object-cover"
+        />
+      ) : null}
+      <div className="text-sm">
+        <p className="font-semibold text-green-800">{t('verify.vendor.verified')}</p>
+        <p className="font-semibold">{identity.full_name}</p>
+        <p className="text-xs text-karu-mute">{t('verify.vendor.checkHint')}</p>
       </div>
     </div>
   );

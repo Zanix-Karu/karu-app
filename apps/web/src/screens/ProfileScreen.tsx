@@ -5,6 +5,7 @@ import type { Profile } from '@karu/shared';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { Button, Card, ErrorNote, Field, Input, PhoneInput, Select } from '../ui';
+import { VerifyIdentity } from '../components/VerifyIdentity';
 
 export function ProfileScreen() {
   const { t } = useTranslation();
@@ -44,7 +45,7 @@ export function ProfileScreen() {
   };
 
   return (
-    <div className="mx-auto max-w-md">
+    <div className="mx-auto max-w-md karu-page">
       <h1 className="font-display text-3xl font-bold">{t('profile.title')}</h1>
       <p className="mt-1 text-sm text-karu-mute">{session?.user.email}</p>
 
@@ -72,6 +73,7 @@ export function ProfileScreen() {
         </form>
       </Card>
 
+      {profile?.role === 'customer' && <VerifyIdentity />}
       {profile?.role === 'customer' && <BecomeVendor />}
     </div>
   );

@@ -2,12 +2,13 @@ import { Module } from '@nestjs/common';
 import { VehiclesModule } from '../vehicles/vehicles.module';
 import { VendorsModule } from '../vendors/vendors.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { VerificationModule } from '../verification/verification.module';
 import { BookingsController } from './bookings.controller';
 import { BookingsService } from './bookings.service';
 import { InspectionsService } from './inspections.service';
 
 @Module({
-  imports: [VehiclesModule, VendorsModule, NotificationsModule],
+  imports: [VehiclesModule, VendorsModule, NotificationsModule, VerificationModule],
   controllers: [BookingsController],
   providers: [BookingsService, InspectionsService],
   exports: [BookingsService],

@@ -190,9 +190,11 @@ export class AdminService {
       expiredDocumentCount(),
       documentsExpiringSoonCount(),
     ]);
-    const [vendorsCancelling, flaggedConversations] = await Promise.all([
+    const [vendorsCancelling, flaggedConversations, pendingVerifications] = await Promise.all([
       unreliableVendors(),
       flaggedConversationCount(),
+      // 0032: customers waiting on an ID check can't have self-drive accepted.
+      count('profiles', { verification_status: 'pending' }),
     ]);
     return {
       pendingVendors,
@@ -215,6 +217,8 @@ export class AdminService {
       /** Conversations with an off-platform flag in the window. */
       flaggedConversations,
       reliabilityWindowDays: RELIABILITY_WINDOW_DAYS,
+      /** Customer ID checks waiting on an admin (0032). */
+      pendingVerifications,
     };
   }
 

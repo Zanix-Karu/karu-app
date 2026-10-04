@@ -36,6 +36,8 @@ interface StubOpts {
   vendorRow?: Record<string, unknown>;
   phones?: Record<string, string | null>;
   emails?: Record<string, string | null>;
+  /** The customer's ID check (0032); verified, adult and licensed by default. */
+  customer?: { verification_status?: string; date_of_birth?: string | null; licence_expires_at?: string | null };
 }
 
 /** Minimal chainable stub of the supabase-js query builder for these tests. */
@@ -98,7 +100,13 @@ const makeSupabase = (booking: Booking, opts: StubOpts = {}) => {
         return chain(() => (opts.paymentStatus ? { status: opts.paymentStatus } : null));
       }
       if (table === 'profiles') {
-        return chain((f) => ({ phone: opts.phones?.[f.id as string] ?? null }));
+        return chain((f) => ({
+          phone: opts.phones?.[f.id as string] ?? null,
+          verification_status: 'verified',
+          date_of_birth: '1990-01-01',
+          licence_expires_at: '2099-01-01',
+          ...opts.customer,
+        }));
       }
       throw new Error(`Unexpected table: ${table}`);
     },
@@ -691,5 +699,39 @@ describe('BookingsService.create — self-booking guard (0030)', () => {
       emails: { 'cust-1': 'someone@else.com' },
     });
     await expect(svc.create('cust-1', dto)).resolves.toBeDefined();
+  });
+});
+
+describe('BookingsService.transition — customer ID check before accepting (0032)', () => {
+  const accept = (booking: Booking, opts: StubOpts, config?: unknown) => {
+    const { service } = makeSupabase(booking, { vendorId: 'vend-1', ...opts });
+    return new BookingsService(service, noVehicles, noVendors, noNotifications, config as never).transition(
+      'b1', 'vendor-profile', 'vendor', 'confirmed',
+    );
+  };
+
+  it('refuses to accept a self-drive request from an unverified customer', async () => {
+    await expect(accept(baseBooking, { customer: { verification_status: 'pending' } })).rejects.toThrow(/ID check/);
+  });
+
+  it('refuses when the licence runs out before the car comes back', async () => {
+    await expect(
+      accept(baseBooking, { customer: { licence_expires_at: '2026-08-02' } }),
+    ).rejects.toThrow(/expires/);
+  });
+
+  it('refuses a customer under the minimum age on day one', async () => {
+    await expect(accept(baseBooking, { customer: { date_of_birth: '2006-01-01' } })).rejects.toThrow(/minimum age/);
+  });
+
+  it('does not ask for ID on a chauffeur rental', async () => {
+    const result = await accept({ ...baseBooking, with_driver: true }, { customer: { verification_status: 'unverified' } });
+    expect(result.status).toBe('confirmed');
+  });
+
+  it('can be switched off with REQUIRE_CUSTOMER_VERIFICATION=false', async () => {
+    const config = { get: (k: string) => (k === 'REQUIRE_CUSTOMER_VERIFICATION' ? 'false' : undefined) };
+    const result = await accept(baseBooking, { customer: { verification_status: 'unverified' } }, config);
+    expect(result.status).toBe('confirmed');
   });
 });

@@ -212,6 +212,13 @@ export interface Profile {
   phone: string | null;
   locale: 'en' | 'fr';
   avatar_url: string | null;
+  /** Customer ID check (0032). */
+  verification_status: CustomerVerificationStatus;
+  /** The reviewer's reason when a check was rejected. */
+  verification_note: string | null;
+  verified_at: string | null;
+  date_of_birth: string | null;
+  licence_expires_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -464,6 +471,72 @@ export interface Booking {
   deposit_refund_due: boolean | null;
   /** When the car came back. Opens the damage-report window. */
   completed_at: string | null;
+}
+
+// ---- Customer ID verification (0032) ---------------------------------------
+
+export type CustomerVerificationStatus = 'unverified' | 'pending' | 'verified' | 'rejected';
+
+export type CustomerDocumentType =
+  | 'licence_front'
+  | 'licence_back'
+  | 'national_id'
+  | 'passport'
+  | 'selfie';
+
+export const CUSTOMER_DOCUMENT_TYPES: CustomerDocumentType[] = [
+  'licence_front',
+  'licence_back',
+  'national_id',
+  'passport',
+  'selfie',
+];
+
+/** Youngest a self-drive customer may be on the first day of the rental. */
+export const MIN_DRIVER_AGE = 21;
+
+/** Whole years between a date of birth and a given day (both YYYY-MM-DD). */
+export function ageOn(dateOfBirth: string, on: string): number {
+  const [by, bm, bd] = dateOfBirth.split('-').map(Number);
+  const [y, m, d] = on.split('-').map(Number);
+  return y - by - (m < bm || (m === bm && d < bd) ? 1 : 0);
+}
+
+/**
+ * What a customer still has to provide before an admin can review them.
+ * One of national ID or passport is enough; the licence needs both sides.
+ */
+export function verificationGaps(input: {
+  documents: CustomerDocumentType[];
+  dateOfBirth: string | null;
+  licenceExpiresAt: string | null;
+}): Array<CustomerDocumentType | 'identity' | 'date_of_birth' | 'licence_expiry'> {
+  const has = new Set(input.documents);
+  const gaps: Array<CustomerDocumentType | 'identity' | 'date_of_birth' | 'licence_expiry'> = [];
+  if (!has.has('licence_front')) gaps.push('licence_front');
+  if (!has.has('licence_back')) gaps.push('licence_back');
+  if (!has.has('national_id') && !has.has('passport')) gaps.push('identity');
+  if (!has.has('selfie')) gaps.push('selfie');
+  if (!input.dateOfBirth) gaps.push('date_of_birth');
+  if (!input.licenceExpiresAt) gaps.push('licence_expiry');
+  return gaps;
+}
+
+/**
+ * Can this customer drive this rental themselves? Null when yes, otherwise
+ * the reason, worded for the provider who is trying to confirm.
+ */
+export function selfDriveBlocker(input: {
+  status: CustomerVerificationStatus;
+  dateOfBirth: string | null;
+  licenceExpiresAt: string | null;
+  startDate: string;
+  endDate: string;
+}): 'not_verified' | 'too_young' | 'licence_expires' | null {
+  if (input.status !== 'verified') return 'not_verified';
+  if (input.dateOfBirth && ageOn(input.dateOfBirth, input.startDate) < MIN_DRIVER_AGE) return 'too_young';
+  if (input.licenceExpiresAt && input.licenceExpiresAt < input.endDate) return 'licence_expires';
+  return null;
 }
 
 // ---- Booking safeguards (0030) ---------------------------------------------
