@@ -4,10 +4,12 @@ import type { UserRole } from '@karu/shared';
 import { CurrentUser, Roles } from '../auth/decorators';
 import { BookingsService } from './bookings.service';
 import { InspectionsService } from './inspections.service';
+import { TrackingService } from './tracking.service';
 import {
   CreateBookingDto,
   InspectionUploadDto,
   RecordInspectionDto,
+  TrackingPointDto,
   RelayMessageDto,
   RequestAssistanceDto,
   TransitionBookingDto,
@@ -18,6 +20,7 @@ export class BookingsController {
   constructor(
     private readonly bookings: BookingsService,
     private readonly inspections: InspectionsService,
+    private readonly tracking: TrackingService,
   ) {}
 
   /**
@@ -140,5 +143,46 @@ export class BookingsController {
     @Body() dto: RecordInspectionDto,
   ) {
     return this.inspections.record(id, userId, role, dto);
+  }
+
+  // --- live tracking of the delivery leg (0035) --------------------------------
+
+  @Get(':id/tracking')
+  trackingState(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole,
+  ) {
+    return this.tracking.state(id, userId, role);
+  }
+
+  @Post(':id/tracking/start')
+  trackingStart(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole,
+  ) {
+    return this.tracking.start(id, userId, role);
+  }
+
+  /** A position every ~10 s while the driver's screen is open. */
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Post(':id/tracking')
+  trackingUpdate(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole,
+    @Body() dto: TrackingPointDto,
+  ) {
+    return this.tracking.update(id, userId, role, dto);
+  }
+
+  @Post(':id/tracking/stop')
+  trackingStop(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole,
+  ) {
+    return this.tracking.stop(id, userId, role);
   }
 }

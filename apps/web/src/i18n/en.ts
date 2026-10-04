@@ -1,5 +1,24 @@
 /** English copy. Keys are grouped by screen; `common` holds shared labels. */
 export const en = {
+  tracking: {
+    title: "Live tracking",
+    providerIntro: "When you set off with the car, tap below. The customer sees it coming on a map with an estimated arrival time. Sharing stops when you enter the handover code.",
+    start: "On my way: share my location",
+    sharing: "Sharing your location with the customer",
+    paused: "Tracking is on, but this phone isn't sending its position",
+    keepOpen: "Keep this page open and the screen on until you arrive. Phones stop sharing location from a web page once it's closed.",
+    resume: "Share from this phone",
+    stop: "Stop sharing",
+    noGeo: "This browser can't share location.",
+    geoDenied: "Location is blocked. Allow it for this site in the browser settings.",
+    notYet: "When your provider sets off with the car, you'll see it here on a map.",
+    onTheWay: "Your car is on its way",
+    eta: "Arriving in about {{minutes}} min · {{km}} km away",
+    stale: "No update in the last couple of minutes; this is the last known position.",
+    car: "Car",
+    destination: "You",
+    mapAria: "Map showing the car on its way",
+  },
   location: {
     vendorTitle: "Your location and delivery area",
     vendorSub: "Drop a pin on your base. Customers nearby find you first; they see your area to within about a kilometre, and the exact spot only once you've accepted their booking.",

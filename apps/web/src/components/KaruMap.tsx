@@ -61,6 +61,7 @@ export function KaruMap({
   onPick,
   height = 320,
   ariaLabel,
+  fit = false,
 }: {
   center: { lat: number; lng: number };
   zoom?: number;
@@ -72,6 +73,8 @@ export function KaruMap({
   onPick?: (p: { lat: number; lng: number }) => void;
   height?: number;
   ariaLabel: string;
+  /** Zoom to show every marker (tracking: the car and where it's going). */
+  fit?: boolean;
 }) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
@@ -97,8 +100,10 @@ export function KaruMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Follow the centre when it changes (e.g. "near me" resolved).
+  // Follow the centre when it changes (e.g. "near me" resolved), unless the
+  // map is fitting itself to its markers instead.
   useEffect(() => {
+    if (fit) return;
     map.current?.setView([center.lat, center.lng], map.current.getZoom() || zoom);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [center.lat, center.lng]);
@@ -124,6 +129,12 @@ export function KaruMap({
     for (const m of markers) {
       const mk = L.marker([m.lat, m.lng], { icon: pinIcon(m), title: m.title, keyboard: true }).addTo(g);
       if (m.onClick) mk.on('click', m.onClick);
+    }
+    if (fit && markers.length > 1) {
+      map.current?.fitBounds(
+        L.latLngBounds(markers.map((m) => [m.lat, m.lng] as [number, number])),
+        { padding: [40, 40], maxZoom: 16 },
+      );
     }
     if (picked) {
       // A div icon rather than Leaflet's default PNG, which bundlers lose.

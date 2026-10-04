@@ -393,6 +393,16 @@ export class BookingsService {
     }
     // A successful code resets the counter for the next exchange.
     if (handingOver || handingBack) patch.code_failed_attempts = 0;
+    // 0035: the car has arrived (or isn't coming); stop sharing and forget
+    // where the driver was.
+    if ((next === 'in_progress' || next === 'cancelled') && (booking as Booking & { tracking_started_at?: string | null }).tracking_started_at) {
+      Object.assign(patch, {
+        tracking_ended_at: new Date().toISOString(),
+        tracking_lat: null,
+        tracking_lng: null,
+        tracking_updated_at: null,
+      });
+    }
     if (vendorNote !== undefined) patch.vendor_note = vendorNote;
 
     const { data, error } = await this.supabase.db

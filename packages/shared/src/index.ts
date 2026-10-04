@@ -537,6 +537,9 @@ export interface Booking {
   delivery_lng?: number | null;
   delivery_distance_km?: number | null;
   delivery_landmark?: string | null;
+  /** 0035: live tracking of the delivery leg. Latest point only. */
+  tracking_started_at?: string | null;
+  tracking_ended_at?: string | null;
   /** HH:MM — a flight lands at a time, not a date. */
   pickup_time: string | null;
   status: BookingStatus;

@@ -24,6 +24,7 @@ import { BookingChat } from '../components/BookingChat';
 import { CodeEntry, HandoverTicket, TripProgress } from '../components/Handover';
 import { InspectionPanel } from '../components/InspectionPanel';
 import { KaruMap } from '../components/KaruMap';
+import { LiveTracking } from '../components/LiveTracking';
 
 interface BookingDetail extends Booking {
   vehicle: Pick<
@@ -457,6 +458,9 @@ export function BookingDetailScreen() {
         the customer may add their own. Shown from confirmation until the
         damage-report window after return closes.
       */}
+      {/* 0035: the car on its way to the customer. */}
+      <LiveTracking booking={b} view={view} />
+
       <InspectionPanel
         bookingId={b.id}
         view={view}

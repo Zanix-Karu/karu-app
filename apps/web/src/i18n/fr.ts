@@ -5,6 +5,25 @@
  * provider, "caution" for the deposit, "prise en charge" for pick-up.
  */
 export const fr = {
+  tracking: {
+    title: "Suivi en direct",
+    providerIntro: "Quand vous partez avec le véhicule, touchez ci-dessous. Le client le voit arriver sur une carte avec une heure d'arrivée estimée. Le partage s'arrête quand vous saisissez le code de remise.",
+    start: "En route : partager ma position",
+    sharing: "Votre position est partagée avec le client",
+    paused: "Le suivi est activé, mais ce téléphone n'envoie pas sa position",
+    keepOpen: "Gardez cette page ouverte et l'écran allumé jusqu'à l'arrivée. Une page web fermée ne partage plus la position.",
+    resume: "Partager depuis ce téléphone",
+    stop: "Arrêter le partage",
+    noGeo: "Ce navigateur ne peut pas partager la position.",
+    geoDenied: "La localisation est bloquée. Autorisez-la pour ce site dans les réglages du navigateur.",
+    notYet: "Quand votre prestataire partira avec le véhicule, vous le verrez ici sur une carte.",
+    onTheWay: "Votre véhicule est en route",
+    eta: "Arrivée dans environ {{minutes}} min · à {{km}} km",
+    stale: "Pas de mise à jour depuis quelques minutes ; voici la dernière position connue.",
+    car: "Véhicule",
+    destination: "Vous",
+    mapAria: "Carte montrant le véhicule en route",
+  },
   location: {
     vendorTitle: "Votre emplacement et zone de livraison",
     vendorSub: "Placez un repère sur votre base. Les clients proches vous trouvent en premier ; ils voient votre secteur à environ un kilomètre près, et l'emplacement exact seulement une fois leur réservation acceptée.",

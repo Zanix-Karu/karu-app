@@ -91,3 +91,9 @@ export class RecordInspectionDto {
   @IsOptional() @IsInt() @Min(0) @Max(2_000_000) odometer_km?: number;
   @IsOptional() @IsString() @MaxLength(1000) notes?: string;
 }
+
+/** One position from the provider's phone (0035). */
+export class TrackingPointDto {
+  @IsLatitude() lat!: number;
+  @IsLongitude() lng!: number;
+}
