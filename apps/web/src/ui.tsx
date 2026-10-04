@@ -203,7 +203,10 @@ export function Spinner({ label = 'Loading…' }: { label?: string }) {
 
 export function ErrorNote({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-lg border border-karu-terracotta/30 bg-karu-terracotta/10 px-4 py-3 text-sm text-karu-terracotta">
+    <div
+      role="alert"
+      className="karu-fade-in rounded-lg border border-karu-terracotta/30 bg-karu-terracotta/10 px-4 py-3 text-sm text-karu-terracotta"
+    >
       {children}
     </div>
   );
@@ -211,7 +214,7 @@ export function ErrorNote({ children }: { children: ReactNode }) {
 
 export function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
-    <div className="py-16 text-center">
+    <div className="karu-rise-in py-16 text-center">
       <p className="font-display text-xl text-karu-brown">{title}</p>
       {hint && <p className="mt-1 text-sm text-karu-mute">{hint}</p>}
     </div>

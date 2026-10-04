@@ -1,15 +1,7 @@
-import { Suspense, lazy, useState } from 'react';
+import { Suspense, lazy, useState, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { usePageMeta } from './lib/page-meta';
-import {
-  BrowserRouter,
-  Link,
-  NavLink,
-  Navigate,
-  Route,
-  Routes,
-  useNavigate,
-} from 'react-router-dom';
+import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, RequireView, useAuth, useView } from './lib/auth';
 import { HOME, NAV } from './lib/roles';
 import { useTranslation } from 'react-i18next';
@@ -179,6 +171,21 @@ function Footer() {
  *  focused. */
 const SKIP_TO_CONTENT = 'Skip to content / Aller au contenu';
 
+/**
+ * IDEAS #6: every screen arrives the same way, a short rise-in keyed on the
+ * path. Query-string changes (filters, sort) don't count as a new page, so
+ * search results update in place instead of the whole screen jumping.
+ * Reduced-motion users get the content without the movement (ds/motion.css).
+ */
+function PageTransition({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation();
+  return (
+    <div key={pathname} className="karu-page">
+      {children}
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -196,6 +203,7 @@ export default function App() {
           <Header />
           <main id="main" tabIndex={-1} className="mx-auto max-w-6xl px-4 py-8">
             <Suspense fallback={<RouteFallback />}>
+            <PageTransition>
             <Routes>
               <Route path="/" element={<HomeRedirect />} />
               <Route path="/auth" element={<AuthScreen />} />
@@ -283,6 +291,7 @@ export default function App() {
               {/* An unknown URL should say so rather than silently redirect. */}
               <Route path="*" element={<NotFoundScreen />} />
             </Routes>
+            </PageTransition>
             </Suspense>
           </main>
           <Footer />

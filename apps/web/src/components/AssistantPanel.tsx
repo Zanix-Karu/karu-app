@@ -108,7 +108,7 @@ export function AssistantPanel() {
           type="button"
           onClick={openPanel}
           aria-label={t('assistant.launch')}
-          className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-karu-ink text-karu-cream shadow-lg transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-karu-gold focus-visible:ring-offset-2"
+          className="karu-pop-in fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-karu-ink text-karu-cream shadow-lg transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-karu-gold focus-visible:ring-offset-2"
         >
           <ChatIcon />
         </button>

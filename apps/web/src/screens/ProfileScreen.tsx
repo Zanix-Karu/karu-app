@@ -46,7 +46,7 @@ export function ProfileScreen() {
   };
 
   return (
-    <div className="mx-auto max-w-md karu-page">
+    <div className="mx-auto max-w-md">
       <h1 className="font-display text-3xl font-bold">{t('profile.title')}</h1>
       <p className="mt-1 text-sm text-karu-mute">{session?.user.email}</p>
 

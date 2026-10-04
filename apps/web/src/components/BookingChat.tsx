@@ -110,7 +110,7 @@ export function BookingChat({
           const mine = m.sender_id === myId;
           const support = m.sender_role === 'admin';
           return (
-            <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+            <div key={m.id} className={`karu-fade-in flex ${mine ? 'justify-end' : 'justify-start'}`}>
               <div
                 className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${
                   mine

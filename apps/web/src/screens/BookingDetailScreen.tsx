@@ -203,7 +203,7 @@ export function BookingDetailScreen() {
   );
 
   return (
-    <div className="mx-auto max-w-3xl karu-page">
+    <div className="mx-auto max-w-3xl">
       <button
         onClick={() => navigate(-1)}
         className="text-sm font-semibold text-karu-brown underline"
