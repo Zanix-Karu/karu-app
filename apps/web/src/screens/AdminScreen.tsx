@@ -103,6 +103,11 @@ interface OverviewData {
   /** ...expiring within docExpiryWarningDays, not yet expired. */
   documentsExpiringSoon: number;
   docExpiryWarningDays: number;
+  /** 0030: providers cancelling accepted bookings repeatedly. */
+  vendorsCancelling: Array<{ id: string; business_name: string; cancellations: number }>;
+  /** 0030: conversations with talk of moving the deal off Karu. */
+  flaggedConversations: number;
+  reliabilityWindowDays: number;
 }
 
 function Overview() {
@@ -157,6 +162,19 @@ function Overview() {
     data.pendingVendors > 0 &&
       t('admin.overview.alertVendors', { count: data.pendingVendors }),
     unansweredChats > 0 && t('admin.overview.alertChats', { count: unansweredChats }),
+    // 0030: cheating signals. Each is "go and look", never a verdict.
+    ...(data.vendorsCancelling ?? []).map((v) =>
+      t('admin.overview.alertVendorCancelling', {
+        name: v.business_name,
+        count: v.cancellations,
+        days: data.reliabilityWindowDays,
+      }),
+    ),
+    data.flaggedConversations > 0 &&
+      t('admin.overview.alertFlaggedChats', {
+        count: data.flaggedConversations,
+        days: data.reliabilityWindowDays,
+      }),
   ].filter(Boolean) as string[];
 
   return (
@@ -936,6 +954,8 @@ interface Conversation {
   message_count: number;
   unread_count: number;
   any_redacted: boolean;
+  /** 0030: off-platform flags raised anywhere in the thread. */
+  flags?: string[];
   last_message: { sender_role: string; body: string; created_at: string } | null;
 }
 
@@ -951,6 +971,7 @@ const SENDER_LABEL: Record<string, string> = {
  * posts into the same thread as Karu Support.
  */
 function Chats() {
+  const { t } = useTranslation();
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-conversations'],
     queryFn: () => api<Conversation[]>('/admin/conversations'),
@@ -997,6 +1018,15 @@ function Chats() {
                   redactions
                 </span>
               )}
+              {(c.flags ?? []).map((f) => (
+                <span
+                  key={f}
+                  className="rounded-full bg-karu-terracotta/15 px-2.5 py-0.5 text-xs font-semibold text-karu-terracotta"
+                  title={t('admin.chats.flagHint')}
+                >
+                  {t(`admin.chats.flag.${f}`, { defaultValue: f })}
+                </span>
+              ))}
               <span className="text-xs text-karu-mute">
                 {c.message_count} message{c.message_count === 1 ? '' : 's'}
               </span>

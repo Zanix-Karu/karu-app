@@ -4,11 +4,12 @@ import { VendorsModule } from '../vendors/vendors.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { BookingsController } from './bookings.controller';
 import { BookingsService } from './bookings.service';
+import { InspectionsService } from './inspections.service';
 
 @Module({
   imports: [VehiclesModule, VendorsModule, NotificationsModule],
   controllers: [BookingsController],
-  providers: [BookingsService],
+  providers: [BookingsService, InspectionsService],
   exports: [BookingsService],
 })
 export class BookingsModule {}

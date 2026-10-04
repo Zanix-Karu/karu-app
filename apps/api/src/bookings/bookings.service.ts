@@ -4,8 +4,16 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
-import { canTransitionBooking, quoteBooking } from '@karu/shared';
+import { ConfigService } from '@nestjs/config';
+import { randomInt } from 'node:crypto';
+import {
+  CODE_ATTEMPT_LIMIT,
+  canTransitionBooking,
+  depositRefundDue,
+  quoteBooking,
+} from '@karu/shared';
 import type { Booking, BookingStatus, UserRole } from '@karu/shared';
 import { SupabaseService } from '../supabase/supabase.service';
 import { dbErrorMessage } from '../supabase/db-error';
@@ -28,13 +36,25 @@ function shortName(fullName: string | null | undefined): string {
 
 /**
  * REQ-6: a short, easy-to-read-aloud handover/return code — same idea as a
- * food-delivery PIN. Not a security boundary (no cryptographic guarantee is
- * needed here, just a courtesy confirmation that the right person is in
- * front of the right car), so plain Math.random() is fine.
+ * food-delivery PIN. Four digits keeps it readable; what stops guessing is
+ * the CODE_ATTEMPT_LIMIT lockout (0030), not the length. crypto.randomInt
+ * rather than Math.random so the code can't be predicted from earlier ones.
  */
 function generateHandoverCode(): string {
-  return String(Math.floor(1000 + Math.random() * 9000));
+  return String(randomInt(1000, 10000));
 }
+
+/**
+ * Last nine digits: a Cameroon national number with any +237 / 00237 / spaces
+ * stripped, and close enough to a UK one, for "is this the same phone".
+ */
+function phoneKey(phone: string | null | undefined): string | null {
+  const digits = (phone ?? '').replace(/\D/g, '');
+  return digits.length >= 8 ? digits.slice(-9) : null;
+}
+
+/** Days before pick-up when a provider's phone is shown even without a deposit. */
+const CONTACT_REVEAL_DAYS_BEFORE = 1;
 
 /** Status changes each role is permitted to drive (on top of the state machine). */
 const ALLOWED_BY_ROLE: Record<UserRole, BookingStatus[]> = {
@@ -50,7 +70,23 @@ export class BookingsService {
     private readonly vehicles: VehiclesService,
     private readonly vendors: VendorsService,
     private readonly notifications: NotificationsService,
+    @Optional() private readonly config?: ConfigService,
   ) {}
+
+  /**
+   * Must the deposit be in before the car changes hands? On by default once a
+   * provider that can actually take money is configured (otherwise nobody
+   * could ever start a trip); REQUIRE_DEPOSIT_BEFORE_HANDOVER overrides either
+   * way, so ops can enforce it while deposits are still recorded by hand.
+   */
+  private get depositRequiredForHandover(): boolean {
+    const explicit = this.config?.get<string>('REQUIRE_DEPOSIT_BEFORE_HANDOVER');
+    if (explicit === 'true') return true;
+    if (explicit === 'false') return false;
+    return Boolean(
+      this.config?.get<string>('STRIPE_SECRET_KEY') || this.config?.get<string>('NOTCHPAY_SECRET_KEY'),
+    );
+  }
 
   /**
    * A customer requests a vehicle. Price and deposit are computed server-side
@@ -89,6 +125,8 @@ export class BookingsService {
     if (vendor.status !== 'verified') {
       throw new BadRequestException('This provider is not yet verified');
     }
+    await this.assertNotOwnVehicle(customerId, vendor.id);
+
     const withDriver = dto.with_driver ?? vehicle.driver_option === 'required';
     if (withDriver && vehicle.driver_option === 'none') {
       throw new BadRequestException('This car is not offered with a driver');
@@ -212,6 +250,10 @@ export class BookingsService {
     if (!ALLOWED_BY_ROLE[role].includes(next)) {
       throw new ForbiddenException(`A ${role} cannot set status ${next}`);
     }
+
+    const handingOver = booking.status === 'confirmed' && next === 'in_progress';
+    const handingBack = booking.status === 'in_progress' && next === 'completed';
+
     /**
      * REQ-6: a vendor driving the handover or return in person confirms it
      * against the code the customer holds — Uber-Eats style — rather than a
@@ -220,16 +262,31 @@ export class BookingsService {
      * or disputed; ops resolves that by hand, same as everything else it
      * already overrides.
      */
-    if (role === 'vendor') {
-      if (booking.status === 'confirmed' && next === 'in_progress') {
-        if (!code || code !== booking.handover_code) {
-          throw new BadRequestException('Incorrect or missing handover code');
-        }
+    if (role === 'vendor' && (handingOver || handingBack)) {
+      // Evidence first: the car's condition is recorded before the code,
+      // because once the code is read out the trip has moved on. A chauffeur
+      // rental never leaves the provider's hands, so there is nothing to
+      // dispute and no report is asked for.
+      if (!booking.with_driver) {
+        await this.assertInspected(booking.id, handingOver ? 'handover' : 'return');
       }
-      if (booking.status === 'in_progress' && next === 'completed') {
-        if (!code || code !== booking.return_code) {
-          throw new BadRequestException('Incorrect or missing return code');
-        }
+      if (handingOver && this.depositRequiredForHandover && !(await this.depositHeld(booking.id))) {
+        throw new BadRequestException(
+          'The deposit has not been received yet. The car can be handed over once it is paid.',
+        );
+      }
+      await this.checkCode(booking, handingOver ? 'handover' : 'return', code);
+    }
+
+    /**
+     * Cancelling someone else's plans needs a reason. A provider dropping a
+     * customer they already accepted is the case that matters most, and the
+     * reason is what the admin reads when that provider's cancellations pile
+     * up; a customer's reason is optional, it's their own trip.
+     */
+    if (next === 'cancelled' && role === 'vendor' && booking.status === 'confirmed') {
+      if (!vendorNote || vendorNote.trim().length < 10) {
+        throw new BadRequestException('Tell the customer why you are cancelling (at least 10 characters)');
       }
     }
 
@@ -241,6 +298,19 @@ export class BookingsService {
       patch.handover_code = generateHandoverCode();
       patch.return_code = generateHandoverCode();
     }
+    if (next === 'completed') patch.completed_at = new Date().toISOString();
+    if (next === 'cancelled') {
+      patch.cancelled_at = new Date().toISOString();
+      patch.cancelled_by = role;
+      patch.cancellation_reason = vendorNote?.trim() || null;
+      patch.deposit_refund_due = depositRefundDue({
+        cancelledBy: role,
+        status: booking.status,
+        startDate: booking.start_date,
+      });
+    }
+    // A successful code resets the counter for the next exchange.
+    if (handingOver || handingBack) patch.code_failed_attempts = 0;
     if (vendorNote !== undefined) patch.vendor_note = vendorNote;
 
     const { data, error } = await this.supabase.db
@@ -320,18 +390,32 @@ export class BookingsService {
     // A booking the provider has accepted is the point where a customer has a
     // real need to reach them: to arrange the handover. Admins keep full
     // access, since the team coordinates pick-ups by hand.
+    //
+    // 0030: but "accepted" alone costs nothing, so it was also the cheapest
+    // way to get a provider's number and cut Karu out: request, get
+    // confirmed, copy the number, cancel. The phone now waits until the
+    // deposit is in, or until the day before pick-up when the handover has
+    // to be arranged regardless. Until then the chat covers it.
     const accepted =
       booking.status === 'confirmed' ||
       booking.status === 'in_progress' ||
       booking.status === 'completed';
+    const handoverIsClose =
+      Date.parse(`${booking.start_date}T00:00:00Z`) - Date.now() <=
+      CONTACT_REVEAL_DAYS_BEFORE * 86_400_000;
+    const contactUnlocked =
+      role === 'admin' ||
+      (accepted && (booking.status !== 'confirmed' || handoverIsClose || (await this.depositHeld(booking.id))));
     const vendor =
       vendorRow && role !== 'vendor'
         ? {
             id: vendorRow.id,
             business_name: vendorRow.business_name,
             city: vendorRow.city,
-            contact_phone: role === 'admin' || accepted ? vendorRow.contact_phone : null,
+            contact_phone: contactUnlocked ? vendorRow.contact_phone : null,
             contact_email: role === 'admin' ? vendorRow.contact_email : null,
+            /** True while the phone is held back; the screen says why. */
+            contact_locked: accepted && !contactUnlocked,
           }
         : vendorRow
           ? { id: vendorRow.id, business_name: vendorRow.business_name, city: vendorRow.city }
@@ -429,6 +513,141 @@ export class BookingsService {
       .single();
     if (error || !data) throw new NotFoundException('Booking not found');
     return data as Booking;
+  }
+
+  /**
+   * Check a handover/return code, counting wrong guesses. At
+   * CODE_ATTEMPT_LIMIT the booking locks and lands in the admin's assistance
+   * queue: past that point it's a conversation with a person, not a keypad.
+   */
+  private async checkCode(
+    booking: Booking,
+    kind: 'handover' | 'return',
+    code: string | undefined,
+  ): Promise<void> {
+    if (booking.code_locked_at) {
+      throw new ForbiddenException(
+        'Too many wrong codes. Karu support has been told and will sort this out with you.',
+      );
+    }
+    // Strip spaces a vendor may type when reading "12 34" back.
+    const given = code?.replace(/\s+/g, '') ?? '';
+    const expected = kind === 'handover' ? booking.handover_code : booking.return_code;
+    if (given && expected && given === expected) return;
+
+    const attempts = (booking.code_failed_attempts ?? 0) + 1;
+    const locked = attempts >= CODE_ATTEMPT_LIMIT;
+    const now = new Date().toISOString();
+    await this.supabase.db
+      .from('bookings')
+      .update({
+        code_failed_attempts: attempts,
+        ...(locked
+          ? {
+              code_locked_at: now,
+              assistance_requested_at: booking.assistance_requested_at && !booking.assistance_resolved_at
+                ? booking.assistance_requested_at
+                : now,
+              assistance_note: `Code locked after ${attempts} wrong attempts`,
+              assistance_resolved_at: null,
+            }
+          : {}),
+      })
+      .eq('id', booking.id);
+
+    if (locked) {
+      throw new ForbiddenException(
+        'Too many wrong codes. Karu support has been told and will sort this out with you.',
+      );
+    }
+    const left = CODE_ATTEMPT_LIMIT - attempts;
+    throw new BadRequestException(
+      `Incorrect or missing ${kind} code. ` +
+        `${left} ${left === 1 ? 'try' : 'tries'} left.`,
+    );
+  }
+
+  /** Has the provider recorded the car's condition for this stage? */
+  private async assertInspected(bookingId: string, stage: 'handover' | 'return'): Promise<void> {
+    const { data } = await this.supabase.db
+      .from('booking_inspections')
+      .select('id')
+      .eq('booking_id', bookingId)
+      .eq('stage', stage)
+      .eq('recorded_role', 'vendor')
+      .maybeSingle();
+    if (!data) {
+      throw new BadRequestException(
+        stage === 'handover'
+          ? 'Record the car\'s condition (photos, fuel, mileage) before handing it over'
+          : 'Record the car\'s condition (photos, fuel, mileage) before closing the trip',
+      );
+    }
+  }
+
+  /** True once the deposit is actually in (held, or already released to the vendor). */
+  private async depositHeld(bookingId: string): Promise<boolean> {
+    const { data } = await this.supabase.db
+      .from('payments')
+      .select('status')
+      .eq('booking_id', bookingId)
+      .maybeSingle();
+    const status = (data as { status?: string } | null)?.status;
+    return status === 'held' || status === 'released';
+  }
+
+  /**
+   * A provider booking their own car through a second account, to collect
+   * reviews they wrote themselves. They would hold both codes, so nothing
+   * downstream would catch it. Matched on the identifiers a second account
+   * would most likely share: phone and email, against the business's contact
+   * details and the owner's own login.
+   */
+  private async assertNotOwnVehicle(customerId: string, vendorId: string): Promise<void> {
+    const { data: vendorRow } = await this.supabase.db
+      .from('vendors')
+      .select('profile_id, contact_phone, whatsapp_number, contact_email')
+      .eq('id', vendorId)
+      .maybeSingle();
+    const vendor = vendorRow as {
+      profile_id: string;
+      contact_phone: string | null;
+      whatsapp_number: string | null;
+      contact_email: string | null;
+    } | null;
+    if (!vendor) return;
+    if (vendor.profile_id === customerId) {
+      throw new ForbiddenException('You cannot book a car you list yourself');
+    }
+
+    const [customerProfile, ownerProfile, customerEmail, ownerEmail] = await Promise.all([
+      this.supabase.db.from('profiles').select('phone').eq('id', customerId).maybeSingle(),
+      this.supabase.db.from('profiles').select('phone').eq('id', vendor.profile_id).maybeSingle(),
+      this.emailOf(customerId),
+      this.emailOf(vendor.profile_id),
+    ]);
+
+    const customerPhone = phoneKey((customerProfile.data as { phone?: string | null } | null)?.phone);
+    const vendorPhones = new Set(
+      [
+        vendor.contact_phone,
+        vendor.whatsapp_number,
+        (ownerProfile.data as { phone?: string | null } | null)?.phone,
+      ]
+        .map(phoneKey)
+        .filter((p): p is string => Boolean(p)),
+    );
+    const vendorEmails = new Set(
+      [vendor.contact_email, ownerEmail]
+        .filter((e): e is string => Boolean(e))
+        .map((e) => e.trim().toLowerCase()),
+    );
+
+    const samePhone = customerPhone !== null && vendorPhones.has(customerPhone);
+    const sameEmail = customerEmail !== null && vendorEmails.has(customerEmail.trim().toLowerCase());
+    if (samePhone || sameEmail) {
+      throw new ForbiddenException('You cannot book a car you list yourself');
+    }
   }
 
   private async getOwned(bookingId: string, userId: string, role: UserRole): Promise<Booking> {

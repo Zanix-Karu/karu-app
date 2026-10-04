@@ -3,8 +3,11 @@ import { Throttle } from '@nestjs/throttler';
 import type { UserRole } from '@karu/shared';
 import { CurrentUser, Roles } from '../auth/decorators';
 import { BookingsService } from './bookings.service';
+import { InspectionsService } from './inspections.service';
 import {
   CreateBookingDto,
+  InspectionUploadDto,
+  RecordInspectionDto,
   RelayMessageDto,
   RequestAssistanceDto,
   TransitionBookingDto,
@@ -12,7 +15,10 @@ import {
 
 @Controller('bookings')
 export class BookingsController {
-  constructor(private readonly bookings: BookingsService) {}
+  constructor(
+    private readonly bookings: BookingsService,
+    private readonly inspections: InspectionsService,
+  ) {}
 
   /**
    * Customers create booking requests. Admins may too — the ops team books on
@@ -99,5 +105,40 @@ export class BookingsController {
   @Patch(':id/assistance/resolve')
   resolveAssistance(@Param('id') id: string) {
     return this.bookings.resolveAssistance(id);
+  }
+
+  // --- condition reports (0030) ---------------------------------------------
+
+  /** Both sides' reports for this booking, with short-lived photo URLs. */
+  @Get(':id/inspections')
+  listInspections(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole,
+  ) {
+    return this.inspections.list(id, userId, role);
+  }
+
+  /** Signed upload URL for one condition photo. */
+  @Throttle({ default: { limit: 40, ttl: 60_000 } })
+  @Post(':id/inspections/upload')
+  inspectionUpload(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole,
+    @Body() dto: InspectionUploadDto,
+  ) {
+    return this.inspections.createPhotoUpload(id, userId, role, dto.file_name);
+  }
+
+  /** Record or replace the caller's report for handover or return. */
+  @Post(':id/inspections')
+  recordInspection(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole,
+    @Body() dto: RecordInspectionDto,
+  ) {
+    return this.inspections.record(id, userId, role, dto);
   }
 }

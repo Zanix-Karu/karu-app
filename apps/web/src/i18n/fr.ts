@@ -5,6 +5,65 @@
  * provider, "caution" for the deposit, "prise en charge" for pick-up.
  */
 export const fr = {
+  inspection: {
+    formCustomerReturn: "Votre constat du véhicule au retour (facultatif)",
+    formCustomerHandover: "Votre constat du véhicule à la prise en charge (facultatif, mais il vous protège en cas de désaccord)",
+    addMine: "Ajouter mes propres photos du véhicule",
+    title: "État du véhicule",
+    sub: "Photos, carburant et kilométrage à la remise et au retour. Chaque partie voit les deux constats : en cas de désaccord sur un dommage, on s'appuie sur le dossier.",
+    redo: "Remplacer mon constat",
+    stage: {
+      handover: "Remise",
+      return: "Retour",
+    },
+    by: {
+      customer: "par le client",
+      vendor: "par le prestataire",
+      admin: "par Karu",
+    },
+    photoAlt: "Photo d'état {{n}}",
+    fuel: "Carburant",
+    fuelPick: "Choisir",
+    fuelValue: "{{n}}/8 de réservoir",
+    odometer: "Kilométrage (km)",
+    notes: "Remarques",
+    notesPlaceholder: "Rayures, bosses existantes, tout ce qui mérite d'être noté",
+    formHandover: "Constatez l'état du véhicule avant de le remettre",
+    formReturn: "Constatez l'état du véhicule au retour",
+    requiredHint: "Obligatoire avant de saisir le code du client.",
+    addPhotos: "Ajouter des photos",
+    photoCount_one: "{{count}} photo · au moins {{min}} : avant, arrière et les deux côtés",
+    photoCount_other: "{{count}} photos · au moins {{min}} : avant, arrière et les deux côtés",
+    uploadFailed: "Une photo n'a pas été envoyée. Réessayez.",
+    save: "Enregistrer le constat",
+  },
+  handover: {
+    progressLabel: "Avancement de la location",
+    step: {
+      confirmed: "Confirmée",
+      handover: "Véhicule remis",
+      onTrip: "En route",
+      returned: "Rendu",
+    },
+    ticket: {
+      handoverTitle: "Votre code de remise",
+      returnTitle: "Votre code de retour",
+      codeAria: "Code {{code}}",
+      handoverHint: "Lisez ces quatre chiffres à votre prestataire quand vous êtes devant le véhicule, ou laissez-le scanner le QR. Ne le partagez pas avant.",
+      returnHint: "Donnez-le à votre prestataire une fois qu'il a vérifié le véhicule. Cela clôture la location.",
+      showQr: "Afficher le QR code",
+      hideQr: "Masquer le QR code",
+      qrAria: "QR code à scanner par le prestataire",
+    },
+    entry: {
+      aria: "Code donné par le client",
+      digit: "Chiffre {{n}}",
+      scan: "Scanner le QR",
+      stopScan: "Arrêter le scan",
+      wrongQr: "Ce QR code correspond à une autre réservation.",
+      cameraDenied: "Impossible d'utiliser la caméra. Saisissez le code à la place.",
+    },
+  },
   common: {
     brand: 'Karu',
     tagline: 'Karu, location de voitures vérifiée au Cameroun · Douala et Yaoundé',
@@ -285,6 +344,23 @@ export const fr = {
     notFound: 'Voiture introuvable.',
   },
   booking: {
+    cancelPolicy: {
+      refund: "Votre acompte vous sera remboursé en totalité.",
+      noRefund: "La prise en charge est dans moins de 48 heures : l'acompte est conservé. Le prestataire a refusé d'autres clients pour ces dates.",
+      provider: "Le client récupère son acompte en totalité. Les annulations de réservations acceptées sont suivies, et des annulations répétées pénalisent votre annonce.",
+    },
+    keepBooking: "Garder la réservation",
+    cancelReasonOptional: "Motif (facultatif)",
+    cancelReasonRequired: "Pourquoi annulez-vous ? Le client verra ce message",
+    phoneLocked: "Le numéro du prestataire s'affiche une fois l'acompte payé, ou la veille de la prise en charge. D'ici là, utilisez la messagerie ci-dessous.",
+    refundNotDue: "Annulée moins de 48 heures avant la prise en charge : l'acompte est conservé.",
+    refundDue: "L'acompte est remboursable en totalité.",
+    cancelledBy: {
+      customer: "Annulée par le client",
+      vendor: "Annulée par le prestataire",
+      admin: "Annulée par Karu",
+    },
+    codeLocked: "Trop de codes erronés ont été saisis : cette réservation est en pause. Le support Karu a été prévenu et vous aidera à terminer la remise.",
     requestSent: 'Demande envoyée !',
     yourReference: 'Votre référence est',
     dates: 'Dates',
@@ -388,6 +464,10 @@ export const fr = {
     },
   },
   chat: {
+    translationFailed: "Traduction impossible pour le moment. Réessayez dans un instant.",
+    translatedBy: "Traduit automatiquement",
+    seeOriginal: "Voir l'original",
+    seeTranslation: "Voir la traduction",
     title: 'Messages',
     introAdmin: 'Vous publiez en tant que Karu Support — les deux parties voient vos messages.',
     intro:
@@ -697,6 +777,8 @@ export const fr = {
       tabArchived: 'Archivées',
     },
     actions: {
+      openReturn: "Réceptionner le retour",
+      openHandover: "Remettre le véhicule",
       confirm: 'Confirmer',
       reject: 'Refuser',
       rejectConfirm: 'Refuser cette demande ?',
@@ -863,6 +945,9 @@ export const fr = {
       to: 'à {{recipient}}',
     },
     overview: {
+      alertFlaggedChats_other: "{{count}} conversations de ces {{days}} derniers jours parlent de passer hors de Karu",
+      alertFlaggedChats_one: "{{count}} conversation de ces {{days}} derniers jours parle de passer hors de Karu",
+      alertVendorCancelling: "{{name}} a annulé {{count}} réservations acceptées ces {{days}} derniers jours",
       alertAssistance: '{{count}} réservation(s) où quelqu\'un a demandé l\'aide de Karu',
       needsAttention: 'Requiert votre attention',
       alertStale: '{{count}} demande(s) de r\u00e9servation \u00e0 moins de 4h de la limite de {{hours}}h',
@@ -939,6 +1024,11 @@ export const fr = {
     },
     bookings: { none: 'Aucune réservation' },
     chats: {
+      flag: {
+        contact_elsewhere: "contact ailleurs",
+        off_platform_payment: "paiement hors Karu",
+      },
+      flagHint: "Quelqu'un dans cette conversation a parlé de se contacter ou de payer hors de Karu. À vérifier, ce n'est pas une preuve.",
       none: 'Aucune conversation pour l’instant',
       new: '{{count}} nouveau(x)',
       redactions: 'expurgé',

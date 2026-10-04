@@ -1,14 +1,25 @@
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
+  IsInt,
   IsDateString,
   IsIn,
   IsOptional,
   IsString,
   IsUUID,
   Matches,
+  Max,
   MaxLength,
+  Min,
 } from 'class-validator';
-import { DELIVERY_TYPES, type BookingStatus, type DeliveryType } from '@karu/shared';
+import {
+  DELIVERY_TYPES,
+  MAX_INSPECTION_PHOTOS,
+  type BookingStatus,
+  type DeliveryType,
+  type InspectionStage,
+} from '@karu/shared';
 
 export class CreateBookingDto {
   @IsUUID() vehicle_id!: string;
@@ -55,4 +66,22 @@ export class RequestAssistanceDto {
   /** Optional one-liner on what they need. Short on purpose: the thread
    *  carries the detail, this is just what an admin sees in the queue. */
   @IsOptional() @IsString() @MaxLength(300) note?: string;
+}
+
+export class InspectionUploadDto {
+  @IsString() @MaxLength(200) file_name!: string;
+}
+
+/** A condition report (0030). Photos are uploaded first, then their paths sent here. */
+export class RecordInspectionDto {
+  @IsIn(['handover', 'return']) stage!: InspectionStage;
+  @IsArray()
+  @ArrayMaxSize(MAX_INSPECTION_PHOTOS)
+  @IsString({ each: true })
+  @MaxLength(300, { each: true })
+  photo_paths!: string[];
+  /** Eighths of a tank, the way the gauge reads. */
+  @IsOptional() @IsInt() @Min(0) @Max(8) fuel_eighths?: number;
+  @IsOptional() @IsInt() @Min(0) @Max(2_000_000) odometer_km?: number;
+  @IsOptional() @IsString() @MaxLength(1000) notes?: string;
 }

@@ -453,6 +453,75 @@ export interface Booking {
    */
   handover_code: string | null;
   return_code: string | null;
+  /** Wrong codes entered so far; the booking locks at CODE_ATTEMPT_LIMIT (0030). */
+  code_failed_attempts: number;
+  /** Set when the code locked. Only an admin can move the booking on. */
+  code_locked_at: string | null;
+  cancelled_at: string | null;
+  cancelled_by: UserRole | null;
+  cancellation_reason: string | null;
+  /** What the cancellation policy says about the deposit. Null = undecided. */
+  deposit_refund_due: boolean | null;
+  /** When the car came back. Opens the damage-report window. */
+  completed_at: string | null;
+}
+
+// ---- Booking safeguards (0030) ---------------------------------------------
+
+/** Wrong handover/return codes allowed before the booking locks. */
+export const CODE_ATTEMPT_LIMIT = 5;
+
+/** A customer cancelling at least this long before pick-up gets the deposit back. */
+export const FREE_CANCELLATION_HOURS = 48;
+
+/** How long after return a provider can still report damage. */
+export const DAMAGE_REPORT_WINDOW_HOURS = 48;
+
+/** Photos a condition report needs: the four sides of the car, at least. */
+export const MIN_INSPECTION_PHOTOS = 4;
+export const MAX_INSPECTION_PHOTOS = 12;
+
+/**
+ * The cancellation policy, in one place so the API applies it and the screen
+ * can tell the customer what will happen *before* they press the button.
+ *
+ *   - The provider or Karu cancels: the customer did nothing wrong, the
+ *     deposit goes back in full.
+ *   - The customer withdraws a request nobody accepted yet: back in full.
+ *   - The customer cancels a confirmed booking with FREE_CANCELLATION_HOURS
+ *     or more to go: back in full.
+ *   - Later than that: the deposit is kept. The provider turned other
+ *     customers away for those dates.
+ */
+export function depositRefundDue(input: {
+  cancelledBy: UserRole;
+  status: BookingStatus;
+  startDate: string;
+  now?: Date;
+}): boolean {
+  if (input.cancelledBy !== 'customer') return true;
+  if (input.status === 'requested') return true;
+  const startMs = Date.parse(`${input.startDate}T00:00:00Z`);
+  const nowMs = (input.now ?? new Date()).getTime();
+  return startMs - nowMs >= FREE_CANCELLATION_HOURS * 3_600_000;
+}
+
+export type InspectionStage = 'handover' | 'return';
+
+/** A condition report: one side's record of the car at handover or return. */
+export interface BookingInspection {
+  id: string;
+  booking_id: string;
+  stage: InspectionStage;
+  recorded_by: string;
+  recorded_role: UserRole;
+  photo_paths: string[];
+  /** Eighths of a tank, 0-8. */
+  fuel_eighths: number | null;
+  odometer_km: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 /**
@@ -470,6 +539,13 @@ export interface BookingMessage {
   body: string;
   /** True when contact details were removed from the original text. */
   redacted: boolean;
+  /**
+   * Why this message caught the admin's eye (0030), e.g. 'off_platform_payment'.
+   * Stripped from what the parties themselves receive.
+   */
+  flags?: string[];
+  /** Sender's interface language (0031). Null for admin and older messages. */
+  language?: 'en' | 'fr' | null;
   created_at: string;
 }
 
