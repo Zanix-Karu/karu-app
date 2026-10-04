@@ -117,7 +117,7 @@ function Header() {
             </span>
           ) : (
             <img
-              src="/logo.svg"
+              src="/logo/logo-wordmark.svg"
               alt="Karu"
               className="h-6 sm:h-8"
               onError={() => setLogoFailed(true)}
