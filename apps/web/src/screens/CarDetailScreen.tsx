@@ -5,7 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { Booking, DeliveryType, VehicleDetail } from '@karu/shared';
-import { orderedPhotos, primaryPhoto, quoteBooking } from '@karu/shared';
+import { orderedPhotos, primaryPhoto, quoteBooking, rentalDays } from '@karu/shared';
+import { DOUALA, KaruMap, YAOUNDE, locateMe } from '../components/KaruMap';
 import { api } from '../lib/api';
 import { useAuth, useView } from '../lib/auth';
 import { CAN_BOOK } from '../lib/roles';
@@ -37,6 +38,9 @@ export function CarDetailScreen() {
   const [deliveryType, setDeliveryType] = useState<DeliveryType>('pickup_point');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [pickupTime, setPickupTime] = useState('');
+  // 0034: where to bring the car, as a pin, and directions in words.
+  const [deliveryPin, setDeliveryPin] = useState<{ lat: number; lng: number } | null>(null);
+  const [landmark, setLandmark] = useState('');
 
   const { data: car, isLoading } = useQuery({
     queryKey: ['vehicle', id],
@@ -71,6 +75,10 @@ export function CarDetailScreen() {
           with_driver: withDriver,
           delivery_type: deliveryType,
           delivery_address: deliveryAddress || undefined,
+          ...(deliveryType === 'address' && deliveryPin
+            ? { delivery_lat: deliveryPin.lat, delivery_lng: deliveryPin.lng }
+            : {}),
+          delivery_landmark: deliveryType === 'address' ? landmark || undefined : undefined,
           pickup_time: pickupTime || undefined,
         }),
       }),
@@ -78,8 +86,25 @@ export function CarDetailScreen() {
       navigate(`/bookings/${booking.id}/confirmed`, { state: { booking } }),
   });
 
+  // The exact delivery fee for the pin, from the provider's real base (the
+  // public one is rounded), so the quote here is the fee the booking stores.
+  const quoteDays = from && to && from <= to ? rentalDays(from, to) : 1;
+  const { data: deliveryQuote } = useQuery({
+    queryKey: ['delivery-quote', id, deliveryPin?.lat, deliveryPin?.lng, quoteDays],
+    queryFn: () =>
+      api<{
+        distance_km: number | null;
+        fee_xaf: number;
+        waived_xaf: number;
+        out_of_range: boolean;
+        free_delivery_min_days: number | null;
+      }>(`/vehicles/${id}/delivery-quote?lat=${deliveryPin!.lat}&lng=${deliveryPin!.lng}&days=${quoteDays}`),
+    enabled: deliveryType === 'address' && Boolean(deliveryPin),
+  });
+
   if (isLoading) return <Spinner label={t('common.loading')} />;
   if (!car) return <ErrorNote>{t('car.notFound')}</ErrorNote>;
+  const zoned = (car.vendor.delivery_zones?.length ?? 0) > 0;
 
   const driverAvailable = car.driver_option !== 'none';
   const driverRequired = car.driver_option === 'required';
@@ -97,8 +122,16 @@ export function CarDetailScreen() {
     withDriver: driverChosen,
     driverDailyRateXaf: car.driver_daily_rate_xaf,
     deliveryType,
-    deliveryFeeXaf: car.vendor.delivery_fee_xaf,
+    // With a pin, the server's figure for it; otherwise the flat fee (or, for
+    // a zoned provider, nothing until a pin is dropped).
+    deliveryFeeXaf:
+      deliveryType === 'address' && deliveryQuote
+        ? deliveryQuote.fee_xaf
+        : zoned
+          ? 0
+          : car.vendor.delivery_fee_xaf,
     airportFeeXaf: car.vendor.airport_fee_xaf,
+    freeDeliveryMinDays: deliveryQuote ? null : car.vendor.free_delivery_min_days,
   });
   const days = windowChosen ? quote.days : 0;
   const total = quote.totalXaf;
@@ -126,7 +159,7 @@ export function CarDetailScreen() {
           ].map((f) => (
             <span
               key={f}
-              className="rounded-full border border-karu-ink/15 bg-white px-3 py-1 text-xs font-semibold text-karu-brown"
+              className="rounded-full border border-karu-ink/15 bg-karu-surface px-3 py-1 text-xs font-semibold text-karu-brown"
             >
               {f}
             </span>
@@ -257,7 +290,8 @@ export function CarDetailScreen() {
                   [
                     ['pickup_point', null],
                     ['airport', car.vendor.airport_fee_xaf],
-                    ['address', car.vendor.delivery_fee_xaf],
+                    // A zoned provider delivers even with no flat fee set.
+                    ['address', car.vendor.delivery_fee_xaf ?? ((car.vendor.delivery_zones?.length ?? 0) > 0 ? -1 : null)],
                   ] as Array<[DeliveryType, number | null]>
                 )
                   // A provider who doesn't run cars out shouldn't advertise it.
@@ -272,20 +306,78 @@ export function CarDetailScreen() {
                       />
                       <span className="flex-1">{t(`car.delivery.${kind}`)}</span>
                       <span className="text-karu-mute">
-                        {fee ? `+ ${xaf(fee)}` : fee === 0 ? t('car.free') : ''}
+                        {kind === 'address' && zoned
+                          ? t('location.byDistance')
+                          : fee ? `+ ${xaf(fee)}` : fee === 0 ? t('car.free') : ''}
                       </span>
                     </label>
                   ))}
               </div>
               {deliveryType === 'address' && (
-                <Field label={t('car.deliveryAddress')} className="mt-3">
-                  <Input
-                    value={deliveryAddress}
-                    onChange={(e) => setDeliveryAddress(e.target.value)}
-                    maxLength={300}
-                    placeholder={t('car.deliveryAddressHint')}
-                  />
-                </Field>
+                <div className="mt-3">
+                  <p className="text-xs text-karu-mute">{t('location.dropPin')}</p>
+                  <div className="mt-2">
+                    <KaruMap
+                      center={
+                        deliveryPin ??
+                        (car.vendor.approx_lat != null && car.vendor.approx_lng != null
+                          ? { lat: car.vendor.approx_lat, lng: car.vendor.approx_lng }
+                          : car.city === 'yaounde'
+                            ? YAOUNDE
+                            : DOUALA)
+                      }
+                      zoom={13}
+                      height={220}
+                      picked={deliveryPin}
+                      onPick={setDeliveryPin}
+                      ariaLabel={t('location.deliveryMapAria')}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="mt-2 text-xs font-semibold text-karu-brown underline"
+                    onClick={() => void locateMe().then(setDeliveryPin).catch(() => undefined)}
+                  >
+                    {t('location.useMine')}
+                  </button>
+                  {deliveryQuote && (
+                    <p
+                      className={`mt-2 text-xs font-semibold ${
+                        deliveryQuote.out_of_range ? 'text-karu-terracotta' : 'text-karu-brown'
+                      }`}
+                    >
+                      {deliveryQuote.out_of_range
+                        ? t('location.outOfRange', { km: deliveryQuote.distance_km })
+                        : deliveryQuote.waived_xaf > 0
+                          ? t('location.freeLongRental', { km: deliveryQuote.distance_km })
+                          : t('location.quoteLine', {
+                              km: deliveryQuote.distance_km,
+                              fee: deliveryQuote.fee_xaf ? xaf(deliveryQuote.fee_xaf) : t('car.free'),
+                            })}
+                    </p>
+                  )}
+                  {!deliveryQuote && car.vendor.free_delivery_min_days ? (
+                    <p className="mt-2 text-xs text-karu-brown">
+                      {t('location.freeFromBadge', { count: car.vendor.free_delivery_min_days })}
+                    </p>
+                  ) : null}
+                  <Field label={t('location.landmark')} className="mt-3">
+                    <Input
+                      value={landmark}
+                      onChange={(e) => setLandmark(e.target.value)}
+                      maxLength={300}
+                      placeholder={t('location.landmarkHint')}
+                    />
+                  </Field>
+                  <Field label={t('car.deliveryAddress')} className="mt-3">
+                    <Input
+                      value={deliveryAddress}
+                      onChange={(e) => setDeliveryAddress(e.target.value)}
+                      maxLength={300}
+                      placeholder={t('car.deliveryAddressHint')}
+                    />
+                  </Field>
+                </div>
               )}
               {deliveryType === 'airport' && (
                 <Field label={t('car.flightDetails')} className="mt-3">
@@ -348,6 +440,16 @@ export function CarDetailScreen() {
                   <span>{xaf(quote.deliveryXaf)}</span>
                 </div>
               )}
+              {deliveryType === 'address' && (deliveryQuote?.waived_xaf ?? quote.deliveryWaivedXaf) > 0 && (
+                // The customer-positive bit: show what they're not paying.
+                <div className="flex justify-between text-green-700">
+                  <span>{t(`car.delivery.address`)}</span>
+                  <span>
+                    <s className="mr-1 text-karu-mute">{xaf(deliveryQuote?.waived_xaf ?? quote.deliveryWaivedXaf)}</s>
+                    {t('car.free')}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between font-semibold">
                 <span>{t('car.totalAllFees')}</span>
                 <span>
@@ -385,7 +487,9 @@ export function CarDetailScreen() {
                 !avail?.available ||
                 book.isPending ||
                 // The driver can't find an address that wasn't given.
-                (deliveryType === 'address' && !deliveryAddress.trim())
+                (deliveryType === 'address' && !deliveryAddress.trim() && !deliveryPin) ||
+                // A zoned provider prices by the pin, and won't go beyond the last ring.
+                (deliveryType === 'address' && zoned && (!deliveryPin || Boolean(deliveryQuote?.out_of_range)))
               }
               onClick={() => {
                 if (!session) {

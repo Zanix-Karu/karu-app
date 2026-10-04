@@ -454,3 +454,17 @@ from (values
   ('aaaaaaaa-0000-4000-8000-000000000010','44444444-0000-4000-8000-000000000014','amina@demo.getkaru.io',           'booking_confirmed',         'en','re_demo_c04e9', 'sent',  '', 121)
 ) as e(id, booking_id, recipient, template, locale, provider_id, status, error, mins)
 join bookings b on b.id = e.booking_id::uuid;
+
+-- ── Locations and delivery zones (0034) ─────────────────────────────────────
+-- Real neighbourhoods so the map and "near me" have something to show:
+-- Akwa, Avenue Kennedy, Bonapriso, Bastos, Down Beach, Bonamoussadi.
+update vendors set lat = v.lat, lng = v.lng, delivery_zones = v.zones::jsonb, free_delivery_min_days = v.free_days
+from (values
+  ('22222222-0000-4000-8000-000000000010', 4.0511,  9.7085, '[{"max_km":5,"fee_xaf":0},{"max_km":12,"fee_xaf":5000},{"max_km":25,"fee_xaf":10000}]', 3),
+  ('22222222-0000-4000-8000-000000000011', 3.8667, 11.5167, '[{"max_km":8,"fee_xaf":3000},{"max_km":20,"fee_xaf":8000}]', 5),
+  ('22222222-0000-4000-8000-000000000012', 4.0322,  9.6966, '[]', null),
+  ('22222222-0000-4000-8000-000000000013', 3.8925, 11.5089, '[]', null),
+  ('22222222-0000-4000-8000-000000000014', 4.0129,  9.2049, '[]', null),
+  ('22222222-0000-4000-8000-000000000015', 4.0897,  9.7426, '[]', null)
+) as v(id, lat, lng, zones, free_days)
+where vendors.id = v.id::uuid;

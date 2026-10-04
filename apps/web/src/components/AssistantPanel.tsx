@@ -108,7 +108,7 @@ export function AssistantPanel() {
           type="button"
           onClick={openPanel}
           aria-label={t('assistant.launch')}
-          className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-karu-ink text-karu-cream shadow-lg transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-karu-gold focus-visible:ring-offset-2"
+          className="karu-pop-in fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-karu-ink text-karu-cream shadow-lg transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-karu-gold focus-visible:ring-offset-2"
         >
           <ChatIcon />
         </button>
@@ -167,7 +167,7 @@ export function AssistantPanel() {
                       key={x.id}
                       type="button"
                       onClick={() => setTopicId(x.id)}
-                      className="rounded-md border border-karu-ink/10 bg-white px-4 py-3 text-left text-sm font-medium text-karu-ink transition hover:border-karu-gold focus:outline-none focus-visible:ring-2 focus-visible:ring-karu-gold"
+                      className="rounded-md border border-karu-ink/10 bg-karu-surface px-4 py-3 text-left text-sm font-medium text-karu-ink transition hover:border-karu-gold focus:outline-none focus-visible:ring-2 focus-visible:ring-karu-gold"
                     >
                       {t(`assistant.topics.${x.id}.q`)}
                     </button>

@@ -1,0 +1,250 @@
+/* Handover ticket, code boxes and trip progress (components/Handover.tsx).
+   Colours come from the semantic tokens so a theme change carries through. */
+
+/* ── Trip progress strip ─────────────────────────────────────────────────── */
+
+.karu-trip-progress {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-ui);
+}
+
+.karu-trip-progress li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* The rail between dots, drawn from each step back to the previous one. */
+.karu-trip-progress li + li::before {
+  content: '';
+  position: absolute;
+  top: 13px;
+  right: 50%;
+  width: 100%;
+  height: 2px;
+  background: var(--border-light);
+  z-index: 0;
+  transition: background-color var(--motion-slow) var(--ease-out);
+}
+.karu-trip-progress li[data-state='done']::before,
+.karu-trip-progress li[data-state='current']::before {
+  background: var(--action-secondary);
+}
+
+.karu-trip-progress__dot {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  font-weight: 700;
+  font-size: 12px;
+  background: var(--surface-card);
+  border: 2px solid var(--border-light);
+  color: var(--text-secondary);
+  transition:
+    background-color var(--motion-base) var(--ease-out),
+    border-color var(--motion-base) var(--ease-out),
+    transform var(--motion-base) var(--ease-spring);
+}
+.karu-trip-progress li[data-state='done'] .karu-trip-progress__dot {
+  background: var(--action-secondary);
+  border-color: var(--action-secondary);
+  color: var(--white);
+}
+.karu-trip-progress li[data-state='current'] .karu-trip-progress__dot {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: var(--brand-ink);
+  transform: scale(1.12);
+}
+.karu-trip-progress li[data-state='current'] .karu-trip-progress__label {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+/* ── Customer ticket ─────────────────────────────────────────────────────── */
+
+.karu-ticket {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--bg-gradient);
+  color: var(--text-on-dark);
+  box-shadow: var(--shadow-lg);
+  animation: karu-rise-in var(--motion-slow) var(--ease-out) both;
+}
+
+/* Punched notches either side of the tear line, like a paper ticket. */
+.karu-ticket::before,
+.karu-ticket::after {
+  content: '';
+  position: absolute;
+  top: 58px;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-canvas);
+}
+.karu-ticket::before { left: -11px; }
+.karu-ticket::after { right: -11px; }
+
+.karu-ticket__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 18px 22px 16px;
+  border-bottom: 2px dashed rgba(255, 255, 255, 0.28);
+}
+.karu-ticket__eyebrow {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand);
+}
+.karu-ticket__ref {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--text-on-dark-muted);
+}
+
+.karu-ticket__body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 22px;
+  text-align: center;
+}
+
+.karu-ticket__digits {
+  display: flex;
+  gap: 10px;
+}
+.karu-ticket__digit {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 72px;
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-weight: 800;
+  font-size: 40px;
+  font-variant-numeric: tabular-nums;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.08);
+  animation: karu-pop-in var(--motion-base) var(--ease-spring) both;
+}
+.karu-ticket__digit:nth-child(2) { animation-delay: 40ms; }
+.karu-ticket__digit:nth-child(3) { animation-delay: 80ms; }
+.karu-ticket__digit:nth-child(4) { animation-delay: 120ms; }
+
+.karu-ticket__hint {
+  max-width: 34ch;
+  margin: 14px 0 0;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text-on-dark-muted);
+}
+
+.karu-ticket__qr-toggle {
+  margin-top: 14px;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: transparent;
+  color: var(--text-on-dark);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+.karu-ticket__qr-toggle:hover { background: rgba(255, 255, 255, 0.12); }
+.karu-ticket__qr-toggle:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.karu-ticket__qr {
+  width: 200px;
+  margin-top: 14px;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  /* QR needs dark-on-light to scan, whatever the theme. */
+  background: #ffffff;
+}
+.karu-ticket__qr svg { display: block; width: 100%; height: auto; }
+
+@media (max-width: 380px) {
+  .karu-ticket__digit { width: 50px; height: 64px; font-size: 34px; }
+}
+
+/* ── Provider code boxes ─────────────────────────────────────────────────── */
+
+.karu-code-boxes {
+  display: flex;
+  gap: 8px;
+}
+.karu-code-box {
+  width: 48px;
+  height: 56px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border-light);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 26px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  transition:
+    border-color var(--motion-fast) var(--ease-out),
+    box-shadow var(--motion-fast) var(--ease-out);
+}
+.karu-code-box:focus {
+  outline: none;
+  border-color: var(--action-secondary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 45%, transparent);
+}
+
+.karu-scanner__video {
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  background: var(--ink);
+}
+
+/* ── Condition report photo grid ─────────────────────────────────────────── */
+
+.karu-inspection-photos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 8px;
+}
+.karu-inspection-photos img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}

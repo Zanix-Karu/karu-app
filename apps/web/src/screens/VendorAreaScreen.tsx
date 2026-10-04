@@ -1,6 +1,7 @@
 import { useState, type CSSProperties, type FormEvent } from 'react';
 import { ReviewBody } from '../components/ReviewBody';
 import { useTranslation } from 'react-i18next';
+import { VendorLocationSettings } from '../components/VendorLocationSettings';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -409,7 +410,7 @@ function BusinessProfileSettings({ vendor }: { vendor: Vendor }) {
         </p>
         <Field label={t('vendor.profile.label')}>
           <textarea
-            className="w-full rounded-md border border-karu-ink/15 bg-white px-3 py-2 text-sm text-karu-ink placeholder:text-karu-mute focus:border-karu-gold focus:outline-none focus:ring-2 focus:ring-karu-gold/30"
+            className="w-full rounded-md border border-karu-ink/15 bg-karu-surface px-3 py-2 text-sm text-karu-ink placeholder:text-karu-mute focus:border-karu-gold focus:outline-none focus:ring-2 focus:ring-karu-gold/30"
             rows={4}
             maxLength={1000}
             value={bio}
@@ -688,6 +689,7 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
       </div>
 
       {!asAdmin && <DeliverySettings vendor={vendor} />}
+      {!asAdmin && <VendorLocationSettings vendor={vendor} />}
       {!asAdmin && <BusinessProfileSettings vendor={vendor} />}
 
       <h2 style={{ margin: '32px 0 14px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
@@ -717,19 +719,36 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
 const VENDOR_ACTIONS: Partial<
   Record<
     BookingStatus,
-    Array<{ to: BookingStatus; label: string; danger?: boolean; confirm?: string; needsCode?: boolean }>
+    Array<{ to: BookingStatus; label: string; danger?: boolean; confirm?: string }>
   >
 > = {
   requested: [
     { to: 'confirmed', label: 'vendor.actions.confirm' },
     { to: 'rejected', label: 'vendor.actions.reject', danger: true, confirm: 'vendor.actions.rejectConfirm' },
   ],
-  confirmed: [
-    // REQ-6: read the code back from the customer rather than a plain click.
-    { to: 'in_progress', label: 'vendor.actions.startTrip', needsCode: true },
-    { to: 'cancelled', label: 'vendor.actions.cancel', danger: true, confirm: 'vendor.actions.cancelConfirm' },
-  ],
-  in_progress: [{ to: 'completed', label: 'vendor.actions.complete', needsCode: true }],
+};
+
+/**
+ * Handover, return and cancelling an accepted booking each need more than a
+ * click now (condition photos, the customer's code, a reason), so the list
+ * sends the provider to the booking page where all of that lives (0030).
+ */
+const VENDOR_OPEN_ACTION: Partial<Record<BookingStatus, string>> = {
+  confirmed: 'vendor.actions.openHandover',
+  in_progress: 'vendor.actions.openReturn',
+};
+
+const vendorOpenStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  padding: '8px 14px',
+  borderRadius: 'var(--radius-md)',
+  background: 'var(--brand)',
+  color: 'var(--brand-ink)',
+  fontFamily: 'var(--font-ui)',
+  fontWeight: 600,
+  fontSize: 14,
+  textDecoration: 'none',
 };
 
 function VendorBookings({ asVendorId }: { asVendorId?: string }) {
@@ -744,11 +763,9 @@ function VendorBookings({ asVendorId }: { asVendorId?: string }) {
   });
 
   const transition = useMutation({
-    mutationFn: ({ id, to, code }: { id: string; to: BookingStatus; code?: string }) =>
-      api<Booking>(`/bookings/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status: to, code }) }),
+    mutationFn: ({ id, to }: { id: string; to: BookingStatus }) =>
+      api<Booking>(`/bookings/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status: to }) }),
     onSuccess: () => {
-      setCodePrompt(null);
-      setCodeDraft('');
       void qc.invalidateQueries({ queryKey: ['my-bookings'] });
     },
   });
@@ -757,10 +774,6 @@ function VendorBookings({ asVendorId }: { asVendorId?: string }) {
   const [tab, setTab] = useState<'active' | 'archived'>('active');
   const shown = (data ?? []).filter((b) => isBookingArchived(b.status) === (tab === 'archived'));
   const archivedCount = (data ?? []).filter((b) => isBookingArchived(b.status)).length;
-  // REQ-6: which booking + target status currently has its code prompt open
-  // (one at a time — a vendor confirms one handover/return at a time).
-  const [codePrompt, setCodePrompt] = useState<{ bookingId: string; to: BookingStatus } | null>(null);
-  const [codeDraft, setCodeDraft] = useState('');
 
   if (isLoading) {
     return (
@@ -846,68 +859,35 @@ function VendorBookings({ asVendorId }: { asVendorId?: string }) {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <StatusBadge status={b.status} />
-              {codePrompt?.bookingId === b.id ? (
-                <>
-                  <Input
-                    value={codeDraft}
-                    onChange={(e) => setCodeDraft(e.target.value)}
-                    placeholder={t('vendor.actions.codePlaceholder')}
-                    autoFocus
-                    style={{ width: 140 }}
-                  />
-                  <Button
+              {VENDOR_OPEN_ACTION[b.status] && (
+                <Link to={`/bookings/${b.id}`} className="karu-btn" style={vendorOpenStyle}>
+                  {t(VENDOR_OPEN_ACTION[b.status]!)}
+                </Link>
+              )}
+              {VENDOR_ACTIONS[b.status]?.map((a) =>
+                a.confirm ? (
+                  <ConfirmButton
+                    key={a.to}
+                    as={Button}
                     size="sm"
-                    disabled={!codeDraft.trim() || transition.isPending}
-                    onClick={() => transition.mutate({ id: b.id, to: codePrompt.to, code: codeDraft.trim() })}
+                    variant={a.danger ? 'danger' : 'primary'}
+                    disabled={transition.isPending}
+                    confirmLabel={t(a.confirm)}
+                    onConfirm={() => transition.mutate({ id: b.id, to: a.to })}
                   >
-                    {transition.isPending
-                      ? t('common.saving')
-                      : t(VENDOR_ACTIONS[b.status]?.find((a) => a.to === codePrompt.to)?.label ?? '')}
-                  </Button>
+                    {t(a.label)}
+                  </ConfirmButton>
+                ) : (
                   <Button
+                    key={a.to}
                     size="sm"
-                    variant="outline"
-                    onClick={() => { setCodePrompt(null); setCodeDraft(''); }}
+                    variant={a.danger ? 'danger' : 'primary'}
+                    disabled={transition.isPending}
+                    onClick={() => transition.mutate({ id: b.id, to: a.to })}
                   >
-                    {t('common.cancel')}
+                    {t(a.label)}
                   </Button>
-                </>
-              ) : (
-                VENDOR_ACTIONS[b.status]?.map((a) =>
-                  a.confirm ? (
-                    <ConfirmButton
-                      key={a.to}
-                      as={Button}
-                      size="sm"
-                      variant={a.danger ? 'danger' : 'primary'}
-                      disabled={transition.isPending}
-                      confirmLabel={t(a.confirm)}
-                      onConfirm={() => transition.mutate({ id: b.id, to: a.to })}
-                    >
-                      {t(a.label)}
-                    </ConfirmButton>
-                  ) : a.needsCode ? (
-                    <Button
-                      key={a.to}
-                      size="sm"
-                      variant={a.danger ? 'danger' : 'primary'}
-                      disabled={transition.isPending}
-                      onClick={() => { setCodePrompt({ bookingId: b.id, to: a.to }); setCodeDraft(''); }}
-                    >
-                      {t(a.label)}
-                    </Button>
-                  ) : (
-                    <Button
-                      key={a.to}
-                      size="sm"
-                      variant={a.danger ? 'danger' : 'primary'}
-                      disabled={transition.isPending}
-                      onClick={() => transition.mutate({ id: b.id, to: a.to })}
-                    >
-                      {t(a.label)}
-                    </Button>
-                  ),
-                )
+                ),
               )}
             </div>
           </Card>

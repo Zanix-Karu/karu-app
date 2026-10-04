@@ -2,9 +2,16 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import type { Booking, BookingStatus, Review, Vehicle } from '@karu/shared';
+import {
+  DAMAGE_REPORT_WINDOW_HOURS,
+  depositRefundDue,
+  type Booking,
+  type BookingStatus,
+  type Review,
+  type Vehicle,
+} from '@karu/shared';
 import { api } from '../lib/api';
-import { useView } from '../lib/auth';
+import { useAuth, useView } from '../lib/auth';
 import { CATEGORY_LABEL, CITY_LABEL, prettyDate, rentalDays, xaf } from '../lib/format';
 import { Badge, Button, Card } from '../ds';
 import { ErrorNote, StatusBadge } from '../ui';
@@ -14,6 +21,10 @@ import { ReviewForm } from '../components/ReviewForm';
 import { ReceivedReview } from '../components/ReceivedReview';
 import { ConfirmButton } from '../components/ConfirmButton';
 import { BookingChat } from '../components/BookingChat';
+import { CodeEntry, HandoverTicket, TripProgress } from '../components/Handover';
+import { InspectionPanel } from '../components/InspectionPanel';
+import { KaruMap } from '../components/KaruMap';
+import { LiveTracking } from '../components/LiveTracking';
 
 interface BookingDetail extends Booking {
   vehicle: Pick<
@@ -21,9 +32,27 @@ interface BookingDetail extends Booking {
     'id' | 'make' | 'model' | 'year' | 'category' | 'transmission' | 'seats' | 'photos' | 'city' | 'pickup_locations'
   > | null;
   /** Present for customers and admins; vendors don't need their own details. */
-  vendor: { id: string; business_name: string; city: string; contact_phone?: string | null; contact_email?: string | null } | null;
-  /** Vendors get display_name only. Admins get the full record. */
-  customer: { display_name: string; full_name?: string | null; phone?: string | null; email?: string | null } | null;
+  vendor: {
+    id: string;
+    business_name: string;
+    city: string;
+    contact_phone?: string | null;
+    contact_email?: string | null;
+    /** The phone is held back until the deposit is in or pick-up is close (0030). */
+    contact_locked?: boolean;
+    /** Exact base, once the booking is accepted (0034). */
+    location?: { lat: number; lng: number; address: string | null } | null;
+  } | null;
+  /** Vendors get display_name only (plus the verified identity once accepted). Admins get the full record. */
+  customer: {
+    display_name: string;
+    full_name?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    identity?:
+      | { verified: false }
+      | { verified: true; full_name: string | null; selfie_url: string | null; licence_expires_at: string | null };
+  } | null;
 }
 
 interface Action {
@@ -76,10 +105,34 @@ function daysUntil(date: string): number {
   return Math.round((Date.parse(date) - Date.parse(today)) / 86_400_000);
 }
 
+/** Which condition report the caller can record right now, if any. */
+function inspectionStage(b: Booking): 'handover' | 'return' | null {
+  if (b.status === 'confirmed') return 'handover';
+  if (b.status === 'in_progress') return 'return';
+  if (b.status === 'completed' && b.completed_at) {
+    const open = Date.now() - Date.parse(b.completed_at) <= DAMAGE_REPORT_WINDOW_HOURS * 3_600_000;
+    return open ? 'return' : null;
+  }
+  return null;
+}
+
+/** A provider dropping a customer they already accepted owes them a reason. */
+function reasonRequired(b: Booking, view: string): boolean {
+  return view === 'vendor' && b.status === 'confirmed';
+}
+
+/** What happens to the deposit, said before the button is pressed. */
+function cancelPolicyLine(b: Booking, view: string, t: (k: string) => string): string {
+  if (view !== 'customer') return t('booking.cancelPolicy.provider');
+  const refund = depositRefundDue({ cancelledBy: 'customer', status: b.status, startDate: b.start_date });
+  return refund ? t('booking.cancelPolicy.refund') : t('booking.cancelPolicy.noRefund');
+}
+
 export function BookingDetailScreen() {
   const { t } = useTranslation();
   const { id = '' } = useParams();
   const view = useView();
+  const { profile } = useAuth();
   const { secondary } = useCurrency();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -90,11 +143,15 @@ export function BookingDetailScreen() {
   });
 
   const transition = useMutation({
-    mutationFn: ({ to, code }: { to: BookingStatus; code?: string }) =>
-      api(`/bookings/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status: to, code }) }),
+    mutationFn: ({ to, code, note }: { to: BookingStatus; code?: string; note?: string }) =>
+      api(`/bookings/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: to, code, vendor_note: note }),
+      }),
     onSuccess: () => {
       setCodeActionTo(null);
-      setCodeDraft('');
+      setCancelling(false);
+      setCancelReason('');
       void qc.invalidateQueries({ queryKey: ['booking-detail', id] });
       void qc.invalidateQueries({ queryKey: ['my-bookings'] });
       void qc.invalidateQueries({ queryKey: ['admin-bookings'] });
@@ -103,7 +160,9 @@ export function BookingDetailScreen() {
   });
   // REQ-6: which needsCode action currently has its inline code prompt open.
   const [codeActionTo, setCodeActionTo] = useState<BookingStatus | null>(null);
-  const [codeDraft, setCodeDraft] = useState('');
+  // 0030: cancelling asks for a reason (required of a provider who accepted).
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
 
   // The vendor's review of the customer, fetched only once the booking is
   // known to be completed and this is the customer's own view of it.
@@ -163,6 +222,8 @@ export function BookingDetailScreen() {
         <StatusBadge status={b.status} />
       </div>
 
+      <TripProgress status={b.status} />
+
       {showCountdown && (
         <div className="mt-4 rounded-xl bg-karu-yellow/20 px-4 py-3 text-sm font-semibold text-karu-brown">
           {until === 0 ? t('booking.pickupToday') : t('booking.pickupInDays', { count: until })}
@@ -180,15 +241,48 @@ export function BookingDetailScreen() {
         so no extra role check is needed here.
       */}
       {view === 'customer' && b.status === 'confirmed' && b.handover_code && (
-        <div className="mt-4 rounded-xl bg-karu-yellow/20 px-4 py-3 text-sm text-karu-brown">
-          <p className="font-semibold">{t('booking.handoverCode', { code: b.handover_code })}</p>
-          <p className="mt-1">{t('booking.handoverCodeHint')}</p>
-        </div>
+        <HandoverTicket kind="handover" code={b.handover_code} reference={b.reference ?? b.id} />
       )}
       {view === 'customer' && b.status === 'in_progress' && b.return_code && (
-        <div className="mt-4 rounded-xl bg-karu-yellow/20 px-4 py-3 text-sm text-karu-brown">
-          <p className="font-semibold">{t('booking.returnCode', { code: b.return_code })}</p>
-          <p className="mt-1">{t('booking.returnCodeHint')}</p>
+        <HandoverTicket kind="return" code={b.return_code} reference={b.reference ?? b.id} />
+      )}
+
+      {/* 0032: a self-drive request can't be accepted until the customer's ID is checked. */}
+      {view === 'customer' &&
+        b.status === 'requested' &&
+        !b.with_driver &&
+        profile &&
+        profile.verification_status !== 'verified' && (
+          <div className="mt-4 rounded-xl bg-karu-yellow/20 px-4 py-3 text-sm text-karu-brown">
+            <p className="font-semibold">
+              {profile.verification_status === 'pending' ? t('verify.banner.pendingTitle') : t('verify.banner.title')}
+            </p>
+            <p className="mt-1">
+              {profile.verification_status === 'pending' ? t('verify.banner.pendingBody') : t('verify.banner.body')}
+            </p>
+            {profile.verification_status !== 'pending' && (
+              <Link to="/profile#verify" className="mt-2 inline-block font-semibold underline">
+                {t('verify.banner.cta')}
+              </Link>
+            )}
+          </div>
+        )}
+
+      {b.code_locked_at && (b.status === 'confirmed' || b.status === 'in_progress') && (
+        <div className="mt-4 rounded-xl bg-karu-terracotta/10 px-4 py-3 text-sm font-semibold text-karu-terracotta">
+          {t('booking.codeLocked')}
+        </div>
+      )}
+
+      {b.status === 'cancelled' && b.cancelled_by && (
+        <div className="mt-4 rounded-xl bg-karu-ink/5 px-4 py-3 text-sm">
+          <p className="font-semibold">{t(`booking.cancelledBy.${b.cancelled_by}`)}</p>
+          {b.cancellation_reason && <p className="mt-1">&ldquo;{b.cancellation_reason}&rdquo;</p>}
+          {b.deposit_refund_due !== null && (
+            <p className="mt-1 text-karu-mute">
+              {b.deposit_refund_due ? t('booking.refundDue') : t('booking.refundNotDue')}
+            </p>
+          )}
         </div>
       )}
 
@@ -258,6 +352,9 @@ export function BookingDetailScreen() {
               {b.vendor.contact_phone ? row(t('booking.phone'), b.vendor.contact_phone) : null}
               {b.vendor.contact_email ? row(t('auth.email'), b.vendor.contact_email) : null}
             </div>
+            {b.vendor.contact_locked && (
+              <p className="mt-3 text-xs text-karu-mute">{t('booking.phoneLocked')}</p>
+            )}
           </Card>
         )}
 
@@ -270,6 +367,9 @@ export function BookingDetailScreen() {
               {b.customer.phone ? row(t('booking.phone'), b.customer.phone) : null}
               {b.customer.email ? row(t('auth.email'), b.customer.email) : null}
             </div>
+            {view === 'vendor' && b.customer.identity && (
+              <HandoverIdentity identity={b.customer.identity} />
+            )}
             {view === 'vendor' && (
               <p className="mt-3 text-xs text-karu-mute">{t('booking.contactPrivate')}</p>
             )}
@@ -294,6 +394,57 @@ export function BookingDetailScreen() {
           </Card>
         )}
 
+        {/* 0034: where the car is going, or where to collect it. */}
+        {b.delivery_type === 'address' && b.delivery_lat != null && b.delivery_lng != null && view !== 'customer' && (
+          <Card>
+            <h2 className="font-display text-lg font-bold">{t('location.deliverTo')}</h2>
+            <div className="mt-3">
+              <KaruMap
+                center={{ lat: b.delivery_lat, lng: b.delivery_lng }}
+                zoom={15}
+                height={200}
+                picked={{ lat: b.delivery_lat, lng: b.delivery_lng }}
+                ariaLabel={t('location.deliverTo')}
+              />
+            </div>
+            {b.delivery_landmark && <p className="mt-2 text-sm">&ldquo;{b.delivery_landmark}&rdquo;</p>}
+            {b.delivery_distance_km != null && (
+              <p className="mt-1 text-xs text-karu-mute">{t('location.kmFromBase', { km: b.delivery_distance_km })}</p>
+            )}
+            <a
+              className="mt-2 inline-block text-sm font-semibold text-karu-brown underline"
+              href={`https://www.google.com/maps/dir/?api=1&destination=${b.delivery_lat},${b.delivery_lng}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {t('location.directions')}
+            </a>
+          </Card>
+        )}
+        {b.delivery_type === 'pickup_point' && b.vendor?.location && view === 'customer' && (
+          <Card>
+            <h2 className="font-display text-lg font-bold">{t('location.collectFrom')}</h2>
+            <div className="mt-3">
+              <KaruMap
+                center={{ lat: b.vendor.location.lat, lng: b.vendor.location.lng }}
+                zoom={15}
+                height={200}
+                picked={{ lat: b.vendor.location.lat, lng: b.vendor.location.lng }}
+                ariaLabel={t('location.collectFrom')}
+              />
+            </div>
+            {b.vendor.location.address && <p className="mt-2 text-sm">{b.vendor.location.address}</p>}
+            <a
+              className="mt-2 inline-block text-sm font-semibold text-karu-brown underline"
+              href={`https://www.google.com/maps/dir/?api=1&destination=${b.vendor.location.lat},${b.vendor.location.lng}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {t('location.directions')}
+            </a>
+          </Card>
+        )}
+
         {b.customer_note && (
           <Card>
             <h2 className="font-display text-lg font-bold">{t('booking.customerNote')}</h2>
@@ -302,40 +453,82 @@ export function BookingDetailScreen() {
         )}
       </div>
 
+      {/*
+        0030: the provider records the car's condition before either code;
+        the customer may add their own. Shown from confirmation until the
+        damage-report window after return closes.
+      */}
+      {/* 0035: the car on its way to the customer. */}
+      <LiveTracking booking={b} view={view} />
+
+      <InspectionPanel
+        bookingId={b.id}
+        view={view}
+        stage={inspectionStage(b)}
+        required={view === 'vendor' && !b.with_driver}
+      />
+
       {actions.length > 0 && (
         <Card style={{ marginTop: 16 }}>
           <h2 className="font-display text-lg font-bold">{t('booking.actions')}</h2>
           {codeActionTo ? (
-            // REQ-6: read the code back from the customer rather than a
-            // plain click — replaces the row's usual actions while open.
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <input
-                value={codeDraft}
-                onChange={(e) => setCodeDraft(e.target.value)}
-                placeholder={t('vendor.actions.codePlaceholder')}
-                autoFocus
-                className="w-40 rounded-lg border border-karu-ink/15 px-3 py-2 text-sm"
-              />
-              <Button
-                variant="primary"
-                disabled={!codeDraft.trim() || transition.isPending}
-                onClick={() => transition.mutate({ to: codeActionTo, code: codeDraft.trim() })}
-              >
-                {transition.isPending
-                  ? t('common.oneMoment')
-                  : t(actions.find((a) => a.to === codeActionTo)?.label ?? '')}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => { setCodeActionTo(null); setCodeDraft(''); }}
-              >
-                {t('common.cancel')}
-              </Button>
-            </div>
+            // REQ-6: read the code back from the customer (or scan their QR)
+            // rather than a plain click. Replaces the row's actions while open.
+            <CodeEntry
+              label={t(actions.find((a) => a.to === codeActionTo)?.label ?? '')}
+              reference={b.reference ?? b.id}
+              pending={transition.isPending}
+              onSubmit={(code) => transition.mutate({ to: codeActionTo, code })}
+              onCancel={() => { setCodeActionTo(null); transition.reset(); }}
+            />
+          ) : cancelling ? (
+            <form
+              className="mt-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                transition.mutate({ to: 'cancelled', note: cancelReason.trim() || undefined });
+              }}
+            >
+              <p className="text-sm">{cancelPolicyLine(b, view, t)}</p>
+              <label className="mt-3 block text-sm">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-karu-mute">
+                  {reasonRequired(b, view) ? t('booking.cancelReasonRequired') : t('booking.cancelReasonOptional')}
+                </span>
+                <textarea
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value.slice(0, 500))}
+                  rows={2}
+                  autoFocus
+                  className="w-full rounded-lg border border-karu-ink/15 px-3 py-2 text-sm"
+                />
+              </label>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button
+                  type="submit"
+                  variant="danger"
+                  loading={transition.isPending}
+                  disabled={reasonRequired(b, view) && cancelReason.trim().length < 10}
+                >
+                  {t('booking.action.cancelBooking')}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => { setCancelling(false); transition.reset(); }}>
+                  {t('booking.keepBooking')}
+                </Button>
+              </div>
+            </form>
           ) : (
             <div className="mt-3 flex flex-wrap gap-2">
               {actions.map((a) =>
-                a.danger ? (
+                a.to === 'cancelled' ? (
+                  <Button
+                    key={a.to}
+                    variant="danger"
+                    disabled={transition.isPending}
+                    onClick={() => { setCancelling(true); transition.reset(); }}
+                  >
+                    {t(a.label)}
+                  </Button>
+                ) : a.danger ? (
                   <ConfirmButton
                     key={a.to}
                     as={Button}
@@ -350,8 +543,8 @@ export function BookingDetailScreen() {
                   <Button
                     key={a.to}
                     variant="primary"
-                    disabled={transition.isPending}
-                    onClick={() => { setCodeActionTo(a.to); setCodeDraft(''); }}
+                    disabled={transition.isPending || Boolean(b.code_locked_at)}
+                    onClick={() => { setCodeActionTo(a.to); transition.reset(); }}
                   >
                     {t(a.label)}
                   </Button>
@@ -359,10 +552,10 @@ export function BookingDetailScreen() {
                   <Button
                     key={a.to}
                     variant="primary"
-                    disabled={transition.isPending}
+                    loading={transition.isPending}
                     onClick={() => transition.mutate({ to: a.to })}
                   >
-                    {transition.isPending ? t('common.oneMoment') : t(a.label)}
+                    {t(a.label)}
                   </Button>
                 ),
               )}
@@ -407,6 +600,38 @@ export function BookingDetailScreen() {
   );
 }
 
+/**
+ * Who to expect at the handover (0032): the name and selfie Karu verified
+ * against their licence. Check the face and the physical licence match
+ * before entering the code.
+ */
+function HandoverIdentity({
+  identity,
+}: {
+  identity: NonNullable<NonNullable<BookingDetail['customer']>['identity']>;
+}) {
+  const { t } = useTranslation();
+  if (!identity.verified) {
+    return <p className="mt-3 text-sm font-semibold text-karu-terracotta">{t('verify.vendor.notVerified')}</p>;
+  }
+  return (
+    <div className="mt-3 flex items-center gap-3 rounded-xl bg-green-50 p-3 karu-fade-in">
+      {identity.selfie_url ? (
+        <img
+          src={identity.selfie_url}
+          alt={t('verify.vendor.selfieAlt')}
+          className="h-16 w-16 flex-none rounded-full object-cover"
+        />
+      ) : null}
+      <div className="text-sm">
+        <p className="font-semibold text-green-800">{t('verify.vendor.verified')}</p>
+        <p className="font-semibold">{identity.full_name}</p>
+        <p className="text-xs text-karu-mute">{t('verify.vendor.checkHint')}</p>
+      </div>
+    </div>
+  );
+}
+
 /** Status wording that never overstates what actually happened. Labels are i18n keys. */
 const PAYMENT_COPY: Record<string, { label: string; tone: 'neutral' | 'success' | 'danger' }> = {
   pending: { label: 'booking.depositNotPaid', tone: 'neutral' },
@@ -424,19 +649,22 @@ const PAYMENT_COPY: Record<string, { label: string; tone: 'neutral' | 'success' 
 function DepositBlock({ bookingId, view }: { bookingId: string; view: string }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
+  const { profile } = useAuth();
   const { data } = useQuery({
     queryKey: ['payment', bookingId],
     queryFn: () =>
-      api<{ payment: { status: string; amount_xaf: number } | null; chargingEnabled: boolean }>(
-        `/bookings/${bookingId}/payment`,
-      ),
+      api<{
+        payment: { status: string; amount_xaf: number } | null;
+        chargingEnabled: boolean;
+        methods?: Array<'card' | 'mobile_money'>;
+      }>(`/bookings/${bookingId}/payment`),
   });
 
   const start = useMutation({
-    mutationFn: () =>
+    mutationFn: (method?: 'card' | 'mobile_money') =>
       api<{ instructions: string; redirectUrl: string | null }>(
         `/bookings/${bookingId}/payment/intent`,
-        { method: 'POST' },
+        { method: 'POST', body: JSON.stringify({ method }) },
       ),
     onSuccess: (r) => {
       if (r.redirectUrl) window.location.href = r.redirectUrl;
@@ -471,14 +699,38 @@ function DepositBlock({ bookingId, view }: { bookingId: string; view: string }) 
 
       {view === 'customer' && status !== 'held' && status !== 'released' && (
         <>
-          <Button
-            variant="outline"
-            className="mt-3"
-            loading={start.isPending}
-            onClick={() => start.mutate()}
-          >
-            {t('booking.howToPay')}
-          </Button>
+          {(data?.methods?.length ?? 0) > 0 ? (
+            // IDEAS #1: mobile money for people in Cameroon, card for the
+            // diaspora. A +237 number puts mobile money first; both are offered.
+            <div className="mt-3 flex flex-wrap gap-2">
+              {[...(data?.methods ?? [])]
+                .sort((a, b) => {
+                  const local = profile?.phone?.replace(/\s/g, '').startsWith('+237');
+                  const first = local ? 'mobile_money' : 'card';
+                  return a === first ? -1 : b === first ? 1 : 0;
+                })
+                .map((m, i) => (
+                  <Button
+                    key={m}
+                    variant={i === 0 ? 'primary' : 'outline'}
+                    loading={start.isPending && start.variables === m}
+                    disabled={start.isPending}
+                    onClick={() => start.mutate(m)}
+                  >
+                    {t(`booking.payWith.${m}`)}
+                  </Button>
+                ))}
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              className="mt-3"
+              loading={start.isPending}
+              onClick={() => start.mutate(undefined)}
+            >
+              {t('booking.howToPay')}
+            </Button>
+          )}
           {start.isSuccess && (
             <p className="mt-2 text-xs text-karu-brown">{start.data?.instructions}</p>
           )}

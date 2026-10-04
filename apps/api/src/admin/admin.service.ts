@@ -126,6 +126,49 @@ export class AdminService {
       return n ?? 0;
     };
 
+    /**
+     * 0030: the cheating signals. A provider who keeps cancelling customers
+     * they already accepted, and chats where someone talked about moving the
+     * deal off Karu. Both are "look at this", not verdicts.
+     */
+    const RELIABILITY_WINDOW_DAYS = 90;
+    const UNRELIABLE_AFTER_CANCELLATIONS = 2;
+    const reliabilitySince = new Date(
+      now.getTime() - RELIABILITY_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+    ).toISOString();
+
+    const unreliableVendors = async () => {
+      const { data, error } = await this.supabase.db
+        .from('bookings')
+        .select('vendor_id')
+        .eq('cancelled_by', 'vendor')
+        .gte('cancelled_at', reliabilitySince);
+      if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not load overview counters'));
+      const perVendor = new Map<string, number>();
+      for (const row of (data ?? []) as Array<{ vendor_id: string }>) {
+        perVendor.set(row.vendor_id, (perVendor.get(row.vendor_id) ?? 0) + 1);
+      }
+      const ids = [...perVendor].filter(([, n]) => n >= UNRELIABLE_AFTER_CANCELLATIONS).map(([id]) => id);
+      if (!ids.length) return [];
+      const { data: vendors } = await this.supabase.db
+        .from('vendors')
+        .select('id, business_name')
+        .in('id', ids);
+      return ((vendors ?? []) as Array<{ id: string; business_name: string }>)
+        .map((v) => ({ id: v.id, business_name: v.business_name, cancellations: perVendor.get(v.id) ?? 0 }))
+        .sort((a, b) => b.cancellations - a.cancellations);
+    };
+
+    const flaggedConversationCount = async () => {
+      const { data, error } = await this.supabase.db
+        .from('booking_messages')
+        .select('booking_id')
+        .neq('flags', '{}')
+        .gte('created_at', reliabilitySince);
+      if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not load overview counters'));
+      return new Set(((data ?? []) as Array<{ booking_id: string }>).map((r) => r.booking_id)).size;
+    };
+
     const [
       pendingVendors,
       requestedBookings,
@@ -147,6 +190,12 @@ export class AdminService {
       expiredDocumentCount(),
       documentsExpiringSoonCount(),
     ]);
+    const [vendorsCancelling, flaggedConversations, pendingVerifications] = await Promise.all([
+      unreliableVendors(),
+      flaggedConversationCount(),
+      // 0032: customers waiting on an ID check can't have self-drive accepted.
+      count('profiles', { verification_status: 'pending' }),
+    ]);
     return {
       pendingVendors,
       requestedBookings,
@@ -163,6 +212,13 @@ export class AdminService {
       /** ...expiring within docExpiryWarningDays, not yet expired. */
       documentsExpiringSoon,
       docExpiryWarningDays: DOC_EXPIRY_WARNING_DAYS,
+      /** Providers with UNRELIABLE_AFTER_CANCELLATIONS+ cancellations in the window. */
+      vendorsCancelling,
+      /** Conversations with an off-platform flag in the window. */
+      flaggedConversations,
+      reliabilityWindowDays: RELIABILITY_WINDOW_DAYS,
+      /** Customer ID checks waiting on an admin (0032). */
+      pendingVerifications,
     };
   }
 

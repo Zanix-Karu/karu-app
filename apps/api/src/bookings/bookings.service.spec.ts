@@ -4,22 +4,62 @@ import {
   ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
-import { isBookingArchived, type Booking } from '@karu/shared';
+import { depositRefundDue, isBookingArchived, type Booking } from '@karu/shared';
 import { BookingsService } from './bookings.service';
 import type { SupabaseService } from '../supabase/supabase.service';
 import type { VehiclesService } from '../vehicles/vehicles.service';
 import type { VendorsService } from '../vendors/vendors.service';
 import type { NotificationsService } from '../notifications/notifications.service';
 
+/** A tiny chainable query stub: records .eq() filters, answers from `resolve`. */
+const chain = (resolve: (filters: Record<string, unknown>) => unknown) => {
+  const filters: Record<string, unknown> = {};
+  const c: Record<string, unknown> = {
+    select: () => c,
+    eq: (k: string, v: unknown) => {
+      filters[k] = v;
+      return c;
+    },
+    maybeSingle: async () => ({ data: resolve(filters) ?? null, error: null }),
+    single: async () => ({ data: resolve(filters) ?? null, error: null }),
+  };
+  return c;
+};
+
+interface StubOpts {
+  /** The vendor the calling vendor-profile owns (getOwned). */
+  vendorId?: string;
+  /** Stages the vendor has recorded a condition report for. */
+  inspected?: Array<'handover' | 'return'>;
+  paymentStatus?: string;
+  /** The listed vehicle's vendor row, for the self-booking check. */
+  vendorRow?: Record<string, unknown>;
+  phones?: Record<string, string | null>;
+  emails?: Record<string, string | null>;
+  /** The customer's ID check (0032); verified, adult and licensed by default. */
+  customer?: { verification_status?: string; date_of_birth?: string | null; licence_expires_at?: string | null };
+}
+
 /** Minimal chainable stub of the supabase-js query builder for these tests. */
-const makeSupabase = (booking: Booking, opts: { vendorId?: string } = {}) => {
-  const state = { updated: undefined as Record<string, unknown> | undefined };
+const makeSupabase = (booking: Booking, opts: StubOpts = {}) => {
+  const inspected = opts.inspected ?? ['handover', 'return'];
+  const state = {
+    updated: undefined as Record<string, unknown> | undefined,
+    updates: [] as Array<Record<string, unknown>>,
+  };
   const db = {
     rpc: async (fn: string) => {
       if (fn === 'next_booking_reference') {
         return { data: 'KARU-20260801-0001', error: null };
       }
       throw new Error(`Unexpected rpc: ${fn}`);
+    },
+    auth: {
+      admin: {
+        getUserById: async (id: string) => ({
+          data: { user: opts.emails?.[id] ? { email: opts.emails[id] } : null },
+        }),
+      },
     },
     from: (table: string) => {
       if (table === 'bookings') {
@@ -29,13 +69,14 @@ const makeSupabase = (booking: Booking, opts: { vendorId?: string } = {}) => {
           }),
           update: (patch: Record<string, unknown>) => {
             state.updated = patch;
-            return {
-              eq: () => ({
-                select: () => ({
-                  single: async () => ({ data: { ...booking, ...patch }, error: null }),
-                }),
+            state.updates.push(patch);
+            const result = {
+              select: () => ({
+                single: async () => ({ data: { ...booking, ...patch }, error: null }),
               }),
+              then: (ok: (v: unknown) => unknown) => ok({ data: null, error: null }),
             };
+            return { eq: () => result };
           },
           insert: (row: Record<string, unknown>) => ({
             select: () => ({
@@ -45,15 +86,27 @@ const makeSupabase = (booking: Booking, opts: { vendorId?: string } = {}) => {
         };
       }
       if (table === 'vendors') {
-        return {
-          select: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({
-                data: opts.vendorId ? { id: opts.vendorId } : null,
-              }),
-            }),
-          }),
-        };
+        return chain((f) => {
+          if ('profile_id' in f) return opts.vendorId ? { id: opts.vendorId } : null;
+          return opts.vendorRow ?? null;
+        });
+      }
+      if (table === 'booking_inspections') {
+        return chain((f) =>
+          inspected.includes(f.stage as 'handover' | 'return') ? { id: `insp-${String(f.stage)}` } : null,
+        );
+      }
+      if (table === 'payments') {
+        return chain(() => (opts.paymentStatus ? { status: opts.paymentStatus } : null));
+      }
+      if (table === 'profiles') {
+        return chain((f) => ({
+          phone: opts.phones?.[f.id as string] ?? null,
+          verification_status: 'verified',
+          date_of_birth: '1990-01-01',
+          licence_expires_at: '2099-01-01',
+          ...opts.customer,
+        }));
       }
       throw new Error(`Unexpected table: ${table}`);
     },
@@ -97,6 +150,13 @@ const baseBooking: Booking = {
   assistance_resolved_at: null,
   handover_code: null,
   return_code: null,
+  code_failed_attempts: 0,
+  code_locked_at: null,
+  cancelled_at: null,
+  cancelled_by: null,
+  cancellation_reason: null,
+  deposit_refund_due: null,
+  completed_at: null,
 };
 
 const noVehicles = {} as VehiclesService;
@@ -465,5 +525,286 @@ describe('isBookingArchived (REQ-10)', () => {
     expect(isBookingArchived('requested')).toBe(false);
     expect(isBookingArchived('confirmed')).toBe(false);
     expect(isBookingArchived('in_progress')).toBe(false);
+  });
+});
+
+describe('BookingsService — safeguards (0030)', () => {
+  const confirmed = { ...baseBooking, status: 'confirmed' as const, handover_code: '1234', return_code: '5678' };
+
+  it('counts a wrong code and says how many tries are left', async () => {
+    const { service: supabase, state } = makeSupabase(confirmed, { vendorId: 'vend-1' });
+    const svc = new BookingsService(supabase, noVehicles, noVendors, noNotifications);
+    await expect(
+      svc.transition('b1', 'vendor-profile', 'vendor', 'in_progress', undefined, '0000'),
+    ).rejects.toThrow(/4 tries left/);
+    expect(state.updated?.code_failed_attempts).toBe(1);
+    expect(state.updated?.code_locked_at).toBeUndefined();
+  });
+
+  it('locks the code on the last allowed miss and raises it with Karu support', async () => {
+    const { service: supabase, state } = makeSupabase(
+      { ...confirmed, code_failed_attempts: 4 },
+      { vendorId: 'vend-1' },
+    );
+    const svc = new BookingsService(supabase, noVehicles, noVendors, noNotifications);
+    await expect(
+      svc.transition('b1', 'vendor-profile', 'vendor', 'in_progress', undefined, '0000'),
+    ).rejects.toThrow(ForbiddenException);
+    expect(state.updated?.code_locked_at).toBeDefined();
+    expect(state.updated?.assistance_requested_at).toBeDefined();
+  });
+
+  it('a locked booking refuses even the right code from a vendor', async () => {
+    const { service: supabase } = makeSupabase(
+      { ...confirmed, code_locked_at: '2026-07-20T00:00:00Z' },
+      { vendorId: 'vend-1' },
+    );
+    const svc = new BookingsService(supabase, noVehicles, noVendors, noNotifications);
+    await expect(
+      svc.transition('b1', 'vendor-profile', 'vendor', 'in_progress', undefined, '1234'),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('accepts a code read back with a space in it, and resets the counter', async () => {
+    const { service: supabase, state } = makeSupabase(
+      { ...confirmed, code_failed_attempts: 2 },
+      { vendorId: 'vend-1' },
+    );
+    const svc = new BookingsService(supabase, noVehicles, noVendors, noNotifications);
+    const result = await svc.transition('b1', 'vendor-profile', 'vendor', 'in_progress', undefined, '12 34');
+    expect(result.status).toBe('in_progress');
+    expect(state.updated?.code_failed_attempts).toBe(0);
+  });
+
+  it('a self-drive handover needs the condition report first', async () => {
+    const { service: supabase } = makeSupabase(confirmed, { vendorId: 'vend-1', inspected: [] });
+    const svc = new BookingsService(supabase, noVehicles, noVendors, noNotifications);
+    await expect(
+      svc.transition('b1', 'vendor-profile', 'vendor', 'in_progress', undefined, '1234'),
+    ).rejects.toThrow(/condition/);
+  });
+
+  it('a chauffeur rental needs no condition report', async () => {
+    const { service: supabase } = makeSupabase(
+      { ...confirmed, with_driver: true },
+      { vendorId: 'vend-1', inspected: [] },
+    );
+    const svc = new BookingsService(supabase, noVehicles, noVendors, noNotifications);
+    const result = await svc.transition('b1', 'vendor-profile', 'vendor', 'in_progress', undefined, '1234');
+    expect(result.status).toBe('in_progress');
+  });
+
+  it('closing the trip needs the return report and stamps completed_at', async () => {
+    const inProgress = { ...confirmed, status: 'in_progress' as const };
+    const missing = makeSupabase(inProgress, { vendorId: 'vend-1', inspected: ['handover'] });
+    await expect(
+      new BookingsService(missing.service, noVehicles, noVendors, noNotifications).transition(
+        'b1', 'vendor-profile', 'vendor', 'completed', undefined, '5678',
+      ),
+    ).rejects.toThrow(/condition/);
+
+    const ok = makeSupabase(inProgress, { vendorId: 'vend-1' });
+    await new BookingsService(ok.service, noVehicles, noVendors, noNotifications).transition(
+      'b1', 'vendor-profile', 'vendor', 'completed', undefined, '5678',
+    );
+    expect(ok.state.updated?.completed_at).toBeDefined();
+  });
+
+  it('holds the handover until the deposit is in, when that is required', async () => {
+    const config = { get: (k: string) => (k === 'REQUIRE_DEPOSIT_BEFORE_HANDOVER' ? 'true' : undefined) };
+    const unpaid = makeSupabase(confirmed, { vendorId: 'vend-1' });
+    await expect(
+      new BookingsService(unpaid.service, noVehicles, noVendors, noNotifications, config as never).transition(
+        'b1', 'vendor-profile', 'vendor', 'in_progress', undefined, '1234',
+      ),
+    ).rejects.toThrow(/deposit/);
+
+    const paid = makeSupabase(confirmed, { vendorId: 'vend-1', paymentStatus: 'held' });
+    const result = await new BookingsService(
+      paid.service, noVehicles, noVendors, noNotifications, config as never,
+    ).transition('b1', 'vendor-profile', 'vendor', 'in_progress', undefined, '1234');
+    expect(result.status).toBe('in_progress');
+  });
+
+  it('a provider cancelling a confirmed booking must give a reason, and the deposit is owed back', async () => {
+    const { service: supabase, state } = makeSupabase(confirmed, { vendorId: 'vend-1' });
+    const svc = new BookingsService(supabase, noVehicles, noVendors, noNotifications);
+    await expect(svc.transition('b1', 'vendor-profile', 'vendor', 'cancelled')).rejects.toThrow(/why/);
+    await svc.transition('b1', 'vendor-profile', 'vendor', 'cancelled', 'The car failed its service');
+    expect(state.updated?.cancelled_by).toBe('vendor');
+    expect(state.updated?.cancellation_reason).toBe('The car failed its service');
+    expect(state.updated?.deposit_refund_due).toBe(true);
+  });
+
+  it('a customer cancelling the day before keeps no claim on the deposit', async () => {
+    const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    const { service: supabase, state } = makeSupabase({ ...confirmed, start_date: tomorrow });
+    const svc = new BookingsService(supabase, noVehicles, noVendors, noNotifications);
+    await svc.transition('b1', 'cust-1', 'customer', 'cancelled');
+    expect(state.updated?.cancelled_by).toBe('customer');
+    expect(state.updated?.deposit_refund_due).toBe(false);
+  });
+});
+
+describe('depositRefundDue', () => {
+  const now = new Date('2026-08-01T12:00:00Z');
+  it('refunds a withdrawn request regardless of timing', () => {
+    expect(depositRefundDue({ cancelledBy: 'customer', status: 'requested', startDate: '2026-08-01', now })).toBe(true);
+  });
+  it('refunds a customer who cancels 48h or more ahead', () => {
+    expect(depositRefundDue({ cancelledBy: 'customer', status: 'confirmed', startDate: '2026-08-04', now })).toBe(true);
+    expect(depositRefundDue({ cancelledBy: 'customer', status: 'confirmed', startDate: '2026-08-03', now })).toBe(false);
+  });
+  it('always refunds when the provider or Karu cancels', () => {
+    expect(depositRefundDue({ cancelledBy: 'vendor', status: 'confirmed', startDate: '2026-08-01', now })).toBe(true);
+    expect(depositRefundDue({ cancelledBy: 'admin', status: 'confirmed', startDate: '2026-08-01', now })).toBe(true);
+  });
+});
+
+describe('BookingsService.create — self-booking guard (0030)', () => {
+  const nextYear = new Date().getUTCFullYear() + 1;
+  const vehicle = { id: 'v1', vendor_id: 'vend-1', status: 'active', daily_rate_xaf: 25000, driver_option: 'none', driver_daily_rate_xaf: null };
+  const vendor = { id: 'vend-1', status: 'verified', delivery_fee_xaf: null, airport_fee_xaf: null };
+  const svcWith = (opts: StubOpts) => {
+    const { service } = makeSupabase(baseBooking, opts);
+    return new BookingsService(
+      service,
+      { getById: async () => vehicle, availability: async () => ({ available: true }) } as unknown as VehiclesService,
+      { getById: async () => vendor } as unknown as VendorsService,
+      noNotifications,
+    );
+  };
+  const dto = { vehicle_id: 'v1', start_date: `${nextYear}-08-01`, end_date: `${nextYear}-08-02` } as never;
+
+  it("refuses when the customer's phone is the provider's WhatsApp, however it is written", async () => {
+    const svc = svcWith({
+      vendorRow: { profile_id: 'owner-1', contact_phone: null, whatsapp_number: '+237 6 70 00 00 01', contact_email: null },
+      phones: { 'cust-1': '670000001' },
+    });
+    await expect(svc.create('cust-1', dto)).rejects.toThrow(/list yourself/);
+  });
+
+  it("refuses when the customer's login email is the provider's contact email", async () => {
+    const svc = svcWith({
+      vendorRow: { profile_id: 'owner-1', contact_phone: null, whatsapp_number: null, contact_email: 'Fleet@Example.com' },
+      emails: { 'cust-1': 'fleet@example.com' },
+    });
+    await expect(svc.create('cust-1', dto)).rejects.toThrow(/list yourself/);
+  });
+
+  it('lets an unrelated customer book', async () => {
+    const svc = svcWith({
+      vendorRow: { profile_id: 'owner-1', contact_phone: '+237670000001', whatsapp_number: null, contact_email: 'fleet@example.com' },
+      phones: { 'cust-1': '+447700900123' },
+      emails: { 'cust-1': 'someone@else.com' },
+    });
+    await expect(svc.create('cust-1', dto)).resolves.toBeDefined();
+  });
+});
+
+describe('BookingsService.transition — customer ID check before accepting (0032)', () => {
+  const accept = (booking: Booking, opts: StubOpts, config?: unknown) => {
+    const { service } = makeSupabase(booking, { vendorId: 'vend-1', ...opts });
+    return new BookingsService(service, noVehicles, noVendors, noNotifications, config as never).transition(
+      'b1', 'vendor-profile', 'vendor', 'confirmed',
+    );
+  };
+
+  it('refuses to accept a self-drive request from an unverified customer', async () => {
+    await expect(accept(baseBooking, { customer: { verification_status: 'pending' } })).rejects.toThrow(/ID check/);
+  });
+
+  it('refuses when the licence runs out before the car comes back', async () => {
+    await expect(
+      accept(baseBooking, { customer: { licence_expires_at: '2026-08-02' } }),
+    ).rejects.toThrow(/expires/);
+  });
+
+  it('refuses a customer under the minimum age on day one', async () => {
+    await expect(accept(baseBooking, { customer: { date_of_birth: '2006-01-01' } })).rejects.toThrow(/minimum age/);
+  });
+
+  it('does not ask for ID on a chauffeur rental', async () => {
+    const result = await accept({ ...baseBooking, with_driver: true }, { customer: { verification_status: 'unverified' } });
+    expect(result.status).toBe('confirmed');
+  });
+
+  it('can be switched off with REQUIRE_CUSTOMER_VERIFICATION=false', async () => {
+    const config = { get: (k: string) => (k === 'REQUIRE_CUSTOMER_VERIFICATION' ? 'false' : undefined) };
+    const result = await accept(baseBooking, { customer: { verification_status: 'unverified' } }, config);
+    expect(result.status).toBe('confirmed');
+  });
+});
+
+describe('BookingsService.create — delivery zones (0034)', () => {
+  const nextYear = new Date().getUTCFullYear() + 1;
+  const vehicle = { id: 'v1', vendor_id: 'vend-1', status: 'active', daily_rate_xaf: 20000, driver_option: 'none', driver_daily_rate_xaf: null };
+  // Base in Akwa, Douala.
+  const zonedVendor = {
+    id: 'vend-1',
+    status: 'verified',
+    delivery_fee_xaf: 7000,
+    airport_fee_xaf: null,
+    lat: 4.0511,
+    lng: 9.7085,
+    delivery_zones: [{ max_km: 5, fee_xaf: 0 }, { max_km: 12, fee_xaf: 5000 }],
+    free_delivery_min_days: 4,
+  };
+  const svc = (vendor: Record<string, unknown> = zonedVendor) => {
+    const { service } = makeSupabase(baseBooking);
+    return new BookingsService(
+      service,
+      { getById: async () => vehicle, availability: async () => ({ available: true }) } as unknown as VehiclesService,
+      { getById: async () => vendor } as unknown as VendorsService,
+      noNotifications,
+    );
+  };
+  const dto = (pin: { lat: number; lng: number }, days = 2) =>
+    ({
+      vehicle_id: 'v1',
+      start_date: `${nextYear}-08-01`,
+      end_date: `${nextYear}-08-${String(days).padStart(2, '0')}`,
+      delivery_type: 'address',
+      delivery_lat: pin.lat,
+      delivery_lng: pin.lng,
+      delivery_landmark: 'Behind the Total station',
+    }) as never;
+
+  it('prices by the ring the pin falls in, and records the distance', async () => {
+    // Bonamoussadi, roughly 8 km out: the 5-12 km ring.
+    const b = (await svc().create('cust-1', dto({ lat: 4.0897, lng: 9.7426 }))) as Booking & Record<string, unknown>;
+    expect(b.delivery_fee_xaf).toBe(5000);
+    expect(Number(b.delivery_distance_km)).toBeGreaterThan(5);
+    expect(b.delivery_landmark).toBe('Behind the Total station');
+  });
+
+  it('delivers free on a long enough rental', async () => {
+    const b = await svc().create('cust-1', dto({ lat: 4.0897, lng: 9.7426 }, 5));
+    expect(b.delivery_fee_xaf).toBe(0);
+  });
+
+  it('refuses a pin beyond the last ring', async () => {
+    // Edea, about 60 km away.
+    await expect(svc().create('cust-1', dto({ lat: 3.8, lng: 10.13 }))).rejects.toThrow(/outside the area/);
+  });
+
+  it('needs a pin when the provider prices by zone', async () => {
+    await expect(
+      svc().create('cust-1', {
+        vehicle_id: 'v1',
+        start_date: `${nextYear}-08-01`,
+        end_date: `${nextYear}-08-02`,
+        delivery_type: 'address',
+        delivery_address: 'Akwa',
+      } as never),
+    ).rejects.toThrow(/pin/);
+  });
+
+  it('keeps the flat fee for a provider without zones', async () => {
+    const b = await svc({ ...zonedVendor, delivery_zones: [], free_delivery_min_days: null }).create(
+      'cust-1',
+      dto({ lat: 4.0897, lng: 9.7426 }),
+    );
+    expect(b.delivery_fee_xaf).toBe(7000);
   });
 });

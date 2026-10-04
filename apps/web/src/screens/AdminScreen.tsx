@@ -19,12 +19,13 @@ import {
   StatusBadge,
 } from '../ui';
 
-type Tab = 'overview' | 'vendors' | 'documents' | 'cars' | 'bookings' | 'chats' | 'feedback' | 'emails';
+type Tab = 'overview' | 'vendors' | 'documents' | 'ids' | 'cars' | 'bookings' | 'chats' | 'feedback' | 'emails';
 
 const TAB_PATH: Record<Tab, string> = {
   overview: '/admin',
   vendors: '/admin/vendors',
   documents: '/admin/documents',
+  ids: '/admin/ids',
   cars: '/admin/cars',
   bookings: '/admin/bookings',
   chats: '/admin/chats',
@@ -36,7 +37,7 @@ const TAB_PATH: Record<Tab, string> = {
 function tabFromPath(pathname: string): Tab {
   const rest = pathname.replace(/^\/admin\/?/, '');
   return (
-    (['vendors', 'documents', 'cars', 'bookings', 'chats', 'feedback', 'emails'] as Tab[]).find(
+    (['vendors', 'documents', 'ids', 'cars', 'bookings', 'chats', 'feedback', 'emails'] as Tab[]).find(
       (t) => rest.startsWith(t),
     ) ?? 'overview'
   );
@@ -67,6 +68,7 @@ export function AdminScreen() {
         {tabBtn('overview', t('admin.tabs.overview'))}
         {tabBtn('vendors', t('admin.tabs.vendors'))}
         {tabBtn('documents', t('admin.tabs.documents'))}
+        {tabBtn('ids', t('admin.tabs.ids'))}
         {tabBtn('cars', t('admin.tabs.cars'))}
         {tabBtn('bookings', t('admin.tabs.bookings'))}
         {tabBtn('chats', t('admin.tabs.chats'))}
@@ -77,6 +79,7 @@ export function AdminScreen() {
         {tab === 'overview' && <Overview />}
         {tab === 'vendors' && <Vendors />}
         {tab === 'documents' && <Documents />}
+        {tab === 'ids' && <CustomerIds />}
         {tab === 'cars' && <Cars />}
         {tab === 'bookings' && <Bookings />}
         {tab === 'chats' && <Chats />}
@@ -103,6 +106,13 @@ interface OverviewData {
   /** ...expiring within docExpiryWarningDays, not yet expired. */
   documentsExpiringSoon: number;
   docExpiryWarningDays: number;
+  /** 0030: providers cancelling accepted bookings repeatedly. */
+  vendorsCancelling: Array<{ id: string; business_name: string; cancellations: number }>;
+  /** 0030: conversations with talk of moving the deal off Karu. */
+  flaggedConversations: number;
+  reliabilityWindowDays: number;
+  /** 0032: customer ID checks waiting on review. */
+  pendingVerifications: number;
 }
 
 function Overview() {
@@ -154,9 +164,24 @@ function Overview() {
       }),
     data.pendingDocuments > 0 &&
       t('admin.overview.alertDocuments', { count: data.pendingDocuments }),
+    data.pendingVerifications > 0 &&
+      t('admin.overview.alertCustomerIds', { count: data.pendingVerifications }),
     data.pendingVendors > 0 &&
       t('admin.overview.alertVendors', { count: data.pendingVendors }),
     unansweredChats > 0 && t('admin.overview.alertChats', { count: unansweredChats }),
+    // 0030: cheating signals. Each is "go and look", never a verdict.
+    ...(data.vendorsCancelling ?? []).map((v) =>
+      t('admin.overview.alertVendorCancelling', {
+        name: v.business_name,
+        count: v.cancellations,
+        days: data.reliabilityWindowDays,
+      }),
+    ),
+    data.flaggedConversations > 0 &&
+      t('admin.overview.alertFlaggedChats', {
+        count: data.flaggedConversations,
+        days: data.reliabilityWindowDays,
+      }),
   ].filter(Boolean) as string[];
 
   return (
@@ -179,6 +204,127 @@ function Overview() {
         {stat(t('admin.overview.activeCars'), data.activeVehicles)}
         {stat(t('admin.overview.customers'), data.customers)}
       </div>
+    </div>
+  );
+}
+
+// --- Customer ID checks (0032) ------------------------------------------------
+
+interface CustomerIdCheck {
+  id: string;
+  full_name: string | null;
+  verification_status: string;
+  verification_note: string | null;
+  date_of_birth: string | null;
+  licence_expires_at: string | null;
+  updated_at: string;
+  documents: Array<{ type: string; url: string | null }>;
+}
+
+/**
+ * The ID queue. The reviewer checks that the licence and ID name the same
+ * person as the selfie shows, and that the typed date of birth and licence
+ * expiry match what is printed. Rejections need a note, which the customer
+ * sees on their profile.
+ */
+function CustomerIds() {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const [status, setStatus] = useState('pending');
+  const [rejecting, setRejecting] = useState<string | null>(null);
+  const [note, setNote] = useState('');
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['admin-ids', status],
+    queryFn: () => api<CustomerIdCheck[]>(`/admin/verifications?status=${status}`),
+  });
+  const review = useMutation({
+    mutationFn: ({ id, decision, note }: { id: string; decision: 'verified' | 'rejected'; note?: string }) =>
+      api(`/admin/verifications/${id}`, { method: 'PATCH', body: JSON.stringify({ decision, note }) }),
+    onSuccess: () => {
+      setRejecting(null);
+      setNote('');
+      void qc.invalidateQueries({ queryKey: ['admin-ids'] });
+      void qc.invalidateQueries({ queryKey: ['admin-overview'] });
+    },
+  });
+
+  return (
+    <div>
+      <Field label={t('admin.filterStatus')} className="max-w-48">
+        <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+          {(['pending', 'verified', 'rejected', 'unverified'] as const).map((s) => (
+            <option key={s} value={s}>
+              {t(`verify.status.${s}`)}
+            </option>
+          ))}
+        </Select>
+      </Field>
+
+      {isLoading && <Spinner />}
+      {error && <ErrorNote>{(error as Error).message}</ErrorNote>}
+      {data?.length === 0 && <EmptyState title={t('admin.ids.none')} />}
+
+      <div className="mt-4 space-y-4 karu-stagger">
+        {data?.map((p) => (
+          <Card key={p.id} className="p-5">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <p className="font-semibold">{p.full_name ?? t('admin.ids.noName')}</p>
+              <p className="text-xs text-karu-mute">
+                {t('verify.dob')}: {p.date_of_birth ?? '—'} · {t('verify.licenceExpiry')}: {p.licence_expires_at ?? '—'}
+              </p>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+              {p.documents.map((d) => (
+                <a
+                  key={d.type}
+                  href={d.url ?? undefined}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block rounded-lg border border-karu-ink/10 p-1 text-center text-xs"
+                >
+                  {d.url && !/\.pdf(\?|$)/i.test(d.url) ? (
+                    <img src={d.url} alt={t(`verify.doc.${d.type}`)} className="aspect-[4/3] w-full rounded object-cover" />
+                  ) : (
+                    <span className="grid aspect-[4/3] place-items-center rounded bg-karu-ink/5">PDF</span>
+                  )}
+                  <span className="mt-1 block">{t(`verify.doc.${d.type}`)}</span>
+                </a>
+              ))}
+            </div>
+            {p.verification_status === 'pending' &&
+              (rejecting === p.id ? (
+                <form
+                  className="mt-3 flex flex-wrap items-end gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    review.mutate({ id: p.id, decision: 'rejected', note: note.trim() });
+                  }}
+                >
+                  <Field label={t('admin.ids.rejectReason')} className="min-w-64 flex-1">
+                    <Input value={note} onChange={(e) => setNote(e.target.value)} autoFocus />
+                  </Field>
+                  <Button type="submit" variant="danger" disabled={!note.trim() || review.isPending}>
+                    {t('admin.ids.reject')}
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={() => setRejecting(null)}>
+                    {t('common.cancel')}
+                  </Button>
+                </form>
+              ) : (
+                <div className="mt-3 flex gap-2">
+                  <Button disabled={review.isPending} onClick={() => review.mutate({ id: p.id, decision: 'verified' })}>
+                    {t('admin.ids.approve')}
+                  </Button>
+                  <Button variant="danger" disabled={review.isPending} onClick={() => setRejecting(p.id)}>
+                    {t('admin.ids.reject')}
+                  </Button>
+                </div>
+              ))}
+            {p.verification_note && <p className="mt-2 text-sm text-karu-terracotta">{p.verification_note}</p>}
+          </Card>
+        ))}
+      </div>
+      {review.isError && <ErrorNote>{(review.error as Error).message}</ErrorNote>}
     </div>
   );
 }
@@ -936,6 +1082,8 @@ interface Conversation {
   message_count: number;
   unread_count: number;
   any_redacted: boolean;
+  /** 0030: off-platform flags raised anywhere in the thread. */
+  flags?: string[];
   last_message: { sender_role: string; body: string; created_at: string } | null;
 }
 
@@ -951,6 +1099,7 @@ const SENDER_LABEL: Record<string, string> = {
  * posts into the same thread as Karu Support.
  */
 function Chats() {
+  const { t } = useTranslation();
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-conversations'],
     queryFn: () => api<Conversation[]>('/admin/conversations'),
@@ -997,6 +1146,15 @@ function Chats() {
                   redactions
                 </span>
               )}
+              {(c.flags ?? []).map((f) => (
+                <span
+                  key={f}
+                  className="rounded-full bg-karu-terracotta/15 px-2.5 py-0.5 text-xs font-semibold text-karu-terracotta"
+                  title={t('admin.chats.flagHint')}
+                >
+                  {t(`admin.chats.flag.${f}`, { defaultValue: f })}
+                </span>
+              ))}
               <span className="text-xs text-karu-mute">
                 {c.message_count} message{c.message_count === 1 ? '' : 's'}
               </span>

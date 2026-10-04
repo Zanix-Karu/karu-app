@@ -130,7 +130,7 @@ export function BookingsScreen() {
         />
       )}
 
-      <div className="mt-6 space-y-4">
+      <div className="karu-stagger mt-6 space-y-4">
         {shown.map((b) => {
           const action = CUSTOMER_ACTIONS[b.status];
           return (

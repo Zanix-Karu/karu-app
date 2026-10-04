@@ -3,6 +3,7 @@ import type { UserRole } from '@karu/shared';
 import { CurrentUser, Public, Roles } from '../auth/decorators';
 import { VehiclesService } from './vehicles.service';
 import {
+  DeliveryQuoteQuery,
   AttachPhotoDto,
   AvailabilityQuery,
   BrowseVehiclesQuery,
@@ -51,6 +52,17 @@ export class VehiclesController {
   @Get(':id/availability')
   availability(@Param('id') id: string, @Query() query: AvailabilityQuery) {
     return this.vehicles.availability(id, query.from, query.to);
+  }
+
+  /**
+   * Delivery price to a pin (0034), worked out from the provider's exact base
+   * so the car page shows the same fee the booking will store. Returns the
+   * distance rounded to 100 m; never the base itself.
+   */
+  @Public()
+  @Get(':id/delivery-quote')
+  deliveryQuote(@Param('id') id: string, @Query() query: DeliveryQuoteQuery) {
+    return this.vehicles.deliveryQuote(id, query);
   }
 
   @Roles('vendor')

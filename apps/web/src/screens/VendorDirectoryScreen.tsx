@@ -1,17 +1,21 @@
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ReviewBody } from '../components/ReviewBody';
 import { usePageMeta } from '../lib/page-meta';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
-import type { RatingSummary, Review, Vehicle, Vendor } from '@karu/shared';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import type { PublicVendor, RatingSummary, Review, Vehicle, Vendor } from '@karu/shared';
 import { api, type Page } from '../lib/api';
 import { CATEGORY_LABEL, CITY_LABEL } from '../lib/format';
 import { Badge, Card, CarCard, Rating } from '../ds';
 import { EmptyState, ErrorNote, Spinner } from '../ui';
 import { SkeletonCard } from '../components/Skeleton';
 import { useCurrency } from '../lib/currency';
+import { Button } from '../ds';
+import { DOUALA, KaruMap, locateMe, type MapMarker } from '../components/KaruMap';
 
 type VendorWithRating = Vendor & { rating: RatingSummary };
+type DirectoryVendor = PublicVendor & { rating: RatingSummary };
 
 /** Public directory of verified providers — trust is the product. */
 export function VendorDirectoryScreen() {
@@ -20,12 +24,51 @@ export function VendorDirectoryScreen() {
     title: t('seo.vendors.title'),
     description: t('seo.vendors.description'),
   });
+  const navigate = useNavigate();
+  // 0034: "who's near me". Position stays in memory; it goes to our API to be
+  // sorted against and nowhere else.
+  const [near, setNear] = useState<{ lat: number; lng: number } | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locateError, setLocateError] = useState(false);
   const { data, isLoading, error } = useQuery({
-    queryKey: ['vendors-public'],
-    queryFn: () => api<VendorWithRating[]>('/vendors'),
+    queryKey: ['vendors-public', near?.lat, near?.lng],
+    queryFn: () =>
+      api<DirectoryVendor[]>(
+        near ? `/vendors?near_lat=${near.lat.toFixed(4)}&near_lng=${near.lng.toFixed(4)}` : '/vendors',
+      ),
   });
 
-  if (isLoading) {
+  const markers = useMemo<MapMarker[]>(
+    () => [
+      ...(data ?? [])
+        .filter((v) => v.approx_lat != null && v.approx_lng != null)
+        .map((v) => ({
+          id: v.id,
+          lat: v.approx_lat!,
+          lng: v.approx_lng!,
+          // Short enough to sit on a pin, long enough to tell two apart.
+          label: v.business_name.length <= 16 ? v.business_name : `${v.business_name.slice(0, 15)}…`,
+          title: v.business_name,
+          onClick: () => navigate(`/vendors/${v.id}`),
+        })),
+      ...(near ? [{ id: 'you', lat: near.lat, lng: near.lng, label: '●', title: t('location.you'), tone: 'you' as const }] : []),
+    ],
+    [data, near, navigate, t],
+  );
+
+  const findNearMe = async () => {
+    setLocating(true);
+    setLocateError(false);
+    try {
+      setNear(await locateMe());
+    } catch {
+      setLocateError(true);
+    } finally {
+      setLocating(false);
+    }
+  };
+
+  if (isLoading && !data) {
     return (
       <div>
         <h1 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 40 }}>
@@ -49,10 +92,28 @@ export function VendorDirectoryScreen() {
         {t('providers.sub')}
       </p>
 
+      <div style={{ marginTop: 20 }}>
+        <KaruMap
+          center={near ?? DOUALA}
+          zoom={near ? 13 : 12}
+          markers={markers}
+          height={300}
+          ariaLabel={t('location.directoryMapAria')}
+        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 10, flexWrap: 'wrap' }}>
+          <Button size="sm" variant="outline" loading={locating} onClick={findNearMe}>
+            {near ? t('location.nearMeOn') : t('location.nearMe')}
+          </Button>
+          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-500)' }}>
+            {locateError ? t('location.denied') : t('location.approxNote')}
+          </span>
+        </div>
+      </div>
+
       {data?.length === 0 && <EmptyState title={t('providers.none')} />}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 18, marginTop: 24 }}>
+      <div className="karu-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 18, marginTop: 24 }}>
         {data?.map((v) => (
-          <Link key={v.id} to={`/vendors/${v.id}`}>
+          <Link key={v.id} to={`/vendors/${v.id}`} className="karu-card-link" style={{ borderRadius: 'var(--radius-md)' }}>
             <Card>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 10 }}>
                 <div>
@@ -61,6 +122,7 @@ export function VendorDirectoryScreen() {
                   </div>
                   <div style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 4 }}>
                     {CITY_LABEL[v.city]}
+                    {v.distance_km != null && ` · ${t('location.kmAway', { km: v.distance_km })}`}
                   </div>
                   <div style={{ marginTop: 8 }}>
                     {v.rating?.average != null ? (

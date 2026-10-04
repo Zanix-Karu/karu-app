@@ -45,7 +45,11 @@ export type BookingStatus =
 
 // 'card' = UK card service (Stripe/Wise) for the MVP deposit;
 // 'manual' = recorded by the team outside any provider.
-export type PaymentProvider = 'mtn_momo' | 'orange_money' | 'card' | 'manual';
+// 'mobile_money' = MTN or Orange via Notch Pay; the network is chosen on its page (0033).
+export type PaymentProvider = 'mtn_momo' | 'orange_money' | 'card' | 'manual' | 'mobile_money';
+
+/** What a customer can choose between at checkout. */
+export type PaymentMethod = 'card' | 'mobile_money';
 export type PaymentStatus = 'pending' | 'held' | 'released' | 'refunded' | 'failed';
 
 export type ReviewTarget = 'customer' | 'vendor';
@@ -130,6 +134,12 @@ export interface BookingQuoteInput {
   deliveryFeeXaf: number | null;
   /** Vendor's airport fee; null when they don't do airport meets. */
   airportFeeXaf: number | null;
+  /** 0034: distance rings. When set (and a distance is known) they replace the flat fee. */
+  deliveryZones?: DeliveryZone[] | null;
+  /** Straight-line km from the provider's base to the customer's pin. */
+  deliveryDistanceKm?: number | null;
+  /** Address delivery is free from this many rental days. */
+  freeDeliveryMinDays?: number | null;
 }
 
 export interface BookingQuote {
@@ -137,8 +147,63 @@ export interface BookingQuote {
   vehicleXaf: number;
   driverXaf: number;
   deliveryXaf: number;
+  /** What delivery would have cost before "free from N days" waived it. */
+  deliveryWaivedXaf: number;
+  /** True when the pin is beyond the provider's last zone. */
+  deliveryOutOfRange: boolean;
   totalXaf: number;
   depositXaf: number;
+}
+
+// ---- Locations and delivery zones (0034) -----------------------------------
+
+/** One ring around a provider's base: deliveries within max_km cost fee_xaf. */
+export interface DeliveryZone {
+  max_km: number;
+  fee_xaf: number;
+}
+
+/** Great-circle distance in km. Good to a few metres at city scale. */
+export function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371;
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const dLat = rad(b.lat - a.lat);
+  const dLng = rad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+/**
+ * Coordinates rounded to two decimals (about 1.1 km). What the public map
+ * shows of a provider's base: close enough to answer "is it near me", not
+ * close enough to find someone's house.
+ */
+export function approximatePoint(lat: number, lng: number): { lat: number; lng: number } {
+  return { lat: Math.round(lat * 100) / 100, lng: Math.round(lng * 100) / 100 };
+}
+
+/**
+ * The fee for a distance, or null when it's beyond the last ring. Zones are
+ * read in order of max_km whatever order they were saved in.
+ */
+export function zoneFeeXaf(zones: DeliveryZone[], distanceKm: number): number | null {
+  const ring = [...zones].sort((a, b) => a.max_km - b.max_km).find((z) => distanceKm <= z.max_km);
+  return ring ? ring.fee_xaf : null;
+}
+
+/** Sane zones only: positive, strictly increasing radii, non-negative fees. */
+export function validDeliveryZones(zones: DeliveryZone[]): boolean {
+  if (zones.length > 6) return false;
+  const sorted = [...zones].sort((a, b) => a.max_km - b.max_km);
+  return sorted.every(
+    (z, i) =>
+      Number.isFinite(z.max_km) &&
+      z.max_km > 0 &&
+      z.max_km <= 200 &&
+      Number.isInteger(z.fee_xaf) &&
+      z.fee_xaf >= 0 &&
+      (i === 0 || z.max_km > sorted[i - 1].max_km),
+  );
 }
 
 /**
@@ -186,18 +251,36 @@ export function quoteBooking(input: BookingQuoteInput): BookingQuote {
     input.monthlyRateXaf,
   );
   const driverXaf = input.withDriver ? (input.driverDailyRateXaf ?? 0) * days : 0;
-  const deliveryXaf =
-    input.deliveryType === 'airport'
-      ? (input.airportFeeXaf ?? 0)
-      : input.deliveryType === 'address'
-        ? (input.deliveryFeeXaf ?? 0)
-        : 0;
+
+  let deliveryXaf = 0;
+  let deliveryWaivedXaf = 0;
+  let deliveryOutOfRange = false;
+  if (input.deliveryType === 'airport') {
+    deliveryXaf = input.airportFeeXaf ?? 0;
+  } else if (input.deliveryType === 'address') {
+    const zones = input.deliveryZones ?? [];
+    let fee = input.deliveryFeeXaf ?? 0;
+    if (zones.length > 0 && input.deliveryDistanceKm != null) {
+      const zoneFee = zoneFeeXaf(zones, input.deliveryDistanceKm);
+      deliveryOutOfRange = zoneFee === null;
+      fee = zoneFee ?? 0;
+    }
+    // The customer-friendly part: on a long enough rental, delivery is on the house.
+    if (input.freeDeliveryMinDays && days >= input.freeDeliveryMinDays) {
+      deliveryWaivedXaf = fee;
+      fee = 0;
+    }
+    deliveryXaf = fee;
+  }
+
   const totalXaf = vehicleXaf + driverXaf + deliveryXaf;
   return {
     days,
     vehicleXaf,
     driverXaf,
     deliveryXaf,
+    deliveryWaivedXaf,
+    deliveryOutOfRange,
     totalXaf,
     depositXaf: computeDepositXaf(totalXaf),
   };
@@ -212,6 +295,13 @@ export interface Profile {
   phone: string | null;
   locale: 'en' | 'fr';
   avatar_url: string | null;
+  /** Customer ID check (0032). */
+  verification_status: CustomerVerificationStatus;
+  /** The reviewer's reason when a check was rejected. */
+  verification_note: string | null;
+  verified_at: string | null;
+  date_of_birth: string | null;
+  licence_expires_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -241,6 +331,11 @@ export interface Vendor {
   suspension_reason: string | null;
   /** Short "about this provider" blurb, 50-100 words. Customer-facing. */
   bio: string | null;
+  /** 0034: exact base. Private: public routes only ever get approx_lat/lng. */
+  lat: number | null;
+  lng: number | null;
+  delivery_zones: DeliveryZone[];
+  free_delivery_min_days: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -276,7 +371,15 @@ export type PublicVendor = Omit<
   | 'address'
   | 'rccm_number'
   | 'suspension_reason'
->;
+  | 'lat'
+  | 'lng'
+> & {
+  /** Base rounded to about 1 km (0034). */
+  approx_lat?: number | null;
+  approx_lng?: number | null;
+  /** Straight-line km from the searcher, when they shared their location. */
+  distance_km?: number | null;
+};
 
 export interface VendorDocument {
   id: string;
@@ -391,6 +494,12 @@ export interface VehicleVendorSummary {
   delivery_fee_xaf: number | null;
   airport_fee_xaf: number | null;
   bio: string | null;
+  /** 0034: delivery rings and the free-delivery threshold. */
+  delivery_zones?: DeliveryZone[];
+  free_delivery_min_days?: number | null;
+  /** Base rounded to about 1 km. Never the exact pin on a public route. */
+  approx_lat?: number | null;
+  approx_lng?: number | null;
 }
 
 /**
@@ -423,6 +532,14 @@ export interface Booking {
   delivery_address: string | null;
   /** Delivery or airport fee, frozen at request time. Included in total_xaf. */
   delivery_fee_xaf: number;
+  /** 0034: the customer's pin, distance from the provider and directions. */
+  delivery_lat?: number | null;
+  delivery_lng?: number | null;
+  delivery_distance_km?: number | null;
+  delivery_landmark?: string | null;
+  /** 0035: live tracking of the delivery leg. Latest point only. */
+  tracking_started_at?: string | null;
+  tracking_ended_at?: string | null;
   /** HH:MM — a flight lands at a time, not a date. */
   pickup_time: string | null;
   status: BookingStatus;
@@ -453,6 +570,141 @@ export interface Booking {
    */
   handover_code: string | null;
   return_code: string | null;
+  /** Wrong codes entered so far; the booking locks at CODE_ATTEMPT_LIMIT (0030). */
+  code_failed_attempts: number;
+  /** Set when the code locked. Only an admin can move the booking on. */
+  code_locked_at: string | null;
+  cancelled_at: string | null;
+  cancelled_by: UserRole | null;
+  cancellation_reason: string | null;
+  /** What the cancellation policy says about the deposit. Null = undecided. */
+  deposit_refund_due: boolean | null;
+  /** When the car came back. Opens the damage-report window. */
+  completed_at: string | null;
+}
+
+// ---- Customer ID verification (0032) ---------------------------------------
+
+export type CustomerVerificationStatus = 'unverified' | 'pending' | 'verified' | 'rejected';
+
+export type CustomerDocumentType =
+  | 'licence_front'
+  | 'licence_back'
+  | 'national_id'
+  | 'passport'
+  | 'selfie';
+
+export const CUSTOMER_DOCUMENT_TYPES: CustomerDocumentType[] = [
+  'licence_front',
+  'licence_back',
+  'national_id',
+  'passport',
+  'selfie',
+];
+
+/** Youngest a self-drive customer may be on the first day of the rental. */
+export const MIN_DRIVER_AGE = 21;
+
+/** Whole years between a date of birth and a given day (both YYYY-MM-DD). */
+export function ageOn(dateOfBirth: string, on: string): number {
+  const [by, bm, bd] = dateOfBirth.split('-').map(Number);
+  const [y, m, d] = on.split('-').map(Number);
+  return y - by - (m < bm || (m === bm && d < bd) ? 1 : 0);
+}
+
+/**
+ * What a customer still has to provide before an admin can review them.
+ * One of national ID or passport is enough; the licence needs both sides.
+ */
+export function verificationGaps(input: {
+  documents: CustomerDocumentType[];
+  dateOfBirth: string | null;
+  licenceExpiresAt: string | null;
+}): Array<CustomerDocumentType | 'identity' | 'date_of_birth' | 'licence_expiry'> {
+  const has = new Set(input.documents);
+  const gaps: Array<CustomerDocumentType | 'identity' | 'date_of_birth' | 'licence_expiry'> = [];
+  if (!has.has('licence_front')) gaps.push('licence_front');
+  if (!has.has('licence_back')) gaps.push('licence_back');
+  if (!has.has('national_id') && !has.has('passport')) gaps.push('identity');
+  if (!has.has('selfie')) gaps.push('selfie');
+  if (!input.dateOfBirth) gaps.push('date_of_birth');
+  if (!input.licenceExpiresAt) gaps.push('licence_expiry');
+  return gaps;
+}
+
+/**
+ * Can this customer drive this rental themselves? Null when yes, otherwise
+ * the reason, worded for the provider who is trying to confirm.
+ */
+export function selfDriveBlocker(input: {
+  status: CustomerVerificationStatus;
+  dateOfBirth: string | null;
+  licenceExpiresAt: string | null;
+  startDate: string;
+  endDate: string;
+}): 'not_verified' | 'too_young' | 'licence_expires' | null {
+  if (input.status !== 'verified') return 'not_verified';
+  if (input.dateOfBirth && ageOn(input.dateOfBirth, input.startDate) < MIN_DRIVER_AGE) return 'too_young';
+  if (input.licenceExpiresAt && input.licenceExpiresAt < input.endDate) return 'licence_expires';
+  return null;
+}
+
+// ---- Booking safeguards (0030) ---------------------------------------------
+
+/** Wrong handover/return codes allowed before the booking locks. */
+export const CODE_ATTEMPT_LIMIT = 5;
+
+/** A customer cancelling at least this long before pick-up gets the deposit back. */
+export const FREE_CANCELLATION_HOURS = 48;
+
+/** How long after return a provider can still report damage. */
+export const DAMAGE_REPORT_WINDOW_HOURS = 48;
+
+/** Photos a condition report needs: the four sides of the car, at least. */
+export const MIN_INSPECTION_PHOTOS = 4;
+export const MAX_INSPECTION_PHOTOS = 12;
+
+/**
+ * The cancellation policy, in one place so the API applies it and the screen
+ * can tell the customer what will happen *before* they press the button.
+ *
+ *   - The provider or Karu cancels: the customer did nothing wrong, the
+ *     deposit goes back in full.
+ *   - The customer withdraws a request nobody accepted yet: back in full.
+ *   - The customer cancels a confirmed booking with FREE_CANCELLATION_HOURS
+ *     or more to go: back in full.
+ *   - Later than that: the deposit is kept. The provider turned other
+ *     customers away for those dates.
+ */
+export function depositRefundDue(input: {
+  cancelledBy: UserRole;
+  status: BookingStatus;
+  startDate: string;
+  now?: Date;
+}): boolean {
+  if (input.cancelledBy !== 'customer') return true;
+  if (input.status === 'requested') return true;
+  const startMs = Date.parse(`${input.startDate}T00:00:00Z`);
+  const nowMs = (input.now ?? new Date()).getTime();
+  return startMs - nowMs >= FREE_CANCELLATION_HOURS * 3_600_000;
+}
+
+export type InspectionStage = 'handover' | 'return';
+
+/** A condition report: one side's record of the car at handover or return. */
+export interface BookingInspection {
+  id: string;
+  booking_id: string;
+  stage: InspectionStage;
+  recorded_by: string;
+  recorded_role: UserRole;
+  photo_paths: string[];
+  /** Eighths of a tank, 0-8. */
+  fuel_eighths: number | null;
+  odometer_km: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 /**
@@ -470,6 +722,13 @@ export interface BookingMessage {
   body: string;
   /** True when contact details were removed from the original text. */
   redacted: boolean;
+  /**
+   * Why this message caught the admin's eye (0030), e.g. 'off_platform_payment'.
+   * Stripped from what the parties themselves receive.
+   */
+  flags?: string[];
+  /** Sender's interface language (0031). Null for admin and older messages. */
+  language?: 'en' | 'fr' | null;
   created_at: string;
 }
 

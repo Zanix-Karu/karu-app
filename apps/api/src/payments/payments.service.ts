@@ -6,12 +6,13 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { computeDepositXaf } from '@karu/shared';
-import type { Booking, PaymentStatus, UserRole } from '@karu/shared';
+import type { Booking, PaymentMethod, PaymentStatus, UserRole } from '@karu/shared';
 import { SupabaseService } from '../supabase/supabase.service';
 import { dbErrorMessage } from '../supabase/db-error';
 import { BookingsService } from '../bookings/bookings.service';
 import {
   ManualPaymentProvider,
+  NotchPayMobileMoneyProvider,
   StripeCardProvider,
   type DepositIntent,
   type PaymentProviderAdapter,
@@ -31,20 +32,26 @@ export interface PaymentRow {
 @Injectable()
 export class PaymentsService {
   /**
-   * Chosen from config at boot: with Stripe keys present, card deposits are
-   * real; without them, the manual placeholder that never lies ships.
-   * Everything else in the app is written against the interface.
+   * Chosen from config at boot. Card (Stripe) serves the diaspora, mobile
+   * money (Notch Pay: MTN and Orange) serves customers in Cameroon; either,
+   * both or neither may be configured. With neither, the manual placeholder
+   * that never lies ships. Everything else is written against the interface.
    */
-  private readonly adapter: PaymentProviderAdapter;
+  private readonly adapters = new Map<PaymentMethod, PaymentProviderAdapter>();
+  private readonly manual = new ManualPaymentProvider();
 
   constructor(
     config: ConfigService,
     private readonly supabase: SupabaseService,
     private readonly bookings: BookingsService,
   ) {
+    const webAppUrl =
+      config.get<string>('WEB_APP_URL') ??
+      config.get<string>('CORS_ORIGIN')?.split(',')[0]?.trim() ??
+      'http://localhost:5173';
+
     const secretKey = config.get<string>('STRIPE_SECRET_KEY');
     const webhookSecret = config.get<string>('STRIPE_WEBHOOK_SECRET');
-
     // Half a configuration is the dangerous kind: charging without a webhook
     // secret means money could be taken but never marked received. Refuse to
     // boot rather than run like that.
@@ -53,23 +60,40 @@ export class PaymentsService {
         'STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET must be set together (or neither)',
       );
     }
+    if (secretKey && webhookSecret) {
+      this.adapters.set('card', new StripeCardProvider({ secretKey, webhookSecret, webAppUrl }));
+    }
 
-    this.adapter =
-      secretKey && webhookSecret
-        ? new StripeCardProvider({
-            secretKey,
-            webhookSecret,
-            webAppUrl:
-              config.get<string>('WEB_APP_URL') ??
-              config.get<string>('CORS_ORIGIN')?.split(',')[0]?.trim() ??
-              'http://localhost:5173',
-          })
-        : new ManualPaymentProvider();
+    const notchKey = config.get<string>('NOTCHPAY_PUBLIC_KEY');
+    const notchHash = config.get<string>('NOTCHPAY_WEBHOOK_HASH');
+    if (Boolean(notchKey) !== Boolean(notchHash)) {
+      throw new Error('NOTCHPAY_PUBLIC_KEY and NOTCHPAY_WEBHOOK_HASH must be set together (or neither)');
+    }
+    if (notchKey && notchHash) {
+      this.adapters.set(
+        'mobile_money',
+        new NotchPayMobileMoneyProvider({ publicKey: notchKey, webhookHash: notchHash, webAppUrl }),
+      );
+    }
   }
 
-  /** Is a real provider wired up? Screens use this to avoid over-promising. */
+  /** Is any real provider wired up? Screens use this to avoid over-promising. */
   get canCharge(): boolean {
-    return this.adapter.canCharge;
+    return this.adapters.size > 0;
+  }
+
+  /** The methods a customer can pick from, in no particular order. */
+  get methods(): PaymentMethod[] {
+    return [...this.adapters.keys()];
+  }
+
+  private adapterFor(method?: PaymentMethod): PaymentProviderAdapter {
+    if (method) {
+      const chosen = this.adapters.get(method);
+      if (!chosen) throw new BadRequestException('That payment method is not available');
+      return chosen;
+    }
+    return this.adapters.values().next().value ?? this.manual;
   }
 
   /**
@@ -81,7 +105,9 @@ export class PaymentsService {
     bookingId: string,
     userId: string,
     role: UserRole,
+    method?: PaymentMethod,
   ): Promise<DepositIntent & { amountXaf: number; status: PaymentStatus }> {
+    const adapter = this.adapterFor(method);
     const booking = await this.bookings.getForUser(bookingId, userId, role);
 
     if (booking.customer_id !== userId && role !== 'admin') {
@@ -93,20 +119,42 @@ export class PaymentsService {
 
     const amountXaf = booking.deposit_xaf ?? computeDepositXaf(booking.total_xaf);
     const existing = await this.rowFor(bookingId);
+    if (existing && (existing.status === 'held' || existing.status === 'released')) {
+      throw new BadRequestException('The deposit for this booking is already paid');
+    }
 
-    const payment =
+    let payment =
       existing ??
       (await this.insert({
         booking_id: bookingId,
-        provider: this.adapter.name,
+        provider: adapter.name,
         amount_xaf: amountXaf,
         status: 'pending',
       }));
 
-    const intent = await this.adapter.createDepositIntent({
+    // Switching method before paying (card abandoned, trying MoMo instead) is
+    // normal. The row follows the method, and the old provider reference is
+    // dropped so a late callback from the abandoned attempt matches nothing.
+    if (payment.provider !== adapter.name) {
+      const { data } = await this.supabase.db
+        .from('payments')
+        .update({ provider: adapter.name, provider_ref: null, status: 'pending' })
+        .eq('id', payment.id)
+        .select('*')
+        .single();
+      if (data) payment = data as PaymentRow;
+    }
+
+    const [{ data: user }, { data: profile }] = await Promise.all([
+      this.supabase.db.auth.admin.getUserById(booking.customer_id),
+      this.supabase.db.from('profiles').select('phone').eq('id', booking.customer_id).maybeSingle(),
+    ]);
+    const intent = await adapter.createDepositIntent({
       booking,
       amountXaf: payment.amount_xaf,
       paymentId: payment.id,
+      customerEmail: user?.user?.email ?? null,
+      customerPhone: (profile as { phone?: string | null } | null)?.phone ?? null,
     });
 
     if (intent.providerRef && intent.providerRef !== payment.provider_ref) {
@@ -131,7 +179,9 @@ export class PaymentsService {
     return {
       payment: row,
       /** False until a provider that can actually charge is configured. */
-      chargingEnabled: this.adapter.canCharge,
+      chargingEnabled: this.canCharge,
+      /** Which ways to pay are on offer (card, mobile money). */
+      methods: this.methods,
     };
   }
 
@@ -158,7 +208,7 @@ export class PaymentsService {
       existing ??
       (await this.insert({
         booking_id: bookingId,
-        provider: this.adapter.name,
+        provider: this.manual.name,
         amount_xaf: booking.deposit_xaf ?? computeDepositXaf(booking.total_xaf),
         status: 'pending',
       }));
@@ -179,10 +229,15 @@ export class PaymentsService {
    * an open endpoint that marks money received would be the worst possible
    * bug here.
    */
-  async handleWebhook(rawBody: string, headers: Record<string, string | undefined>) {
+  async handleWebhook(
+    rawBody: string,
+    headers: Record<string, string | undefined>,
+    method: PaymentMethod = 'card',
+  ) {
+    const adapter = this.adapters.get(method) ?? this.manual;
     let event;
     try {
-      event = this.adapter.parseWebhook(rawBody, headers);
+      event = adapter.parseWebhook(rawBody, headers);
     } catch (e) {
       throw new BadRequestException((e as Error).message);
     }
@@ -191,12 +246,17 @@ export class PaymentsService {
     // it so the provider stops retrying, and touch nothing.
     if (!event) return { updated: false, ignored: true };
 
-    const { data, error } = await this.supabase.db
+    // Matched on the provider's reference, or on our own id when the provider
+    // echoes it back; and only on a row still owned by this provider, so a
+    // callback from an abandoned attempt can't settle a switched payment.
+    let q = this.supabase.db
       .from('payments')
       .update({ status: event.status })
-      .eq('provider_ref', event.providerRef)
-      .select('*')
-      .maybeSingle();
+      .eq('provider', adapter.name);
+    q = event.paymentId
+      ? q.or(`provider_ref.eq.${event.providerRef},id.eq.${event.paymentId}`)
+      : q.eq('provider_ref', event.providerRef);
+    const { data, error } = await q.select('*').maybeSingle();
     if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not update payment status'));
     if (!data) throw new NotFoundException('No payment matches that reference');
     return { updated: true, status: event.status };

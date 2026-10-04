@@ -110,20 +110,20 @@ export function BookingChat({
           const mine = m.sender_id === myId;
           const support = m.sender_role === 'admin';
           return (
-            <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+            <div key={m.id} className={`karu-fade-in flex ${mine ? 'justify-end' : 'justify-start'}`}>
               <div
                 className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${
                   mine
                     ? 'bg-karu-ink text-karu-cream'
                     : support
                       ? 'border border-karu-gold/60 bg-karu-yellow/20'
-                      : 'bg-white shadow-sm'
+                      : 'bg-karu-surface shadow-sm'
                 }`}
               >
                 <p className={`text-[11px] font-semibold ${mine ? 'text-karu-cream/70' : 'text-karu-mute'}`}>
                   {mine ? t('chat.you') : t(`admin.chats.sender.${m.sender_role}`)} · {timeOf(m.created_at)}
                 </p>
-                <p className="mt-0.5 whitespace-pre-wrap break-words">{m.body}</p>
+                <MessageText bookingId={bookingId} message={m} mine={mine} />
                 {m.redacted && (
                   <p className={`mt-1 text-[11px] italic ${mine ? 'text-karu-cream/70' : 'text-karu-mute'}`}>
                     {t('chat.redactedMessage')}
@@ -196,5 +196,76 @@ export function BookingChat({
         </div>
       )}
     </Card>
+  );
+}
+
+/**
+ * A message body with Instagram-style "See translation" (0031).
+ *
+ * Offered only on the other side's messages, and only when we know they wrote
+ * in a different language from the reader's. Tapping swaps the text in place
+ * and labels it as a translation; "See original" swaps back. The original is
+ * always what loads first: a person's words are theirs, not the machine's.
+ */
+function MessageText({
+  bookingId,
+  message,
+  mine,
+}: {
+  bookingId: string;
+  message: BookingMessage;
+  mine: boolean;
+}) {
+  const { t, i18n } = useTranslation();
+  const [showTranslation, setShowTranslation] = useState(false);
+  const readerLang = i18n.resolvedLanguage === 'fr' ? 'fr' : 'en';
+  const differs = !mine && Boolean(message.language && message.language !== readerLang);
+
+  const { data: available } = useQuery({
+    queryKey: ['translation-status'],
+    queryFn: () => api<{ available: boolean }>('/translation/status'),
+    staleTime: Infinity,
+    enabled: differs,
+  });
+  const translation = useQuery({
+    queryKey: ['message-translation', message.id, readerLang],
+    queryFn: () =>
+      api<{ body: string }>(
+        `/bookings/${bookingId}/messages/${message.id}/translation?to=${readerLang}`,
+      ),
+    enabled: showTranslation,
+    staleTime: Infinity,
+  });
+
+  const showing = showTranslation && translation.data?.body;
+
+  return (
+    <>
+      <p
+        className="mt-0.5 whitespace-pre-wrap break-words"
+        lang={showing ? readerLang : message.language ?? undefined}
+      >
+        {showing ? translation.data?.body : message.body}
+      </p>
+      {differs && available?.available && (
+        <button
+          type="button"
+          onClick={() => setShowTranslation((v) => !v)}
+          className="mt-1 text-[11px] font-semibold text-karu-mute hover:text-karu-ink"
+        >
+          {showTranslation && translation.isFetching
+            ? t('common.oneMoment')
+            : showing
+              ? t('chat.seeOriginal')
+              : t('chat.seeTranslation')}
+        </button>
+      )}
+      {showing && (
+        <p className="text-[10px] italic text-karu-mute">{t('chat.translatedBy')}</p>
+      )}
+      {showTranslation && translation.isError && (
+        <p className="text-[11px] text-karu-terracotta">{t('chat.translationFailed')}</p>
+      )}
+    </>
   );
 }
