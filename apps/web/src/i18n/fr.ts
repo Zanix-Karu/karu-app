@@ -5,6 +5,19 @@
  * provider, "caution" for the deposit, "prise en charge" for pick-up.
  */
 export const fr = {
+  theme: {
+    label: "Thème de couleurs",
+    title: "Thème de couleurs",
+    sub: "L'apparence de Karu sur cet appareil. « Comme mon appareil » suit le mode clair ou sombre de votre téléphone.",
+    name: {
+      system: "Comme mon appareil",
+      karu: "Karu",
+      night: "Nuit",
+      savanna: "Savane",
+      atlantic: "Atlantique",
+      contrast: "Contraste élevé",
+    },
+  },
   tracking: {
     title: "Suivi en direct",
     providerIntro: "Quand vous partez avec le véhicule, touchez ci-dessous. Le client le voit arriver sur une carte avec une heure d'arrivée estimée. Le partage s'arrête quand vous saisissez le code de remise.",

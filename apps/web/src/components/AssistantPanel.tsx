@@ -167,7 +167,7 @@ export function AssistantPanel() {
                       key={x.id}
                       type="button"
                       onClick={() => setTopicId(x.id)}
-                      className="rounded-md border border-karu-ink/10 bg-white px-4 py-3 text-left text-sm font-medium text-karu-ink transition hover:border-karu-gold focus:outline-none focus-visible:ring-2 focus-visible:ring-karu-gold"
+                      className="rounded-md border border-karu-ink/10 bg-karu-surface px-4 py-3 text-left text-sm font-medium text-karu-ink transition hover:border-karu-gold focus:outline-none focus-visible:ring-2 focus-visible:ring-karu-gold"
                     >
                       {t(`assistant.topics.${x.id}.q`)}
                     </button>

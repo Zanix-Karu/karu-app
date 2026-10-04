@@ -16,7 +16,7 @@ export function CurrencySwitcher() {
       <select
         value={currency}
         onChange={(e) => setCurrency(e.target.value as typeof currency)}
-        className="rounded-full bg-transparent px-2 py-1 text-xs font-bold uppercase text-karu-cream/70 focus:outline-none focus:ring-2 focus:ring-karu-yellow/50"
+        className="rounded-full bg-transparent px-2 py-1 text-xs font-bold uppercase text-karu-on-chrome/70 focus:outline-none focus:ring-2 focus:ring-karu-yellow/50"
         style={{ colorScheme: 'dark' }}
       >
         {DISPLAY_CURRENCIES.map((c) => (

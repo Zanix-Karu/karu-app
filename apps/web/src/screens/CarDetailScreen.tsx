@@ -159,7 +159,7 @@ export function CarDetailScreen() {
           ].map((f) => (
             <span
               key={f}
-              className="rounded-full border border-karu-ink/15 bg-white px-3 py-1 text-xs font-semibold text-karu-brown"
+              className="rounded-full border border-karu-ink/15 bg-karu-surface px-3 py-1 text-xs font-semibold text-karu-brown"
             >
               {f}
             </span>

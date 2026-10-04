@@ -117,7 +117,7 @@ export function BookingChat({
                     ? 'bg-karu-ink text-karu-cream'
                     : support
                       ? 'border border-karu-gold/60 bg-karu-yellow/20'
-                      : 'bg-white shadow-sm'
+                      : 'bg-karu-surface shadow-sm'
                 }`}
               >
                 <p className={`text-[11px] font-semibold ${mine ? 'text-karu-cream/70' : 'text-karu-mute'}`}>

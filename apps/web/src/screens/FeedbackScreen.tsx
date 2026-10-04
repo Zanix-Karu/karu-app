@@ -27,7 +27,7 @@ const MAX_IMAGES = 5;
 const APP_VERSION = __APP_VERSION__;
 
 const textareaClass =
-  'w-full rounded-md border border-karu-ink/15 bg-white px-3 py-2 text-sm text-karu-ink ' +
+  'w-full rounded-md border border-karu-ink/15 bg-karu-surface px-3 py-2 text-sm text-karu-ink ' +
   'placeholder:text-karu-mute focus:border-karu-gold focus:outline-none focus:ring-2 focus:ring-karu-gold/30';
 
 export function FeedbackScreen() {

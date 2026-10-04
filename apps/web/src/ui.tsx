@@ -29,7 +29,7 @@ export function Button({
 }) {
   const variants = {
     primary:
-      'bg-karu-yellow text-karu-ink hover:brightness-95 disabled:opacity-40 disabled:hover:brightness-100',
+      'bg-karu-yellow text-karu-on-brand hover:brightness-95 disabled:opacity-40 disabled:hover:brightness-100',
     outline:
       'border-[1.5px] border-karu-ink text-karu-ink hover:bg-karu-ink hover:text-karu-cream disabled:opacity-40',
     danger: 'bg-karu-terracotta text-white hover:brightness-95 disabled:opacity-40',
@@ -55,7 +55,7 @@ export function Button({
 
 export function Card({ className = '', children }: { className?: string; children: ReactNode }) {
   return (
-    <div className={`rounded-2xl border border-karu-ink/10 bg-white shadow-sm ${className}`}>
+    <div className={`rounded-2xl border border-karu-ink/10 bg-karu-surface shadow-sm ${className}`}>
       {children}
     </div>
   );
@@ -81,7 +81,7 @@ export function Field({
 }
 
 const inputClass =
-  'w-full rounded-lg border border-karu-ink/15 bg-white px-3 py-2.5 text-sm text-karu-ink placeholder:text-karu-mute/70 focus:border-karu-gold focus:outline-none focus:ring-2 focus:ring-karu-yellow/40';
+  'w-full rounded-lg border border-karu-ink/15 bg-karu-surface px-3 py-2.5 text-sm text-karu-ink placeholder:text-karu-mute/70 focus:border-karu-gold focus:outline-none focus:ring-2 focus:ring-karu-yellow/40';
 
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input className={inputClass} {...props} />;

@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import './ds/tokens.css';
+@import './ds/themes.css';
 @import './ds/layout.css';
 @import './ds/motion.css';
 @import './ds/handover.css';
@@ -7,15 +8,26 @@
 
 /* Karu design tokens — lifted from the approved mockups' design system:
    gold/yellow CTAs on warm ink, cream surfaces, Georgia serif display type. */
+/* IDEAS #11: every colour reads a theme variable (ds/themes.css), so a
+   theme is one block of overrides on <html data-theme>. The defaults below
+   are the Karu brand, unchanged. */
 @theme {
-  --color-karu-yellow: #fbd301;
-  --color-karu-ink: #1c1006;
-  --color-karu-gold: #d7b220;
-  --color-karu-amber: #edb337;
-  --color-karu-cream: #f4efe7;
-  --color-karu-terracotta: #c23b2e;
-  --color-karu-brown: #442d1e;
-  --color-karu-mute: #8a7a63;
+  --color-karu-yellow: var(--k-yellow);
+  --color-karu-ink: var(--k-ink);
+  --color-karu-gold: var(--k-gold);
+  --color-karu-amber: var(--k-amber);
+  --color-karu-cream: var(--k-cream);
+  --color-karu-terracotta: var(--k-terracotta);
+  --color-karu-brown: var(--k-brown);
+  --color-karu-mute: var(--k-mute);
+  /* Cards, inputs and chat bubbles: white in light themes, not in dark. */
+  --color-karu-surface: var(--k-surface);
+  /* The header bar and the text on it, kept apart from page text so a dark
+     theme doesn't flip the header to cream. */
+  --color-karu-chrome: var(--k-chrome);
+  --color-karu-on-chrome: var(--k-on-chrome);
+  /* Text on the yellow brand colour: always dark, in every theme. */
+  --color-karu-on-brand: var(--k-on-brand);
 
   --font-display: Georgia, 'Times New Roman', serif;
 }

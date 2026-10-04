@@ -1,5 +1,18 @@
 /** English copy. Keys are grouped by screen; `common` holds shared labels. */
 export const en = {
+  theme: {
+    label: "Colour theme",
+    title: "Colour theme",
+    sub: "How Karu looks on this device. 'Match my device' follows your phone's light or dark setting.",
+    name: {
+      system: "Match my device",
+      karu: "Karu",
+      night: "Night",
+      savanna: "Savanna",
+      atlantic: "Atlantic",
+      contrast: "High contrast",
+    },
+  },
   tracking: {
     title: "Live tracking",
     providerIntro: "When you set off with the car, tap below. The customer sees it coming on a map with an estimated arrival time. Sharing stops when you enter the handover code.",

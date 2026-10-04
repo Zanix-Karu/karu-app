@@ -47,7 +47,7 @@ export function LanguageSwitcher() {
           onClick={() => void choose(l)}
           aria-current={active === l ? 'true' : undefined}
           className={`rounded-full px-2 py-1 text-xs font-bold uppercase transition ${
-            active === l ? 'bg-karu-yellow text-karu-ink' : 'text-karu-cream/60 hover:text-karu-yellow'
+            active === l ? 'bg-karu-yellow text-karu-on-brand' : 'text-karu-on-chrome/60 hover:text-karu-yellow'
           }`}
           title={LOCALE_LABEL[l]}
         >

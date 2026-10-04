@@ -6,6 +6,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { Button, Card, ErrorNote, Field, Input, PhoneInput, Select } from '../ui';
 import { VerifyIdentity } from '../components/VerifyIdentity';
+import { ThemePicker } from '../components/ThemePicker';
 
 export function ProfileScreen() {
   const { t } = useTranslation();
@@ -71,6 +72,14 @@ export function ProfileScreen() {
             {busy ? t('common.saving') : t('common.save')}
           </Button>
         </form>
+      </Card>
+
+      <Card className="mt-6 p-6">
+        <h2 className="font-display text-lg font-bold">{t('theme.title')}</h2>
+        <p className="mt-1 text-sm text-karu-mute">{t('theme.sub')}</p>
+        <div className="mt-4">
+          <ThemePicker />
+        </div>
       </Card>
 
       {profile?.role === 'customer' && <VerifyIdentity />}

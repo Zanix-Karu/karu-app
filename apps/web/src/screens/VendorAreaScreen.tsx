@@ -410,7 +410,7 @@ function BusinessProfileSettings({ vendor }: { vendor: Vendor }) {
         </p>
         <Field label={t('vendor.profile.label')}>
           <textarea
-            className="w-full rounded-md border border-karu-ink/15 bg-white px-3 py-2 text-sm text-karu-ink placeholder:text-karu-mute focus:border-karu-gold focus:outline-none focus:ring-2 focus:ring-karu-gold/30"
+            className="w-full rounded-md border border-karu-ink/15 bg-karu-surface px-3 py-2 text-sm text-karu-ink placeholder:text-karu-mute focus:border-karu-gold focus:outline-none focus:ring-2 focus:ring-karu-gold/30"
             rows={4}
             maxLength={1000}
             value={bio}

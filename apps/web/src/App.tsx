@@ -13,6 +13,7 @@ import {
 import { AuthProvider, RequireView, useAuth, useView } from './lib/auth';
 import { HOME, NAV } from './lib/roles';
 import { useTranslation } from 'react-i18next';
+import { ThemePicker } from './components/ThemePicker';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
 import { CurrencySwitcher } from './components/CurrencySwitcher';
 import { AssistantPanel } from './components/AssistantPanel';
@@ -96,11 +97,11 @@ function Header() {
   // px-3 on mobile so the row fits a 375px viewport without overflowing.
   const nav = ({ isActive }: { isActive: boolean }) =>
     `whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-semibold transition sm:px-4 ${
-      isActive ? 'bg-karu-yellow text-karu-ink' : 'text-karu-cream/80 hover:text-karu-yellow'
+      isActive ? 'bg-karu-yellow text-karu-on-brand' : 'text-karu-on-chrome/80 hover:text-karu-yellow'
     }`;
 
   return (
-    <header className="sticky top-0 z-20 bg-karu-ink">
+    <header className="sticky top-0 z-20 bg-karu-chrome">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 py-3 sm:justify-between sm:gap-4">
         <Link to={HOME[view]} className="shrink-0">
           {logoFailed ? (
@@ -135,6 +136,7 @@ function Header() {
         <div className="flex flex-nowrap items-center justify-center gap-2">
           <LanguageSwitcher />
           <CurrencySwitcher />
+          <ThemePicker compact />
           {session ? (
             <>
               <NavLink to="/profile" className={nav}>
@@ -142,7 +144,7 @@ function Header() {
               </NavLink>
               <Button
                 variant="ghost"
-                className="whitespace-nowrap px-3 text-karu-cream/70 hover:bg-white/10 sm:px-5"
+                className="whitespace-nowrap px-3 text-karu-on-chrome/70 hover:bg-white/10 sm:px-5"
                 onClick={async () => {
                   await signOut();
                   navigate('/search');

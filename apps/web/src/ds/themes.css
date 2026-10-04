@@ -1,0 +1,180 @@
+/* Colour themes (IDEAS #11), Monkeytype-style but curated.
+ *
+ * A marketplace lives on brand recognition, so this is a short list chosen
+ * for real reasons (night use, bright sunlight, low vision), not hundreds of
+ * novelty palettes. Each theme overrides two layers:
+ *   --k-*        what Tailwind's karu-* utilities read (index.css @theme)
+ *   the DS palette names the inline-styled components read (tokens.css)
+ * The yellow brand and the dark text on it stay in every theme: that's Karu.
+ * Every pairing is checked for WCAG AA contrast in themes.spec.ts. */
+
+:root,
+[data-theme='karu'] {
+  --k-yellow: #fbd301;
+  --k-ink: #1c1006;
+  --k-gold: #d7b220;
+  --k-amber: #edb337;
+  --k-cream: #f4efe7;
+  --k-terracotta: #c23b2e;
+  --k-brown: #442d1e;
+  --k-mute: #8a7a63;
+  --k-surface: #ffffff;
+  --k-chrome: #1c1006;
+  --k-on-chrome: #f4efe7;
+  --k-on-brand: #0b0b0b;
+  /* tokens.css derives this from --ink; pin it so it stays dark on yellow
+     whatever a theme does to page text. */
+  --brand-ink: #0b0b0b;
+  color-scheme: light;
+}
+
+/* Night: warm dark, for evening browsing and saving battery on OLED phones. */
+[data-theme='night'] {
+  --k-yellow: #fbd301;
+  --k-ink: #f1e9dc;
+  --k-gold: #e2b93b;
+  --k-amber: #f0bd4f;
+  --k-cream: #15100b;
+  --k-terracotta: #ff8a7a;
+  --k-brown: #e9c99b;
+  --k-mute: #b3a690;
+  --k-surface: #221a13;
+  --k-chrome: #0b0805;
+  --k-on-chrome: #f1e9dc;
+  --k-on-brand: #0b0b0b;
+
+  --white: #221a13;
+  --ink: #f1e9dc;
+  --cream-100: #1b150f;
+  --cream-200: #15100b;
+  --sand-300: #3b3128;
+  --gray-500: #c4b8a6;
+  --gray-400: #9d917f;
+  --gray-300: #4a3f34;
+  --gold-600: #e2b93b;
+  --gold-500: #e2b93b;
+  --success: #5ccf6c;
+  --danger: #ff6b5b;
+  --bg-canvas: #15100b;
+  --surface-card: #221a13;
+  --text-primary: #f1e9dc;
+  --text-secondary: #c4b8a6;
+  --text-link: #e2b93b;
+  --action-secondary: #e2b93b;
+  --border-light: #4a3f34;
+  --divider: rgba(255, 255, 255, 0.12);
+  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.6);
+  color-scheme: dark;
+}
+
+/* Savanna: the same brand on a green and earth palette. */
+[data-theme='savanna'] {
+  --k-gold: #c9a227;
+  --k-cream: #f1f0e4;
+  --k-brown: #2e4a33;
+  --k-mute: #5d6655;
+  --k-chrome: #1d3123;
+  --k-on-chrome: #eef0e2;
+  --gold-600: #2f6b3e;
+  --text-link: #2f6b3e;
+  --action-secondary: #2f6b3e;
+  --cream-200: #f1f0e4;
+  --bg-canvas: #f1f0e4;
+  --brown-800: #1d3123;
+  --brown-400: #3f6b48;
+  --bg-gradient: linear-gradient(180deg, #1d3123 0%, #3f6b48 100%);
+}
+
+/* Atlantic: Kribi blues, cool and calm. */
+[data-theme='atlantic'] {
+  --k-gold: #c9a227;
+  --k-cream: #edf3f5;
+  --k-brown: #15394d;
+  --k-mute: #546470;
+  --k-chrome: #0e2738;
+  --k-on-chrome: #e8f1f4;
+  --gold-600: #1a6683;
+  --text-link: #1a6683;
+  --action-secondary: #1a6683;
+  --cream-200: #edf3f5;
+  --bg-canvas: #edf3f5;
+  --brown-800: #0e2738;
+  --brown-400: #1e5a78;
+  --bg-gradient: linear-gradient(180deg, #0e2738 0%, #1e5a78 100%);
+}
+
+/* High contrast: for bright sunlight and low vision. */
+[data-theme='contrast'] {
+  --k-ink: #000000;
+  --k-cream: #ffffff;
+  --k-brown: #000000;
+  --k-mute: #333333;
+  --k-terracotta: #a3160a;
+  --k-chrome: #000000;
+  --k-on-chrome: #ffffff;
+  --gray-500: #2b2b2b;
+  --gray-400: #444444;
+  --gray-300: #6b6b6b;
+  --gold-600: #5c4100;
+  --text-link: #5c4100;
+  --action-secondary: #5c4100;
+  --cream-200: #ffffff;
+  --bg-canvas: #ffffff;
+  --border-light: #6b6b6b;
+  --bg-gradient: linear-gradient(180deg, #000000 0%, #000000 100%);
+}
+
+/* ── Picker (components/ThemePicker.tsx) ─────────────────────────────────── */
+
+.karu-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 8px;
+}
+.karu-theme-option {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border-light);
+  background: var(--k-surface);
+  color: var(--k-ink);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--motion-fast) var(--ease-out),
+    transform var(--motion-fast) var(--ease-out);
+}
+.karu-theme-option:hover { transform: translateY(-1px); }
+.karu-theme-option[aria-checked='true'] {
+  border-color: var(--k-yellow);
+  box-shadow: 0 0 0 2px var(--k-yellow);
+}
+.karu-theme-option:focus-visible {
+  outline: 2px solid var(--k-yellow);
+  outline-offset: 2px;
+}
+.karu-theme-swatch {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  height: 22px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+.karu-theme-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 30;
+  width: min(320px, calc(100vw - 32px));
+  padding: 10px;
+  border-radius: var(--radius-lg);
+  background: var(--k-surface);
+  box-shadow: var(--shadow-lg);
+}
