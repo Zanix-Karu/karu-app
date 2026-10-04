@@ -6,6 +6,10 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import {
+  approximatePoint,
+  haversineKm,
+  validDeliveryZones,
+  type DeliveryZone,
   VEHICLE_DOCUMENT_TYPES,
   type PublicVendor,
   type RatingSummary,
@@ -85,6 +89,20 @@ export class VendorsService {
     const vendor = await this.getByProfile(profileId);
     if (Object.keys(patch).length === 0) {
       throw new BadRequestException('Nothing to update');
+    }
+    // 0034: a pin is two numbers or none, and zones must make sense as rings.
+    if (('lat' in patch) !== ('lng' in patch)) {
+      throw new BadRequestException('Send both lat and lng for the location');
+    }
+    if (patch.delivery_zones !== undefined) {
+      const zones = (patch.delivery_zones as DeliveryZone[]).map((z) => ({ max_km: z.max_km, fee_xaf: z.fee_xaf }));
+      if (!validDeliveryZones(zones)) {
+        throw new BadRequestException('Delivery zones need increasing distances and fees of zero or more');
+      }
+      if (zones.length > 0 && (patch.lat ?? vendor.lat) == null) {
+        throw new BadRequestException('Set your location on the map before adding delivery zones');
+      }
+      patch.delivery_zones = [...zones].sort((a, b) => a.max_km - b.max_km);
     }
     const { data, error } = await this.supabase.db
       .from('vendors')
@@ -334,17 +352,35 @@ export class VendorsService {
    * breaks that promise — route new fields through an authenticated endpoint
    * instead.
    */
-  async listPublic(): Promise<Array<PublicVendor & { rating: RatingSummary }>> {
+  async listPublic(
+    near?: { lat: number; lng: number },
+  ): Promise<Array<PublicVendor & { rating: RatingSummary }>> {
     const { data, error } = await this.supabase.db
       .from('vendors')
       .select(
-        'id, business_name, city, delivery_fee_xaf, airport_fee_xaf, bio, status, verified_at, created_at, updated_at',
+        // lat/lng are read for the maths and the rounding below, and never
+        // returned as they are (0034).
+        'id, business_name, city, delivery_fee_xaf, airport_fee_xaf, bio, delivery_zones, free_delivery_min_days, lat, lng, status, verified_at, created_at, updated_at',
       )
       .eq('status', 'verified')
       .order('created_at', { ascending: false });
     if (error) throw new NotFoundException(dbErrorMessage(error, 'Could not list vendors'));
 
-    const vendors = (data ?? []) as PublicVendor[];
+    const rows = (data ?? []) as Array<PublicVendor & { lat: number | null; lng: number | null }>;
+    const vendors: PublicVendor[] = rows.map(({ lat, lng, ...v }) => {
+      const approx = lat != null && lng != null ? approximatePoint(lat, lng) : null;
+      return {
+        ...v,
+        approx_lat: approx?.lat ?? null,
+        approx_lng: approx?.lng ?? null,
+        distance_km:
+          near && lat != null && lng != null
+            ? Math.round(haversineKm(near, { lat, lng }) * 10) / 10
+            : null,
+      };
+    });
+    if (near) vendors.sort((a, b) => (a.distance_km ?? Infinity) - (b.distance_km ?? Infinity));
+
     const ratings = await this.reviews.summaryByVendor(vendors.map((v) => v.id));
     return vendors.map((v) => ({ ...v, rating: ratings[v.id] }));
   }

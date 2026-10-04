@@ -12,6 +12,7 @@ import {
   CODE_ATTEMPT_LIMIT,
   canTransitionBooking,
   depositRefundDue,
+  haversineKm,
   quoteBooking,
   selfDriveBlocker,
 } from '@karu/shared';
@@ -188,8 +189,26 @@ export class BookingsService {
     if (deliveryType === 'airport' && vendor.airport_fee_xaf === null) {
       throw new BadRequestException('This provider does not offer airport pickup');
     }
-    if (deliveryType === 'address' && !dto.delivery_address?.trim()) {
+    if (deliveryType === 'address' && !dto.delivery_address?.trim() && dto.delivery_lat === undefined) {
       throw new BadRequestException('An address is required for delivery');
+    }
+    if ((dto.delivery_lat === undefined) !== (dto.delivery_lng === undefined)) {
+      throw new BadRequestException('Send both coordinates for the delivery pin');
+    }
+
+    // 0034: with zones, the fee follows the distance from the provider's base
+    // to the customer's pin, computed here rather than taken from the client.
+    const zones = vendor.delivery_zones ?? [];
+    const zoned = deliveryType === 'address' && zones.length > 0 && vendor.lat != null && vendor.lng != null;
+    let deliveryDistanceKm: number | null = null;
+    if (deliveryType === 'address' && dto.delivery_lat !== undefined && vendor.lat != null && vendor.lng != null) {
+      deliveryDistanceKm =
+        Math.round(
+          haversineKm({ lat: vendor.lat, lng: vendor.lng }, { lat: dto.delivery_lat, lng: dto.delivery_lng! }) * 10,
+        ) / 10;
+    }
+    if (zoned && deliveryDistanceKm === null) {
+      throw new BadRequestException('Drop a pin on the map so the delivery can be priced');
     }
 
     // One shared quote function, so what the customer was shown before
@@ -205,7 +224,13 @@ export class BookingsService {
       deliveryType,
       deliveryFeeXaf: vendor.delivery_fee_xaf,
       airportFeeXaf: vendor.airport_fee_xaf,
+      deliveryZones: zones,
+      deliveryDistanceKm,
+      freeDeliveryMinDays: vendor.free_delivery_min_days,
     });
+    if (quote.deliveryOutOfRange) {
+      throw new BadRequestException('That address is outside the area this provider delivers to');
+    }
 
     const { data: reference, error: refError } = await this.supabase.db.rpc(
       'next_booking_reference',
@@ -227,8 +252,16 @@ export class BookingsService {
         with_driver: withDriver,
         driver_fee_xaf: quote.driverXaf,
         delivery_type: deliveryType,
-        delivery_address: dto.delivery_address?.trim() || null,
+        delivery_address:
+          dto.delivery_address?.trim() ||
+          (deliveryType === 'address' && dto.delivery_lat !== undefined
+            ? `Map pin ${dto.delivery_lat.toFixed(5)}, ${dto.delivery_lng!.toFixed(5)}`
+            : null),
         delivery_fee_xaf: quote.deliveryXaf,
+        delivery_lat: deliveryType === 'address' ? (dto.delivery_lat ?? null) : null,
+        delivery_lng: deliveryType === 'address' ? (dto.delivery_lng ?? null) : null,
+        delivery_distance_km: deliveryDistanceKm,
+        delivery_landmark: dto.delivery_landmark?.trim() || null,
         pickup_time: dto.pickup_time ?? null,
         daily_rate_xaf: vehicle.daily_rate_xaf,
         total_xaf: quote.totalXaf,
@@ -413,7 +446,7 @@ export class BookingsService {
         .maybeSingle(),
       this.supabase.db
         .from('vendors')
-        .select('id, business_name, city, contact_phone, contact_email')
+        .select('id, business_name, city, contact_phone, contact_email, lat, lng, address')
         .eq('id', booking.vendor_id)
         .maybeSingle(),
       this.supabase.db
@@ -424,7 +457,16 @@ export class BookingsService {
     ]);
 
     const vendorRow = vendorRes.data as
-      | { id: string; business_name: string; city: string; contact_phone: string | null; contact_email: string | null }
+      | {
+          id: string;
+          business_name: string;
+          city: string;
+          contact_phone: string | null;
+          contact_email: string | null;
+          lat: number | null;
+          lng: number | null;
+          address: string | null;
+        }
       | null;
     const customerRow = customerRes.data as
       | { id: string; full_name: string | null; phone: string | null }
@@ -465,6 +507,11 @@ export class BookingsService {
             contact_email: role === 'admin' ? vendorRow.contact_email : null,
             /** True while the phone is held back; the screen says why. */
             contact_locked: accepted && !contactUnlocked,
+            // 0034: the exact base, once there's a booking to collect from.
+            location:
+              (role === 'admin' || accepted) && vendorRow.lat != null && vendorRow.lng != null
+                ? { lat: vendorRow.lat, lng: vendorRow.lng, address: vendorRow.address }
+                : null,
           }
         : vendorRow
           ? { id: vendorRow.id, business_name: vendorRow.business_name, city: vendorRow.city }

@@ -23,6 +23,7 @@ import { ConfirmButton } from '../components/ConfirmButton';
 import { BookingChat } from '../components/BookingChat';
 import { CodeEntry, HandoverTicket, TripProgress } from '../components/Handover';
 import { InspectionPanel } from '../components/InspectionPanel';
+import { KaruMap } from '../components/KaruMap';
 
 interface BookingDetail extends Booking {
   vehicle: Pick<
@@ -38,6 +39,8 @@ interface BookingDetail extends Booking {
     contact_email?: string | null;
     /** The phone is held back until the deposit is in or pick-up is close (0030). */
     contact_locked?: boolean;
+    /** Exact base, once the booking is accepted (0034). */
+    location?: { lat: number; lng: number; address: string | null } | null;
   } | null;
   /** Vendors get display_name only (plus the verified identity once accepted). Admins get the full record. */
   customer: {
@@ -387,6 +390,57 @@ export function BookingDetailScreen() {
             >
               {t('booking.viewListing')}
             </Link>
+          </Card>
+        )}
+
+        {/* 0034: where the car is going, or where to collect it. */}
+        {b.delivery_type === 'address' && b.delivery_lat != null && b.delivery_lng != null && view !== 'customer' && (
+          <Card>
+            <h2 className="font-display text-lg font-bold">{t('location.deliverTo')}</h2>
+            <div className="mt-3">
+              <KaruMap
+                center={{ lat: b.delivery_lat, lng: b.delivery_lng }}
+                zoom={15}
+                height={200}
+                picked={{ lat: b.delivery_lat, lng: b.delivery_lng }}
+                ariaLabel={t('location.deliverTo')}
+              />
+            </div>
+            {b.delivery_landmark && <p className="mt-2 text-sm">&ldquo;{b.delivery_landmark}&rdquo;</p>}
+            {b.delivery_distance_km != null && (
+              <p className="mt-1 text-xs text-karu-mute">{t('location.kmFromBase', { km: b.delivery_distance_km })}</p>
+            )}
+            <a
+              className="mt-2 inline-block text-sm font-semibold text-karu-brown underline"
+              href={`https://www.google.com/maps/dir/?api=1&destination=${b.delivery_lat},${b.delivery_lng}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {t('location.directions')}
+            </a>
+          </Card>
+        )}
+        {b.delivery_type === 'pickup_point' && b.vendor?.location && view === 'customer' && (
+          <Card>
+            <h2 className="font-display text-lg font-bold">{t('location.collectFrom')}</h2>
+            <div className="mt-3">
+              <KaruMap
+                center={{ lat: b.vendor.location.lat, lng: b.vendor.location.lng }}
+                zoom={15}
+                height={200}
+                picked={{ lat: b.vendor.location.lat, lng: b.vendor.location.lng }}
+                ariaLabel={t('location.collectFrom')}
+              />
+            </div>
+            {b.vendor.location.address && <p className="mt-2 text-sm">{b.vendor.location.address}</p>}
+            <a
+              className="mt-2 inline-block text-sm font-semibold text-karu-brown underline"
+              href={`https://www.google.com/maps/dir/?api=1&destination=${b.vendor.location.lat},${b.vendor.location.lng}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {t('location.directions')}
+            </a>
           </Card>
         )}
 

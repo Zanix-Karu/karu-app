@@ -5,6 +5,8 @@ import {
   IsDateString,
   IsIn,
   IsInt,
+  IsLatitude,
+  IsLongitude,
   IsOptional,
   IsString,
   IsUUID,
@@ -92,10 +94,15 @@ export class BrowseVehiclesQuery {
   @IsOptional() @IsDateString() from?: string;
   @IsOptional() @IsDateString() to?: string;
 
-  @IsOptional() @IsIn(['price_asc', 'price_desc', 'newest']) sort?:
+  @IsOptional() @IsIn(['price_asc', 'price_desc', 'newest', 'distance']) sort?:
     | 'price_asc'
     | 'price_desc'
-    | 'newest';
+    | 'newest'
+    | 'distance';
+
+  /** 0034: the searcher's position, for distances and "nearest first". */
+  @IsOptional() @Type(() => Number) @IsLatitude() near_lat?: number;
+  @IsOptional() @Type(() => Number) @IsLongitude() near_lng?: number;
 
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(50) limit?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) offset?: number;
@@ -186,4 +193,11 @@ export class RemovePhotoDto {
   @IsString()
   @MaxLength(500)
   url!: string;
+}
+
+/** 0034: what delivery to this pin would cost, for the car page's quote. */
+export class DeliveryQuoteQuery {
+  @Type(() => Number) @IsLatitude() lat!: number;
+  @Type(() => Number) @IsLongitude() lng!: number;
+  @Type(() => Number) @IsInt() @Min(1) @Max(365) days!: number;
 }

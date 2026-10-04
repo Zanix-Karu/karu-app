@@ -735,3 +735,76 @@ describe('BookingsService.transition — customer ID check before accepting (003
     expect(result.status).toBe('confirmed');
   });
 });
+
+describe('BookingsService.create — delivery zones (0034)', () => {
+  const nextYear = new Date().getUTCFullYear() + 1;
+  const vehicle = { id: 'v1', vendor_id: 'vend-1', status: 'active', daily_rate_xaf: 20000, driver_option: 'none', driver_daily_rate_xaf: null };
+  // Base in Akwa, Douala.
+  const zonedVendor = {
+    id: 'vend-1',
+    status: 'verified',
+    delivery_fee_xaf: 7000,
+    airport_fee_xaf: null,
+    lat: 4.0511,
+    lng: 9.7085,
+    delivery_zones: [{ max_km: 5, fee_xaf: 0 }, { max_km: 12, fee_xaf: 5000 }],
+    free_delivery_min_days: 4,
+  };
+  const svc = (vendor: Record<string, unknown> = zonedVendor) => {
+    const { service } = makeSupabase(baseBooking);
+    return new BookingsService(
+      service,
+      { getById: async () => vehicle, availability: async () => ({ available: true }) } as unknown as VehiclesService,
+      { getById: async () => vendor } as unknown as VendorsService,
+      noNotifications,
+    );
+  };
+  const dto = (pin: { lat: number; lng: number }, days = 2) =>
+    ({
+      vehicle_id: 'v1',
+      start_date: `${nextYear}-08-01`,
+      end_date: `${nextYear}-08-${String(days).padStart(2, '0')}`,
+      delivery_type: 'address',
+      delivery_lat: pin.lat,
+      delivery_lng: pin.lng,
+      delivery_landmark: 'Behind the Total station',
+    }) as never;
+
+  it('prices by the ring the pin falls in, and records the distance', async () => {
+    // Bonamoussadi, roughly 8 km out: the 5-12 km ring.
+    const b = (await svc().create('cust-1', dto({ lat: 4.0897, lng: 9.7426 }))) as Booking & Record<string, unknown>;
+    expect(b.delivery_fee_xaf).toBe(5000);
+    expect(Number(b.delivery_distance_km)).toBeGreaterThan(5);
+    expect(b.delivery_landmark).toBe('Behind the Total station');
+  });
+
+  it('delivers free on a long enough rental', async () => {
+    const b = await svc().create('cust-1', dto({ lat: 4.0897, lng: 9.7426 }, 5));
+    expect(b.delivery_fee_xaf).toBe(0);
+  });
+
+  it('refuses a pin beyond the last ring', async () => {
+    // Edea, about 60 km away.
+    await expect(svc().create('cust-1', dto({ lat: 3.8, lng: 10.13 }))).rejects.toThrow(/outside the area/);
+  });
+
+  it('needs a pin when the provider prices by zone', async () => {
+    await expect(
+      svc().create('cust-1', {
+        vehicle_id: 'v1',
+        start_date: `${nextYear}-08-01`,
+        end_date: `${nextYear}-08-02`,
+        delivery_type: 'address',
+        delivery_address: 'Akwa',
+      } as never),
+    ).rejects.toThrow(/pin/);
+  });
+
+  it('keeps the flat fee for a provider without zones', async () => {
+    const b = await svc({ ...zonedVendor, delivery_zones: [], free_delivery_min_days: null }).create(
+      'cust-1',
+      dto({ lat: 4.0897, lng: 9.7426 }),
+    );
+    expect(b.delivery_fee_xaf).toBe(7000);
+  });
+});

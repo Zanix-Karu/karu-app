@@ -8,6 +8,9 @@ import {
 import { createHash, randomUUID } from 'node:crypto';
 import { imageSize } from 'image-size';
 import {
+  approximatePoint,
+  haversineKm,
+  zoneFeeXaf,
   missingPhotoAngles,
   type PhotoAngle,
   type UserRole,
@@ -37,6 +40,21 @@ const ALLOWED_PHOTO_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp
 /** Below this, a shot doesn't do the listing (or a fraud reviewer) any good. */
 const MIN_PHOTO_WIDTH_PX = 640;
 const MIN_PHOTO_HEIGHT_PX = 480;
+
+/** Most rows a "nearest first" search reads before sorting in memory. */
+const DISTANCE_SORT_CAP = 500;
+
+type VendorRowWithPin = Record<string, unknown> & { lat: number | null; lng: number | null };
+
+/**
+ * A provider as a car page may show it: the exact base swapped for one
+ * rounded to about a kilometre (0034).
+ */
+function publicVendorSummary(row: VendorRowWithPin) {
+  const { lat, lng, ...rest } = row;
+  const approx = lat != null && lng != null ? approximatePoint(lat, lng) : null;
+  return { ...rest, approx_lat: approx?.lat ?? null, approx_lng: approx?.lng ?? null };
+}
 
 @Injectable()
 export class VehiclesService {
@@ -74,7 +92,7 @@ export class VehiclesService {
       // SECURITY: explicit columns, never '*'. This route is @Public(), so a
       // new sensitive column would otherwise ship to the world the day it is
       // added — which is how registration_number came to be public.
-      .select('id, vendor_id, make, model, year, category, seats, transmission, fuel_type, daily_rate_xaf, weekly_rate_xaf, monthly_rate_xaf, driver_option, driver_daily_rate_xaf, city, pickup_locations, photos, photo_angles, description, status, created_at, updated_at, vendors!inner(status)', { count: 'exact' })
+      .select('id, vendor_id, make, model, year, category, seats, transmission, fuel_type, daily_rate_xaf, weekly_rate_xaf, monthly_rate_xaf, driver_option, driver_daily_rate_xaf, city, pickup_locations, photos, photo_angles, description, status, created_at, updated_at, vendors!inner(status, lat, lng)', { count: 'exact' })
       .eq('status', 'active')
       .eq('vendors.status', 'verified');
 
@@ -105,19 +123,86 @@ export class VehiclesService {
       if (excluded.length) q = q.not('id', 'in', `(${excluded.join(',')})`);
     }
 
+    const near =
+      query.near_lat !== undefined && query.near_lng !== undefined
+        ? { lat: query.near_lat, lng: query.near_lng }
+        : null;
+    if (query.sort === 'distance' && !near) {
+      throw new BadRequestException('Sorting by distance needs near_lat and near_lng');
+    }
+
     const sort = query.sort ?? 'price_asc';
     if (sort === 'newest') q = q.order('created_at', { ascending: false });
-    else q = q.order('daily_rate_xaf', { ascending: sort === 'price_asc' });
+    else q = q.order('daily_rate_xaf', { ascending: sort !== 'price_desc' });
 
     const limit = query.limit ?? 20;
     const offset = query.offset ?? 0;
-    q = q.range(offset, offset + limit - 1);
+    // Distance isn't a column, so "nearest first" sorts in memory. The
+    // marketplace is a few hundred cars per city, so one capped read is fine.
+    q = sort === 'distance' ? q.limit(DISTANCE_SORT_CAP) : q.range(offset, offset + limit - 1);
 
     const { data, error, count } = await q;
     if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not load vehicles'));
-    // Strip the joined vendors column used only for the verified filter.
-    const items = (data ?? []).map(({ vendors: _vendors, ...v }) => v) as Vehicle[];
+
+    // 0034: distance from the searcher to the provider's base, when both are
+    // known. The base's exact coordinates are used for the maths only; what
+    // leaves the API is a rounded distance, never the point.
+    let items = (data ?? []).map(({ vendors, ...v }) => {
+      const pin = vendors as unknown as { lat: number | null; lng: number | null };
+      const distance_km =
+        near && pin.lat != null && pin.lng != null
+          ? Math.round(haversineKm(near, { lat: pin.lat, lng: pin.lng }) * 10) / 10
+          : null;
+      return { ...v, distance_km };
+    }) as Array<Vehicle & { distance_km: number | null }>;
+
+    if (sort === 'distance') {
+      items.sort((a, b) => (a.distance_km ?? Infinity) - (b.distance_km ?? Infinity));
+      const total = items.length;
+      items = items.slice(offset, offset + limit);
+      return { items, total, limit, offset };
+    }
     return { items, total: count ?? items.length, limit, offset };
+  }
+
+  /** See VehiclesController.deliveryQuote. */
+  async deliveryQuote(id: string, q: { lat: number; lng: number; days: number }) {
+    const { data } = await this.supabase.db
+      .from('vehicles')
+      .select('id, vendors!inner(lat, lng, delivery_fee_xaf, delivery_zones, free_delivery_min_days, status)')
+      .eq('id', id)
+      .maybeSingle();
+    const vendor = (data as unknown as {
+      vendors: {
+        lat: number | null;
+        lng: number | null;
+        delivery_fee_xaf: number | null;
+        delivery_zones: Array<{ max_km: number; fee_xaf: number }>;
+        free_delivery_min_days: number | null;
+      };
+    } | null)?.vendors;
+    if (!vendor) throw new NotFoundException('Vehicle not found');
+
+    const distanceKm =
+      vendor.lat != null && vendor.lng != null
+        ? Math.round(haversineKm({ lat: vendor.lat, lng: vendor.lng }, q) * 10) / 10
+        : null;
+    const zones = vendor.delivery_zones ?? [];
+    let feeXaf = vendor.delivery_fee_xaf ?? 0;
+    let outOfRange = false;
+    if (zones.length && distanceKm !== null) {
+      const zone = zoneFeeXaf(zones, distanceKm);
+      outOfRange = zone === null;
+      feeXaf = zone ?? 0;
+    }
+    const waived = Boolean(vendor.free_delivery_min_days && q.days >= vendor.free_delivery_min_days);
+    return {
+      distance_km: distanceKm,
+      fee_xaf: waived ? 0 : feeXaf,
+      waived_xaf: waived ? feeXaf : 0,
+      out_of_range: outOfRange,
+      free_delivery_min_days: vendor.free_delivery_min_days,
+    };
   }
 
   /** Can this vehicle be rented for [from, to]? Lists what's in the way if not. */
@@ -180,13 +265,13 @@ export class VehiclesService {
       // SECURITY: same explicit list as browse — the plate stays out of the
       // public payload until pickup.
       .select(
-        'id, vendor_id, make, model, year, category, seats, transmission, fuel_type, daily_rate_xaf, weekly_rate_xaf, monthly_rate_xaf, driver_option, driver_daily_rate_xaf, city, pickup_locations, photos, photo_angles, description, status, created_at, updated_at, vendors!inner(id, business_name, city, status, delivery_fee_xaf, airport_fee_xaf, bio)',
+        'id, vendor_id, make, model, year, category, seats, transmission, fuel_type, daily_rate_xaf, weekly_rate_xaf, monthly_rate_xaf, driver_option, driver_daily_rate_xaf, city, pickup_locations, photos, photo_angles, description, status, created_at, updated_at, vendors!inner(id, business_name, city, status, delivery_fee_xaf, airport_fee_xaf, bio, delivery_zones, free_delivery_min_days, lat, lng)',
       )
       .eq('id', id)
       .single();
     if (error || !data) throw new NotFoundException('Vehicle not found');
-    const { vendors, ...vehicle } = data as Record<string, unknown> & { vendors: unknown };
-    return { ...vehicle, vendor: vendors } as VehicleDetail;
+    const { vendors, ...vehicle } = data as unknown as Record<string, unknown> & { vendors: VendorRowWithPin };
+    return { ...vehicle, vendor: publicVendorSummary(vendors) } as VehicleDetail;
   }
 
   /**
@@ -203,7 +288,7 @@ export class VehiclesService {
       .from('vehicles')
       // SECURITY: same explicit list as browse/getPublicDetail.
       .select(
-        'id, vendor_id, make, model, year, category, seats, transmission, fuel_type, daily_rate_xaf, weekly_rate_xaf, monthly_rate_xaf, driver_option, driver_daily_rate_xaf, city, pickup_locations, photos, photo_angles, description, status, created_at, updated_at, vendors!inner(id, business_name, city, status, delivery_fee_xaf, airport_fee_xaf, bio)',
+        'id, vendor_id, make, model, year, category, seats, transmission, fuel_type, daily_rate_xaf, weekly_rate_xaf, monthly_rate_xaf, driver_option, driver_daily_rate_xaf, city, pickup_locations, photos, photo_angles, description, status, created_at, updated_at, vendors!inner(id, business_name, city, status, delivery_fee_xaf, airport_fee_xaf, bio, delivery_zones, free_delivery_min_days, lat, lng)',
       )
       .eq('status', 'active')
       .eq('vendors.status', 'verified')
@@ -216,8 +301,8 @@ export class VehiclesService {
     const { data, error } = await q;
     if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not load comparison'));
     return (data ?? []).map((row) => {
-      const { vendors, ...vehicle } = row as Record<string, unknown> & { vendors: unknown };
-      return { ...vehicle, vendor: vendors } as VehicleDetail;
+      const { vendors, ...vehicle } = row as unknown as Record<string, unknown> & { vendors: VendorRowWithPin };
+      return { ...vehicle, vendor: publicVendorSummary(vendors) } as VehicleDetail;
     });
   }
 

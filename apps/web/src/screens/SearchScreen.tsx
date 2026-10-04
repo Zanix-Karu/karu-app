@@ -9,6 +9,7 @@ import { CATEGORY_LABEL, CITY_LABEL, todayISO } from '../lib/format';
 import { Button, CarCard, Card, Field, Input, Select } from '../ds';
 import { EmptyState, ErrorNote } from '../ui';
 import { SkeletonCarCard } from '../components/Skeleton';
+import { locateMe } from '../components/KaruMap';
 import { useCurrency } from '../lib/currency';
 
 interface Filters {
@@ -90,8 +91,37 @@ export function SearchScreen() {
     setSearchParams(p);
   };
 
+  /**
+   * 0034: "near me". The position lives in memory only, never in the URL:
+   * the address bar is for sharing a search with family, and where someone
+   * is standing is not part of what they meant to share.
+   */
+  const [near, setNear] = useState<{ lat: number; lng: number } | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locateError, setLocateError] = useState(false);
+  const findNearMe = async () => {
+    setLocating(true);
+    setLocateError(false);
+    try {
+      setNear(await locateMe());
+      commit({ ...applied, sort: 'distance' });
+    } catch {
+      setLocateError(true);
+    } finally {
+      setLocating(false);
+    }
+  };
+
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(applied)) if (v) params.set(k, v);
+  if (near) {
+    params.set('near_lat', near.lat.toFixed(4));
+    params.set('near_lng', near.lng.toFixed(4));
+  } else if (applied.sort === 'distance') {
+    // A shared "nearest first" link opened by someone who hasn't shared
+    // their position yet: fall back rather than error.
+    params.set('sort', 'price_asc');
+  }
   params.set('limit', String(PAGE));
   params.set('offset', String(offset));
 
@@ -274,18 +304,29 @@ export function SearchScreen() {
             <span style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 15, color: 'var(--gray-500)' }}>
               {data ? t('search.available', { count: total }) : ' '}
             </span>
-            <Select
-              aria-label={t('search.sortBy')}
-              value={applied.sort}
-              onChange={(e) => commit({ ...applied, sort: e.target.value })}
-              style={{ width: 220, padding: '10px 14px' }}
-            >
-              <option value="price_asc">{t('search.sortPriceAsc')}</option>
-              <option value="price_desc">{t('search.sortPriceDesc')}</option>
-              <option value="newest">{t('search.sortNewest')}</option>
-            </Select>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <Button variant="outline" size="sm" loading={locating} onClick={findNearMe}>
+                {near ? t('location.nearMeOn') : t('location.nearMe')}
+              </Button>
+              <Select
+                aria-label={t('search.sortBy')}
+                value={near ? applied.sort : applied.sort === 'distance' ? 'price_asc' : applied.sort}
+                onChange={(e) => commit({ ...applied, sort: e.target.value })}
+                style={{ width: 220, padding: '10px 14px' }}
+              >
+                <option value="price_asc">{t('search.sortPriceAsc')}</option>
+                <option value="price_desc">{t('search.sortPriceDesc')}</option>
+                <option value="newest">{t('search.sortNewest')}</option>
+                {near && <option value="distance">{t('location.sortNearest')}</option>}
+              </Select>
+            </div>
           </div>
 
+          {locateError && (
+            <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--danger)', margin: '0 0 12px' }}>
+              {t('location.denied')}
+            </p>
+          )}
           {isLoading && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
               <SkeletonCarCard />
@@ -302,7 +343,7 @@ export function SearchScreen() {
             <EmptyState title={t('search.noneTitle')} hint={t('search.noneHint')} />
           )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <div className="karu-stagger" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             {cars?.map((v) => (
               <CarCard
                 key={v.id}
@@ -312,7 +353,11 @@ export function SearchScreen() {
                 category={`${t('search.orSimilar', { category: CATEGORY_LABEL[v.category] })}${v.year ? ` · ${v.year}` : ''}`}
                 seats={v.seats ? t('common.seats', { count: v.seats }) : '—'}
                 transmission={v.transmission === 'automatic' ? t('common.automatic') : t('common.manual')}
-                extra={CITY_LABEL[v.city]}
+                extra={
+                  (v as Vehicle & { distance_km?: number | null }).distance_km != null
+                    ? `${CITY_LABEL[v.city]} · ${t('location.kmAway', { km: (v as Vehicle & { distance_km?: number | null }).distance_km })}`
+                    : CITY_LABEL[v.city]
+                }
                 price={v.daily_rate_xaf}
                 subPrice={t('common.allFeesIn')}
                 perDayLabel={t('common.perDay')}

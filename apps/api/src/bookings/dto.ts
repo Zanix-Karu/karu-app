@@ -3,6 +3,8 @@ import {
   IsArray,
   IsBoolean,
   IsInt,
+  IsLatitude,
+  IsLongitude,
   IsDateString,
   IsIn,
   IsOptional,
@@ -34,6 +36,10 @@ export class CreateBookingDto {
   @IsOptional() @IsIn(DELIVERY_TYPES) delivery_type?: DeliveryType;
   /** Street address, or terminal and flight for an airport meet. */
   @IsOptional() @IsString() @MaxLength(300) delivery_address?: string;
+  /** 0034: where to bring the car, as a map pin, plus directions in words. */
+  @IsOptional() @IsLatitude() delivery_lat?: number;
+  @IsOptional() @IsLongitude() delivery_lng?: number;
+  @IsOptional() @IsString() @MaxLength(300) delivery_landmark?: string;
   /** HH:MM. A flight lands at a time, not a date. */
   @IsOptional()
   @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: 'pickup_time must be HH:MM' })
