@@ -591,19 +591,22 @@ const PAYMENT_COPY: Record<string, { label: string; tone: 'neutral' | 'success' 
 function DepositBlock({ bookingId, view }: { bookingId: string; view: string }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
+  const { profile } = useAuth();
   const { data } = useQuery({
     queryKey: ['payment', bookingId],
     queryFn: () =>
-      api<{ payment: { status: string; amount_xaf: number } | null; chargingEnabled: boolean }>(
-        `/bookings/${bookingId}/payment`,
-      ),
+      api<{
+        payment: { status: string; amount_xaf: number } | null;
+        chargingEnabled: boolean;
+        methods?: Array<'card' | 'mobile_money'>;
+      }>(`/bookings/${bookingId}/payment`),
   });
 
   const start = useMutation({
-    mutationFn: () =>
+    mutationFn: (method?: 'card' | 'mobile_money') =>
       api<{ instructions: string; redirectUrl: string | null }>(
         `/bookings/${bookingId}/payment/intent`,
-        { method: 'POST' },
+        { method: 'POST', body: JSON.stringify({ method }) },
       ),
     onSuccess: (r) => {
       if (r.redirectUrl) window.location.href = r.redirectUrl;
@@ -638,14 +641,38 @@ function DepositBlock({ bookingId, view }: { bookingId: string; view: string }) 
 
       {view === 'customer' && status !== 'held' && status !== 'released' && (
         <>
-          <Button
-            variant="outline"
-            className="mt-3"
-            loading={start.isPending}
-            onClick={() => start.mutate()}
-          >
-            {t('booking.howToPay')}
-          </Button>
+          {(data?.methods?.length ?? 0) > 0 ? (
+            // IDEAS #1: mobile money for people in Cameroon, card for the
+            // diaspora. A +237 number puts mobile money first; both are offered.
+            <div className="mt-3 flex flex-wrap gap-2">
+              {[...(data?.methods ?? [])]
+                .sort((a, b) => {
+                  const local = profile?.phone?.replace(/\s/g, '').startsWith('+237');
+                  const first = local ? 'mobile_money' : 'card';
+                  return a === first ? -1 : b === first ? 1 : 0;
+                })
+                .map((m, i) => (
+                  <Button
+                    key={m}
+                    variant={i === 0 ? 'primary' : 'outline'}
+                    loading={start.isPending && start.variables === m}
+                    disabled={start.isPending}
+                    onClick={() => start.mutate(m)}
+                  >
+                    {t(`booking.payWith.${m}`)}
+                  </Button>
+                ))}
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              className="mt-3"
+              loading={start.isPending}
+              onClick={() => start.mutate(undefined)}
+            >
+              {t('booking.howToPay')}
+            </Button>
+          )}
           {start.isSuccess && (
             <p className="mt-2 text-xs text-karu-brown">{start.data?.instructions}</p>
           )}

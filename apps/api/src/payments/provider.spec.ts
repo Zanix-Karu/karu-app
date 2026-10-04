@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import type { Booking } from '@karu/shared';
 import { computeDepositXaf } from '@karu/shared';
-import { ManualPaymentProvider, StripeCardProvider } from './provider';
+import { ManualPaymentProvider, NotchPayMobileMoneyProvider, StripeCardProvider } from './provider';
 
 const booking = {
   id: 'b1',
@@ -167,5 +167,69 @@ describe('StripeCardProvider — card deposits for the diaspora', () => {
     expect(() =>
       stripeProvider(fetch).parseWebhook(payload, signed(payload, { ageSeconds: 600 })),
     ).toThrow(/replay/i);
+  });
+});
+
+describe('NotchPayMobileMoneyProvider — MTN and Orange Money in Cameroon', () => {
+  const hash = 'whk_test_hash';
+  const sign = (body: string) => createHmac('sha256', hash).update(body).digest('hex');
+  const booking = { id: 'b1', reference: 'KARU-20260801-0001' } as Booking;
+
+  it('starts a hosted XAF payment carrying our payment id, and never claims it settled', async () => {
+    const fetchFn = vi.fn(async () =>
+      new Response(
+        JSON.stringify({ status: 'Accepted', transaction: 'trx_123', authorization_url: 'https://pay.notchpay.co/pay_1' }),
+        { status: 201 },
+      ),
+    );
+    const p = new NotchPayMobileMoneyProvider({
+      publicKey: 'pk_test_x',
+      webhookHash: hash,
+      webAppUrl: 'https://app.getkaru.io/',
+      fetchFn: fetchFn as unknown as typeof fetch,
+    });
+    const intent = await p.createDepositIntent({
+      booking,
+      amountXaf: 16500,
+      paymentId: 'pay-1',
+      customerEmail: 'grace@example.com',
+    });
+    const [url, init] = fetchFn.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('https://api.notchpay.co/payments');
+    expect((init.headers as Record<string, string>).Authorization).toBe('pk_test_x');
+    const body = JSON.parse(init.body as string);
+    expect(body).toMatchObject({ amount: 16500, currency: 'XAF', reference: 'pay-1', email: 'grace@example.com' });
+    expect(body.callback).toBe('https://app.getkaru.io/bookings/b1?deposit=returned');
+    expect(intent).toMatchObject({ providerRef: 'trx_123', redirectUrl: 'https://pay.notchpay.co/pay_1', settled: false });
+  });
+
+  const provider = () =>
+    new NotchPayMobileMoneyProvider({ publicKey: 'pk', webhookHash: hash, webAppUrl: 'x' });
+
+  it('holds the deposit on a correctly signed payment.complete', () => {
+    const body = JSON.stringify({ event: 'payment.complete', data: { reference: 'trx_123', merchant_reference: 'pay-1' } });
+    expect(provider().parseWebhook(body, { 'x-notch-signature': sign(body) })).toEqual({
+      providerRef: 'trx_123',
+      paymentId: 'pay-1',
+      status: 'held',
+    });
+  });
+
+  it('marks failed, cancelled and expired payments as failed', () => {
+    for (const event of ['payment.failed', 'payment.canceled', 'payment.expired']) {
+      const body = JSON.stringify({ event, data: { reference: 'trx_9' } });
+      expect(provider().parseWebhook(body, { 'x-notch-signature': sign(body) })?.status).toBe('failed');
+    }
+  });
+
+  it('refuses a missing or forged signature', () => {
+    const body = JSON.stringify({ event: 'payment.complete', data: { reference: 'trx_123' } });
+    expect(() => provider().parseWebhook(body, {})).toThrow(/Missing/);
+    expect(() => provider().parseWebhook(body, { 'x-notch-signature': sign('{}') })).toThrow(/verification failed/);
+  });
+
+  it('acknowledges events it does not act on', () => {
+    const body = JSON.stringify({ event: 'customer.created', data: {} });
+    expect(provider().parseWebhook(body, { 'x-notch-signature': sign(body) })).toBeNull();
   });
 });

@@ -391,6 +391,10 @@ export const fr = {
     notFound: 'Voiture introuvable.',
   },
   booking: {
+    payWith: {
+      card: "Payer par carte",
+      mobile_money: "Payer avec MTN ou Orange Money",
+    },
     cancelPolicy: {
       refund: "Votre acompte vous sera remboursé en totalité.",
       noRefund: "La prise en charge est dans moins de 48 heures : l'acompte est conservé. Le prestataire a refusé d'autres clients pour ces dates.",

@@ -45,7 +45,11 @@ export type BookingStatus =
 
 // 'card' = UK card service (Stripe/Wise) for the MVP deposit;
 // 'manual' = recorded by the team outside any provider.
-export type PaymentProvider = 'mtn_momo' | 'orange_money' | 'card' | 'manual';
+// 'mobile_money' = MTN or Orange via Notch Pay; the network is chosen on its page (0033).
+export type PaymentProvider = 'mtn_momo' | 'orange_money' | 'card' | 'manual' | 'mobile_money';
+
+/** What a customer can choose between at checkout. */
+export type PaymentMethod = 'card' | 'mobile_money';
 export type PaymentStatus = 'pending' | 'held' | 'released' | 'refunded' | 'failed';
 
 export type ReviewTarget = 'customer' | 'vendor';

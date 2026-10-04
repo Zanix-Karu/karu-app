@@ -387,6 +387,10 @@ export const en = {
     notFound: 'Car not found.',
   },
   booking: {
+    payWith: {
+      card: "Pay by card",
+      mobile_money: "Pay with MTN or Orange Money",
+    },
     cancelPolicy: {
       refund: "You'll get your deposit back in full.",
       noRefund: "Pick-up is less than 48 hours away, so the deposit is kept. The provider turned other customers away for these dates.",
