@@ -1,3 +1,4 @@
+import { Check } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { usePageMeta } from '../lib/page-meta';
 import { Trans, useTranslation } from 'react-i18next';
@@ -5,6 +6,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { api } from '../lib/api';
 import { Button, Card, ErrorNote, Field, Input, PhoneInput, Select } from '../ui';
+import { Checkbox } from '../components/Controls';
 
 type Mode = 'login' | 'signup' | 'reset';
 /** The mockup's account-type switch: rent a car, or list one. */
@@ -255,9 +257,9 @@ export function AuthScreen() {
             <li key={p} className="flex gap-3 text-sm">
               <span
                 aria-hidden="true"
-                className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-karu-yellow text-xs font-bold text-karu-ink"
+                className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-karu-yellow text-karu-on-brand"
               >
-                ✓
+                <Check className="h-3 w-3" strokeWidth={3} />
               </span>
               <span>{p}</span>
             </li>
@@ -409,13 +411,11 @@ export function AuthScreen() {
 
           {mode === 'signup' && account === 'vendor' && (
             <label className="flex cursor-pointer items-start gap-2 text-sm">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={declared}
                 onChange={(e) => setDeclared(e.target.checked)}
                 required
-                className="mt-0.5"
-                style={{ accentColor: 'var(--gold-600)' }}
+                wrapperClassName="-my-3 -ml-3 -mr-1"
               />
               <span className="text-karu-mute">
                 {t('auth.vendorDeclaration')}
@@ -425,13 +425,11 @@ export function AuthScreen() {
 
           {mode === 'signup' && (
             <label className="flex cursor-pointer items-start gap-2 text-sm">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={agreed}
                 onChange={(e) => setAgreed(e.target.checked)}
                 required
-                className="mt-0.5"
-                style={{ accentColor: 'var(--gold-600)' }}
+                wrapperClassName="-my-3 -ml-3 -mr-1"
               />
               <span className="text-karu-mute">
                 <Trans

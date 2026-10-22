@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation } from '@tanstack/react-query';
@@ -88,7 +89,7 @@ export function PhotoStrip({
                 cursor: 'pointer',
               }}
             >
-              ×
+              <X aria-hidden="true" style={{ width: 12, height: 12, margin: '0 auto' }} strokeWidth={2.5} />
             </button>
           </div>
         );

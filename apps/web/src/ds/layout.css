@@ -125,6 +125,9 @@
    is hidden — it would sit under the links and the strip is short enough that
    the overflow is obvious from the clipped item. */
 .karu-nav-strip {
+  /* `safe`: when the items overflow, start them at the left edge so the
+     first one can be scrolled to, instead of centring and clipping it. */
+  justify-content: safe center;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -183,3 +186,27 @@ button:focus-visible {
   }
   .karu-btn:active:not(:disabled) { transform: none; }
 }
+
+/* ─── Ported from the starter pack's UI kit ─────────────────────────────── */
+
+/* Shared focus ring for custom controls (Switch, Checkbox). */
+.karu-focus:focus-visible {
+  outline: 2px solid var(--gold-600);
+  outline-offset: 2px;
+}
+
+/* Icon-only buttons: a 40px round target that tints on hover. */
+.karu-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-pill);
+  transition: background-color var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out);
+}
+.karu-icon-btn:hover { background-color: color-mix(in srgb, var(--k-ink) 6%, transparent); }
+.karu-icon-btn:focus-visible { outline: 2px solid var(--gold-600); outline-offset: 2px; }
+
+/* Icons sitting inline with text line up with the cap height. */
+.karu-inline-icon { display: inline-block; width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; }

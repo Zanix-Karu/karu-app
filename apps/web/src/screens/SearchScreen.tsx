@@ -1,3 +1,4 @@
+import { ChevronLeft, ChevronRight, SearchX } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePageMeta } from '../lib/page-meta';
 import { useTranslation } from 'react-i18next';
@@ -340,7 +341,7 @@ export function SearchScreen() {
             </ErrorNote>
           )}
           {cars && cars.length === 0 && (
-            <EmptyState title={t('search.noneTitle')} hint={t('search.noneHint')} />
+            <EmptyState Icon={SearchX} title={t('search.noneTitle')} hint={t('search.noneHint')} />
           )}
 
           <div className="karu-stagger" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -383,7 +384,8 @@ export function SearchScreen() {
                 disabled={offset === 0}
                 onClick={() => commit(applied, Math.max(0, offset - PAGE))}
               >
-                ← {t('search.prev')}
+                <ChevronLeft aria-hidden="true" className="h-4 w-4" />
+                {t('search.prev')}
               </Button>
               <span style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)' }}>
                 {t('search.showing', {
@@ -398,7 +400,8 @@ export function SearchScreen() {
                 disabled={offset + PAGE >= total}
                 onClick={() => commit(applied, offset + PAGE)}
               >
-                {t('search.next')} →
+                {t('search.next')}
+                <ChevronRight aria-hidden="true" className="h-4 w-4" />
               </Button>
             </div>
           )}

@@ -8,6 +8,7 @@ import { api } from '../lib/api';
 import { useAuth, useView } from '../lib/auth';
 import { Button, Card, Field, Input, Select } from '../ds';
 import { ErrorNote } from '../ui';
+import { Checkbox } from '../components/Controls';
 
 /**
  * The supply-side landing page. Supply is the marketplace's real bottleneck,
@@ -244,12 +245,11 @@ function ConvertToVendor() {
             color: 'var(--gray-500)',
           }}
         >
-          <input
-            type="checkbox"
+          <Checkbox
             required
             checked={declared}
             onChange={(e) => setDeclared(e.target.checked)}
-            style={{ marginTop: 2, accentColor: 'var(--gold-600)' }}
+            wrapperClassName="-my-3 -ml-3 -mr-1"
           />
           <span>{t('auth.vendorDeclaration')}</span>
         </label>

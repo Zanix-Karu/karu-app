@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Profile } from '@karu/shared';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { Button, Card, ErrorNote, Field, Input, PhoneInput, Select } from '../ui';
+import { Button, Card, ErrorNote, Field, Input, PhoneInput, Select, SuccessNote } from '../ui';
 import { VerifyIdentity } from '../components/VerifyIdentity';
 import { ThemePicker } from '../components/ThemePicker';
 
@@ -66,7 +66,7 @@ export function ProfileScreen() {
           </Field>
 
           {error && <ErrorNote>{error}</ErrorNote>}
-          {saved && <p className="text-sm font-semibold text-green-700">{t('profile.saved')}</p>}
+          {saved && <SuccessNote>{t('profile.saved')}</SuccessNote>}
 
           <Button type="submit" disabled={busy} className="w-full">
             {busy ? t('common.saving') : t('common.save')}

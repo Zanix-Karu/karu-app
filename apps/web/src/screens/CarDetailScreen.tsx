@@ -1,3 +1,4 @@
+import { CircleCheck } from 'lucide-react';
 import { useState } from 'react';
 import { PhotoCarousel } from '../components/PhotoCarousel';
 import { usePageMeta } from '../lib/page-meta';
@@ -237,8 +238,9 @@ export function CarDetailScreen() {
           <div className="mt-3 text-sm">
             {checking && <p className="text-karu-mute">{t('car.checking')}</p>}
             {avail && avail.available && (
-              <p className="font-semibold text-green-700">
-                ✓ {t('car.available', { from: prettyDate(from), to: prettyDate(to) })}
+              <p className="karu-fade-in flex items-center gap-1.5 font-semibold text-green-700">
+                <CircleCheck aria-hidden="true" className="h-[1.1em] w-[1.1em] shrink-0" />
+                {t('car.available', { from: prettyDate(from), to: prettyDate(to) })}
               </p>
             )}
             {avail && !avail.available && (

@@ -5,7 +5,7 @@ import { validDeliveryZones, type DeliveryZone, type Vendor } from '@karu/shared
 import { api } from '../lib/api';
 import { xaf } from '../lib/format';
 import { Button, Card, Field, Input } from '../ds';
-import { ErrorNote } from '../ui';
+import { ErrorNote, SuccessNote } from '../ui';
 import { DOUALA, KaruMap, YAOUNDE, locateMe } from './KaruMap';
 
 /**
@@ -165,9 +165,7 @@ export function VendorLocationSettings({ vendor }: { vendor: Vendor }) {
           {t('location.save')}
         </Button>
         {save.isSuccess && (
-          <span style={{ marginLeft: 12, fontFamily: 'var(--font-ui)', fontSize: 14, fontWeight: 600, color: 'var(--success)' }}>
-            {t('vendor.saved')}
-          </span>
+          <SuccessNote className="ml-3">{t('vendor.saved')}</SuccessNote>
         )}
         {save.isError && (
           <div style={{ marginTop: 10 }}>

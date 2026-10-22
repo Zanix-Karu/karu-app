@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Review } from '@karu/shared';
 import { api } from '../lib/api';
-import { Button, Card, ErrorNote } from '../ui';
+import { Button, Card, ErrorNote, SuccessNote } from '../ui';
 
 /** Clickable 1–5 stars. */
 function StarPicker({ value, onChange }: { value: number; onChange: (n: number) => void }) {
@@ -65,7 +65,7 @@ export function ReviewForm({
 
   if (submit.isSuccess) {
     return (
-      <p className="text-sm font-semibold text-green-700">{t('review.thanks')}</p>
+      <p><SuccessNote>{t('review.thanks')}</SuccessNote></p>
     );
   }
 

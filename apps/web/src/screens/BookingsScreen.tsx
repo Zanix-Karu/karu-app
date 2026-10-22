@@ -1,3 +1,4 @@
+import { Archive, CalendarDays, Search } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -121,10 +122,23 @@ export function BookingsScreen() {
       )}
 
       {data && data.length === 0 && (
-        <EmptyState title={t('booking.noneTitle')} hint={t('booking.noneHint')} />
+        <EmptyState
+          Icon={CalendarDays}
+          title={t('booking.noneTitle')}
+          hint={t('booking.noneHint')}
+          action={
+            <Link
+              to="/search"
+              className="karu-btn inline-flex items-center gap-2 rounded-full bg-karu-yellow px-5 py-2.5 text-sm font-semibold text-karu-on-brand"
+            >
+              <Search aria-hidden="true" className="h-4 w-4" />
+              {t('nav.findCar')}
+            </Link>
+          }
+        />
       )}
       {data && data.length > 0 && shown.length === 0 && (
-        <EmptyState
+        <EmptyState Icon={Archive}
           title={tab === 'archived' ? t('booking.noneArchivedTitle') : t('booking.noneTitle')}
           hint={tab === 'archived' ? t('booking.noneArchivedHint') : t('booking.noneHint')}
         />

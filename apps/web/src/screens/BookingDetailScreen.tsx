@@ -1,3 +1,4 @@
+import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -14,7 +15,7 @@ import { api } from '../lib/api';
 import { useAuth, useView } from '../lib/auth';
 import { CATEGORY_LABEL, CITY_LABEL, prettyDate, rentalDays, xaf } from '../lib/format';
 import { Badge, Button, Card } from '../ds';
-import { ErrorNote, StatusBadge } from '../ui';
+import { ErrorNote, StatusBadge, SuccessNote } from '../ui';
 import { Skeleton, SkeletonCard } from '../components/Skeleton';
 import { useCurrency } from '../lib/currency';
 import { ReviewForm } from '../components/ReviewForm';
@@ -206,9 +207,10 @@ export function BookingDetailScreen() {
     <div className="mx-auto max-w-3xl">
       <button
         onClick={() => navigate(-1)}
-        className="text-sm font-semibold text-karu-brown underline"
+        className="inline-flex items-center gap-1 text-sm font-semibold text-karu-brown hover:underline"
       >
-        ← {t('common.back')}
+        <ArrowLeft aria-hidden="true" className="h-4 w-4" />
+        {t('common.back')}
       </button>
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
@@ -810,7 +812,7 @@ function RecordDeposit({ bookingId }: { bookingId: string }) {
         </Button>
       </form>
       {record.isSuccess && (
-        <p className="mt-2 text-sm font-semibold text-green-700">{t('booking.recordDeposit.recorded')}</p>
+        <p className="mt-2"><SuccessNote>{t('booking.recordDeposit.recorded')}</SuccessNote></p>
       )}
       {record.isError && (
         <div className="mt-2">

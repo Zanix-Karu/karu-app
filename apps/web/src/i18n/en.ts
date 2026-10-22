@@ -181,6 +181,10 @@ export const en = {
   },
   common: {
     brand: 'Karu',
+    dismiss: 'Dismiss',
+    done: 'Done',
+    missing: 'Missing',
+    close: 'Close',
     tagline: 'Karu: verified car rental for Cameroon · Douala & Yaoundé',
     buildVersion: 'Build version',
     signIn: 'Sign in',
@@ -580,7 +584,7 @@ export const en = {
       reference: 'Reference (optional)',
       referencePlaceholder: 'Bank/transfer ref',
       submit: 'Record',
-      recorded: 'Recorded ✓',
+      recorded: 'Recorded',
     },
   },
   chat: {
@@ -610,7 +614,7 @@ export const en = {
     placeholder: 'How did it go? (optional)',
     publish: 'Publish review',
     publishing: 'Publishing…',
-    thanks: 'Thanks. Your review is published ✓',
+    thanks: 'Thanks. Your review is published',
     rating: 'Rating',
     providerRatedYou: "How the provider rated you",
   },
@@ -619,8 +623,8 @@ export const en = {
     sub: 'Every provider on Karu has passed document verification: business registration, carte grise and insurance.',
     none: 'No providers yet',
     noReviews: 'No reviews yet',
-    verified: '✓ Verified',
-    verifiedProvider: '✓ Verified provider',
+    verified: 'Verified',
+    verifiedProvider: 'Verified provider',
     whatCustomersSaid: 'What customers said',
     availableCars: 'Available cars',
     noCars: 'No cars listed right now',
@@ -632,7 +636,7 @@ export const en = {
     fullName: 'Full name',
     phone: 'Phone (for pick-up coordination)',
     preferredLanguage: 'Preferred language',
-    saved: 'Saved ✓',
+    saved: 'Saved',
     haveCars: 'Have cars to rent out?',
     haveCarsSub:
       'List your fleet on Karu. We verify your documents and bring you booking requests: you choose which to accept.',
@@ -820,7 +824,7 @@ export const en = {
     provider: 'Provider',
     chooseProvider: 'Choose a provider…',
     switchProvider: 'Switch provider',
-    verifiedBadge: '✓ Verified',
+    verifiedBadge: 'Verified',
     verificationStatus: 'Verification {{status}}',
     status: { pending: 'pending', verified: 'verified', rejected: 'rejected', suspended: 'suspended' },
     nav: { dashboard: 'Dashboard', bookings: 'Booking requests', cars: 'My cars', documents: 'Documents' },
@@ -885,7 +889,7 @@ export const en = {
       save: 'Save business profile',
     },
     saving: 'Saving…',
-    saved: 'Saved ✓',
+    saved: 'Saved',
     bookings: {
       title: 'Booking requests',
       sub: 'Confirm or decline within 24 hours. Customers see the change straight away, and we email them too.',
@@ -1012,7 +1016,7 @@ export const en = {
       expiryAria: '{{label}} expiry date',
       reviewerNote: 'Reviewer’s note: {{note}}',
       rejectedFallback: 'Rejected. Upload a clearer or more recent document.',
-      received: 'Document received, pending review ✓',
+      received: 'Document received, pending review',
     },
     checklist: {
       title: 'Verification status',
@@ -1179,5 +1183,10 @@ export const en = {
   notFound: {
     title: "We can't find that page",
     sub: 'The link may be out of date, or the page may have moved.',
+  },
+  errorBoundary: {
+    title: 'Something went wrong',
+    body: "We couldn't show this page. Try again, or come back in a few minutes.",
+    retry: 'Try again',
   },
 } as const;

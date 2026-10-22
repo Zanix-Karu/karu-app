@@ -186,6 +186,10 @@ export const fr = {
   },
   common: {
     brand: 'Karu',
+    dismiss: 'Fermer la notification',
+    done: 'Fait',
+    missing: 'Manquant',
+    close: 'Fermer',
     tagline: 'Karu, location de voitures vérifiée au Cameroun · Douala et Yaoundé',
     buildVersion: 'Version du build',
     signIn: 'Se connecter',
@@ -584,7 +588,7 @@ export const fr = {
       reference: 'Référence (facultatif)',
       referencePlaceholder: 'Réf. bancaire/virement',
       submit: 'Enregistrer',
-      recorded: 'Enregistré ✓',
+      recorded: 'Enregistré',
     },
   },
   chat: {
@@ -614,7 +618,7 @@ export const fr = {
     placeholder: 'Racontez-nous (facultatif)',
     publish: 'Publier mon avis',
     publishing: 'Publication…',
-    thanks: 'Merci, votre avis est publié ✓',
+    thanks: 'Merci, votre avis est publié',
     rating: 'Note',
     providerRatedYou: 'Ce que le loueur a pensé de vous',
   },
@@ -623,8 +627,8 @@ export const fr = {
     sub: 'Chaque loueur sur Karu a passé la vérification des documents : registre de commerce, carte grise et assurance.',
     none: 'Aucun loueur pour l’instant',
     noReviews: 'Pas encore d’avis',
-    verified: '✓ Vérifié',
-    verifiedProvider: '✓ Loueur vérifié',
+    verified: 'Vérifié',
+    verifiedProvider: 'Loueur vérifié',
     whatCustomersSaid: 'Ce que disent les clients',
     availableCars: 'Voitures disponibles',
     noCars: 'Aucune voiture proposée actuellement',
@@ -636,7 +640,7 @@ export const fr = {
     fullName: 'Nom complet',
     phone: 'Téléphone (pour la prise en charge)',
     preferredLanguage: 'Langue préférée',
-    saved: 'Enregistré ✓',
+    saved: 'Enregistré',
     haveCars: 'Vous avez des voitures à louer ?',
     haveCarsSub:
       'Proposez vos véhicules sur Karu. Nous vérifions vos documents et vous apportons des demandes: vous choisissez celles que vous acceptez.',
@@ -824,7 +828,7 @@ export const fr = {
     provider: 'Loueur',
     chooseProvider: 'Choisir un loueur…',
     switchProvider: 'Changer de loueur',
-    verifiedBadge: '✓ Vérifié',
+    verifiedBadge: 'Vérifié',
     verificationStatus: 'Vérification : {{status}}',
     status: { pending: 'en attente', verified: 'vérifié', rejected: 'refusée', suspended: 'suspendue' },
     nav: { dashboard: 'Tableau de bord', bookings: 'Demandes de réservation', cars: 'Mes voitures', documents: 'Documents' },
@@ -889,7 +893,7 @@ export const fr = {
       save: 'Enregistrer le profil de l’entreprise',
     },
     saving: 'Enregistrement…',
-    saved: 'Enregistré ✓',
+    saved: 'Enregistré',
     bookings: {
       title: 'Demandes de réservation',
       sub: 'Confirmez ou refusez sous 24 heures. Le client voit le changement immédiatement, et nous l’informons aussi par e-mail.',
@@ -1016,7 +1020,7 @@ export const fr = {
       expiryAria: 'Date d’expiration, {{label}}',
       reviewerNote: 'Note du réviseur : {{note}}',
       rejectedFallback: 'Refusé, téléversez un document plus lisible ou plus récent.',
-      received: 'Document reçu, en attente de vérification ✓',
+      received: 'Document reçu, en attente de vérification',
     },
     checklist: {
       title: 'Statut de vérification',
@@ -1183,5 +1187,10 @@ export const fr = {
   notFound: {
     title: 'Page introuvable',
     sub: 'Le lien est peut-être obsolète, ou la page a été déplacée.',
+  },
+  errorBoundary: {
+    title: 'Un problème est survenu',
+    body: "Impossible d'afficher cette page. Réessayez, ou revenez dans quelques minutes.",
+    retry: 'Réessayer',
   },
 } as const;

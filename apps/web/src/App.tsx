@@ -14,6 +14,43 @@ import { SearchScreen } from './screens/SearchScreen';
 import { CarDetailScreen } from './screens/CarDetailScreen';
 import { VendorDirectoryScreen, VendorProfileScreen } from './screens/VendorDirectoryScreen';
 import { Button } from './ui';
+import { ToastProvider } from './components/Toast';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import {
+  CalendarCheck,
+  CalendarDays,
+  Car,
+  CarFront,
+  Inbox,
+  LayoutDashboard,
+  LogIn,
+  LogOut,
+  MessageSquareText,
+  MessagesSquare,
+  Search,
+  ShieldCheck,
+  Store,
+  FileText,
+  Megaphone,
+  UserRound,
+  type LucideIcon,
+} from 'lucide-react';
+
+/** Nav icons, keyed by route. Kept here so lib/roles.ts stays React-free. */
+const NAV_ICONS: Record<string, LucideIcon> = {
+  '/search': Search,
+  '/vendors': Store,
+  '/list-your-car': CarFront,
+  '/bookings': CalendarDays,
+  '/feedback': Megaphone,
+  '/vendor': LayoutDashboard,
+  '/vendor/bookings': Inbox,
+  '/vendor/cars': Car,
+  '/vendor/documents': FileText,
+  '/admin': ShieldCheck,
+  '/admin/bookings': CalendarCheck,
+  '/admin/chats': MessagesSquare,
+};
 
 
 /*
@@ -62,6 +99,9 @@ function NotFoundScreen() {
   usePageMeta({ title: t('seo.notFound.title'), noindex: true });
   return (
     <div className="mx-auto max-w-lg py-16 text-center">
+      <span className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-karu-yellow/20">
+        <CarFront aria-hidden="true" className="h-7 w-7 text-karu-brown" />
+      </span>
       <p className="font-display text-5xl font-bold text-karu-brown">404</p>
       <h1 className="mt-3 font-display text-2xl font-bold">{t('notFound.title')}</h1>
       <p className="mt-2 text-sm text-karu-mute">
@@ -69,8 +109,9 @@ function NotFoundScreen() {
       </p>
       <Link
         to="/search"
-        className="mt-6 inline-block rounded-full bg-karu-yellow px-5 py-2.5 text-sm font-semibold text-karu-ink"
+        className="karu-btn mt-6 inline-flex items-center gap-2 rounded-full bg-karu-yellow px-5 py-2.5 text-sm font-semibold text-karu-on-brand"
       >
+        <Search aria-hidden="true" className="h-4 w-4" />
         {t('nav.findCar')}
       </Link>
     </div>
@@ -88,7 +129,7 @@ function Header() {
 
   // px-3 on mobile so the row fits a 375px viewport without overflowing.
   const nav = ({ isActive }: { isActive: boolean }) =>
-    `whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-semibold transition sm:px-4 ${
+    `inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-semibold transition sm:px-4 ${
       isActive ? 'bg-karu-yellow text-karu-on-brand' : 'text-karu-on-chrome/80 hover:text-karu-yellow'
     }`;
 
@@ -119,11 +160,15 @@ function Header() {
         </Link>
         {/* Each view sees only its own items — see lib/roles.ts */}
         <nav className="karu-nav-strip flex flex-nowrap items-center justify-center gap-1 overflow-x-auto">
-          {NAV[view].map((item) => (
-            <NavLink key={item.to} to={item.to} end={item.to === '/vendor' || item.to === '/admin'} className={nav}>
-              {t(item.label)}
-            </NavLink>
-          ))}
+          {NAV[view].map((item) => {
+            const Icon = NAV_ICONS[item.to] ?? MessageSquareText;
+            return (
+              <NavLink key={item.to} to={item.to} end={item.to === '/vendor' || item.to === '/admin'} className={nav}>
+                <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
+                {t(item.label)}
+              </NavLink>
+            );
+          })}
         </nav>
         <div className="flex flex-nowrap items-center justify-center gap-2">
           <LanguageSwitcher />
@@ -132,6 +177,7 @@ function Header() {
           {session ? (
             <>
               <NavLink to="/profile" className={nav}>
+                <UserRound aria-hidden="true" className="h-4 w-4 shrink-0" />
                 {profile?.full_name?.split(' ')[0] ?? t('common.profile')}
               </NavLink>
               <Button
@@ -142,11 +188,15 @@ function Header() {
                   navigate('/search');
                 }}
               >
+                <LogOut aria-hidden="true" className="h-4 w-4" />
                 {t('common.signOut')}
               </Button>
             </>
           ) : (
-            <Button onClick={() => navigate('/auth')}>{t('common.signIn')}</Button>
+            <Button onClick={() => navigate('/auth')}>
+              <LogIn aria-hidden="true" className="h-4 w-4" />
+              {t('common.signIn')}
+            </Button>
           )}
         </div>
       </div>
@@ -186,11 +236,18 @@ function PageTransition({ children }: { children: ReactNode }) {
   );
 }
 
+/** Resets on navigation, so a crash on one screen doesn't follow you. */
+function RouteErrorBoundary({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation();
+  return <ErrorBoundary resetKey={pathname}>{children}</ErrorBoundary>;
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <CurrencyProvider>
+        <ToastProvider>
         <BrowserRouter>
           {/*
             Skip link: first thing in the tab order, visually hidden until it
@@ -202,6 +259,7 @@ export default function App() {
           </a>
           <Header />
           <main id="main" tabIndex={-1} className="mx-auto max-w-6xl px-4 py-8">
+            <RouteErrorBoundary>
             <Suspense fallback={<RouteFallback />}>
             <PageTransition>
             <Routes>
@@ -293,11 +351,13 @@ export default function App() {
             </Routes>
             </PageTransition>
             </Suspense>
+            </RouteErrorBoundary>
           </main>
           <Footer />
           {/* FEAT-2: rule-based help, on every page. */}
           <AssistantPanel />
         </BrowserRouter>
+        </ToastProvider>
         </CurrencyProvider>
       </AuthProvider>
     </QueryClientProvider>

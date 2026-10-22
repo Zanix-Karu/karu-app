@@ -1,3 +1,4 @@
+import { BadgeCheck, Car, SearchX, Store } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ReviewBody } from '../components/ReviewBody';
@@ -110,7 +111,7 @@ export function VendorDirectoryScreen() {
         </div>
       </div>
 
-      {data?.length === 0 && <EmptyState title={t('providers.none')} />}
+      {data?.length === 0 && <EmptyState Icon={Store} title={t('providers.none')} />}
       <div className="karu-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 18, marginTop: 24 }}>
         {data?.map((v) => (
           <Link key={v.id} to={`/vendors/${v.id}`} className="karu-card-link" style={{ borderRadius: 'var(--radius-md)' }}>
@@ -134,7 +135,12 @@ export function VendorDirectoryScreen() {
                     )}
                   </div>
                 </div>
-                {v.status === 'verified' && <Badge variant="success">{t('providers.verified')}</Badge>}
+                {v.status === 'verified' && (
+                  <Badge variant="success">
+                    <BadgeCheck aria-hidden="true" style={{ width: 15, height: 15 }} />
+                    {t('providers.verified')}
+                  </Badge>
+                )}
               </div>
             </Card>
           </Link>
@@ -163,7 +169,7 @@ export function VendorProfileScreen() {
   // An unknown id must say so, not render an empty fleet as if the provider existed.
   if (!vendor) {
     return (
-      <EmptyState
+      <EmptyState Icon={SearchX}
         title={t('providers.notFound')}
         hint={t('providers.notFoundHint')}
       />
@@ -210,7 +216,10 @@ export function VendorProfileScreen() {
             </div>
           </div>
           {vendor.status === 'verified' && (
-            <Badge variant="solid">{t('providers.verifiedProvider')}</Badge>
+            <Badge variant="solid">
+              <BadgeCheck aria-hidden="true" style={{ width: 15, height: 15 }} />
+              {t('providers.verifiedProvider')}
+            </Badge>
           )}
         </div>
       )}
@@ -235,7 +244,7 @@ export function VendorProfileScreen() {
         {t('providers.availableCars')}
       </h2>
       {isLoading && <Spinner />}
-      {cars?.length === 0 && <EmptyState title={t('providers.noCars')} />}
+      {cars?.length === 0 && <EmptyState Icon={Car} title={t('providers.noCars')} />}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {cars?.map((v) => (
           <CarCardLink key={v.id} vehicle={v} />

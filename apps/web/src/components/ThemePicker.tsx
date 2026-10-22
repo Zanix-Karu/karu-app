@@ -1,3 +1,4 @@
+import { Palette } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { THEMES, applyTheme, savedTheme, type ThemeId } from '../lib/theme';
@@ -64,20 +65,10 @@ export function ThemePicker({ compact = false }: { compact?: boolean }) {
         aria-haspopup="true"
         aria-expanded={open}
         aria-label={t('theme.label')}
-        title={t('theme.label')}
         onClick={() => setOpen((v) => !v)}
         className="grid h-7 w-7 place-items-center rounded-full text-karu-on-chrome/70 transition hover:text-karu-yellow focus:outline-none focus-visible:ring-2 focus-visible:ring-karu-yellow/60"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-          <path
-            d="M12 3a9 9 0 1 0 0 18c1 0 1.6-.8 1.6-1.6 0-.5-.2-.9-.4-1.2-.3-.3-.4-.7-.4-1.1 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5c0-4.2-4-7.5-9-7.5Z"
-            stroke="currentColor"
-            strokeWidth="1.8"
-          />
-          <circle cx="7.5" cy="11" r="1.3" fill="currentColor" />
-          <circle cx="10.5" cy="7" r="1.3" fill="currentColor" />
-          <circle cx="15" cy="7.5" r="1.3" fill="currentColor" />
-        </svg>
+        <Palette aria-hidden="true" className="h-4 w-4" strokeWidth={1.8} />
       </button>
       {open && <div className="karu-theme-popover karu-pop-in">{grid}</div>}
     </div>

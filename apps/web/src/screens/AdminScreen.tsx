@@ -1,3 +1,4 @@
+import { Archive, Flag, CalendarDays, FileText, IdCard, Mail, Megaphone, MessagesSquare, Store } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -18,6 +19,8 @@ import {
   Spinner,
   StatusBadge,
 } from '../ui';
+import { useToast } from '../components/Toast';
+import { Tooltip } from '../components/Controls';
 
 type Tab = 'overview' | 'vendors' | 'documents' | 'ids' | 'cars' | 'bookings' | 'chats' | 'feedback' | 'emails';
 
@@ -262,7 +265,7 @@ function CustomerIds() {
 
       {isLoading && <Spinner />}
       {error && <ErrorNote>{(error as Error).message}</ErrorNote>}
-      {data?.length === 0 && <EmptyState title={t('admin.ids.none')} />}
+      {data?.length === 0 && <EmptyState Icon={IdCard} title={t('admin.ids.none')} />}
 
       <div className="mt-4 space-y-4 karu-stagger">
         {data?.map((p) => (
@@ -399,7 +402,7 @@ function Vendors() {
         </Field>
 
         {isLoading && <Spinner />}
-        {data?.length === 0 && <EmptyState title={t('admin.vendors.none')} />}
+        {data?.length === 0 && <EmptyState Icon={Store} title={t('admin.vendors.none')} />}
         <div className="mt-4 space-y-3">
           {data?.map((v) => (
             <Card key={v.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
@@ -583,6 +586,7 @@ const FLAG_KEY: Record<string, string> = {
 
 function Documents() {
   const { t } = useTranslation();
+  const toast = useToast();
   const qc = useQueryClient();
   const [status, setStatus] = useState('pending');
   const [opening, setOpening] = useState<string | null>(null);
@@ -620,7 +624,7 @@ function Documents() {
       </Field>
 
       {isLoading && <Spinner />}
-      {data?.length === 0 && <EmptyState title={t('admin.docs.none')} hint={t('admin.docs.noneHint')} />}
+      {data?.length === 0 && <EmptyState Icon={FileText} title={t('admin.docs.none')} hint={t('admin.docs.noneHint')} />}
 
       <div className="mt-4 space-y-3">
         {data?.map((d) => (
@@ -665,7 +669,7 @@ function Documents() {
                     const { url } = await api<{ url: string }>(`/admin/documents/${d.id}/download`);
                     window.open(url, '_blank', 'noopener');
                   } catch (err) {
-                    window.alert((err as Error).message);
+                    toast((err as Error).message, 'error');
                   } finally {
                     setOpening(null);
                   }
@@ -1112,7 +1116,7 @@ function Chats() {
   if (isLoading) return <Spinner />;
   if (error) return <ErrorNote>{(error as Error).message}</ErrorNote>;
   if (!data || data.length === 0) {
-    return <EmptyState title="No conversations yet" />;
+    return <EmptyState Icon={MessagesSquare} title="No conversations yet" />;
   }
 
   return (
@@ -1147,13 +1151,16 @@ function Chats() {
                 </span>
               )}
               {(c.flags ?? []).map((f) => (
-                <span
-                  key={f}
-                  className="rounded-full bg-karu-terracotta/15 px-2.5 py-0.5 text-xs font-semibold text-karu-terracotta"
-                  title={t('admin.chats.flagHint')}
-                >
-                  {t(`admin.chats.flag.${f}`, { defaultValue: f })}
-                </span>
+                <Tooltip key={f} content={t('admin.chats.flagHint')}>
+                  <span
+                    // Focusable so keyboard users can reach the explanation too.
+                    tabIndex={0}
+                    className="inline-flex items-center gap-1 rounded-full bg-karu-terracotta/15 px-2.5 py-0.5 text-xs font-semibold text-karu-terracotta"
+                  >
+                    <Flag aria-hidden="true" className="h-3 w-3" />
+                    {t(`admin.chats.flag.${f}`, { defaultValue: f })}
+                  </span>
+                </Tooltip>
               ))}
               <span className="text-xs text-karu-mute">
                 {c.message_count} message{c.message_count === 1 ? '' : 's'}
@@ -1221,9 +1228,9 @@ function Bookings() {
       </div>
 
       {isLoading && <Spinner />}
-      {data?.length === 0 && <EmptyState title="No bookings" />}
+      {data?.length === 0 && <EmptyState Icon={CalendarDays} title="No bookings" />}
       {data && data.length > 0 && shown.length === 0 && (
-        <EmptyState title={tab === 'archived' ? 'Nothing archived' : 'Nothing active'} />
+        <EmptyState Icon={Archive} title={tab === 'archived' ? 'Nothing archived' : 'Nothing active'} />
       )}
 
       <div className="mt-4 space-y-3">
@@ -1313,7 +1320,7 @@ function Feedback() {
 
       {isLoading && <Spinner />}
       {data?.length === 0 && (
-        <EmptyState title={t('admin.feedback.none')} hint={t('admin.feedback.noneHint')} />
+        <EmptyState Icon={Megaphone} title={t('admin.feedback.none')} hint={t('admin.feedback.noneHint')} />
       )}
 
       <div className="mt-4 space-y-3">
@@ -1413,7 +1420,7 @@ function EmailLog() {
 
       {isLoading && <Spinner />}
       {error && <ErrorNote>{(error as Error).message}</ErrorNote>}
-      {data?.length === 0 && <EmptyState title={t('admin.emails.none')} />}
+      {data?.length === 0 && <EmptyState Icon={Mail} title={t('admin.emails.none')} />}
 
       <div className="mt-4 space-y-2">
         {data?.map((row) => (

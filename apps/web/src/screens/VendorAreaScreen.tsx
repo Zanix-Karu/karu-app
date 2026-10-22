@@ -1,3 +1,4 @@
+import { BadgeCheck, CalendarDays, Car, Check, Circle, CircleCheck, Inbox, Star } from 'lucide-react';
 import { useState, type CSSProperties, type FormEvent } from 'react';
 import { ReviewBody } from '../components/ReviewBody';
 import { useTranslation } from 'react-i18next';
@@ -27,7 +28,7 @@ import { ConfirmButton } from '../components/ConfirmButton';
 import { PhotoStrip } from '../components/PhotoStrip';
 import { PhotoSlots, extraPhotos } from '../components/PhotoSlots';
 import { Skeleton, SkeletonCard, SkeletonStats } from '../components/Skeleton';
-import { EmptyState, ErrorNote, Spinner, StatusBadge } from '../ui';
+import { EmptyState, ErrorNote, Spinner, StatusBadge, SuccessNote } from '../ui';
 
 interface VendorStats {
   earningsXaf: number;
@@ -157,6 +158,7 @@ export function VendorAreaScreen() {
             {active.business_name}
           </div>
           <Badge variant={active.status === 'verified' ? 'success' : 'upcoming'} style={{ marginTop: 8 }}>
+            {active.status === 'verified' && <BadgeCheck aria-hidden="true" style={{ width: 15, height: 15 }} />}
             {active.status === 'verified'
               ? t('vendor.verifiedBadge')
               : t('vendor.verificationStatus', { status: t(`vendor.status.${active.status}`) })}
@@ -284,7 +286,7 @@ function Onboarding({ vendor, onGo }: { vendor: Vendor; onGo: (to: string) => vo
                 color: st.done ? 'var(--white)' : 'var(--gray-500)',
               }}
             >
-              {st.done ? '✓' : i + 1}
+              {st.done ? <Check aria-hidden="true" className="karu-pop" style={{ width: 15, height: 15 }} strokeWidth={3} /> : i + 1}
             </span>
             <div style={{ flex: 1 }}>
               <div style={{ fontFamily: 'var(--font-ui)', fontWeight: 700, fontSize: 15 }}>{st.title}</div>
@@ -364,9 +366,7 @@ function DeliverySettings({ vendor }: { vendor: Vendor }) {
         </Button>
         {save.isError && <div style={{ marginTop: 10 }}><ErrorNote>{(save.error as Error).message}</ErrorNote></div>}
         {save.isSuccess && (
-          <span style={{ marginLeft: 12, fontFamily: 'var(--font-ui)', fontSize: 14, fontWeight: 600, color: 'var(--success)' }}>
-            {t('vendor.saved')}
-          </span>
+          <SuccessNote className="ml-3">{t('vendor.saved')}</SuccessNote>
         )}
       </Card>
     </>
@@ -434,9 +434,7 @@ function BusinessProfileSettings({ vendor }: { vendor: Vendor }) {
         </Button>
         {save.isError && <div style={{ marginTop: 10 }}><ErrorNote>{(save.error as Error).message}</ErrorNote></div>}
         {save.isSuccess && (
-          <span style={{ marginLeft: 12, fontFamily: 'var(--font-ui)', fontSize: 14, fontWeight: 600, color: 'var(--success)' }}>
-            {t('vendor.saved')}
-          </span>
+          <SuccessNote className="ml-3">{t('vendor.saved')}</SuccessNote>
         )}
       </Card>
     </>
@@ -669,7 +667,7 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
         {t('vendor.upcomingTrips')}
       </h2>
       {upcoming.length === 0 && (
-        <EmptyState title={t('vendor.upcomingNone')} hint={t('vendor.upcomingNoneHint')} />
+        <EmptyState Icon={CalendarDays} title={t('vendor.upcomingNone')} hint={t('vendor.upcomingNoneHint')} />
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {upcoming.map((b) => (
@@ -696,7 +694,7 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
         {t('vendor.recentReviews')}
       </h2>
       {(!reviews || reviews.length === 0) && (
-        <EmptyState title={t('vendor.noReviews')} hint={t('vendor.noReviewsHint')} />
+        <EmptyState Icon={Star} title={t('vendor.noReviews')} hint={t('vendor.noReviewsHint')} />
       )}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
         {reviews?.slice(0, 6).map((r) => (
@@ -822,10 +820,10 @@ function VendorBookings({ asVendorId }: { asVendorId?: string }) {
       )}
 
       {data?.length === 0 && (
-        <EmptyState title={t('vendor.bookings.none')} hint={t('vendor.bookings.noneHint')} />
+        <EmptyState Icon={Inbox} title={t('vendor.bookings.none')} hint={t('vendor.bookings.noneHint')} />
       )}
       {data && data.length > 0 && shown.length === 0 && (
-        <EmptyState
+        <EmptyState Icon={Inbox}
           title={tab === 'archived' ? t('vendor.bookings.noneArchived') : t('vendor.bookings.none')}
           hint={tab === 'archived' ? t('vendor.bookings.noneArchivedHint') : t('vendor.bookings.noneHint')}
         />
@@ -942,7 +940,7 @@ function Cars({ vendorVerified, asVendorId }: { vendorVerified: boolean; asVendo
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 20 }}>
         {cars?.map((c) => <CarRow key={c.id} car={c} />)}
         {cars?.length === 0 && !adding && (
-          <EmptyState title={t('vendor.cars.none')} hint={t('vendor.cars.noneHint')} />
+          <EmptyState Icon={Car} title={t('vendor.cars.none')} hint={t('vendor.cars.noneHint')} />
         )}
       </div>
     </div>
@@ -1545,7 +1543,7 @@ function Documents({ asVendor }: { asVendor?: Vendor }) {
         {t('vendor.docs.perVehicleHint')}
       </p>
       {cars?.length === 0 && (
-        <EmptyState title={t('vendor.cars.none')} hint={t('vendor.docs.noCarsHint')} />
+        <EmptyState Icon={Car} title={t('vendor.cars.none')} hint={t('vendor.docs.noCarsHint')} />
       )}
       <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
         {cars?.map((car) => (
@@ -1596,8 +1594,8 @@ function Documents({ asVendor }: { asVendor?: Vendor }) {
 
       {upload.isError && <div style={{ marginTop: 12 }}><ErrorNote>{(upload.error as Error).message}</ErrorNote></div>}
       {upload.isSuccess && (
-        <p style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 14, color: 'var(--success)', marginTop: 12 }}>
-          {t('vendor.docs.received')}
+        <p style={{ marginTop: 12 }}>
+          <SuccessNote>{t('vendor.docs.received')}</SuccessNote>
         </p>
       )}
     </div>
@@ -1632,8 +1630,8 @@ function VerificationChecklist({
   const businessVerified = approved('rccm');
 
   const tick = (done: boolean) => (
-    <span aria-hidden="true" style={{ fontWeight: 700, color: done ? 'var(--success)' : 'var(--gray-400)' }}>
-      {done ? '✓' : '☐'}
+    <span aria-hidden="true" style={{ display: 'inline-flex', color: done ? 'var(--success)' : 'var(--gray-400)' }}>
+      {done ? <CircleCheck style={{ width: 18, height: 18 }} /> : <Circle style={{ width: 18, height: 18 }} />}
     </span>
   );
   const row: CSSProperties = {
@@ -1673,9 +1671,9 @@ function VerificationChecklist({
                 {car.make} {car.model}
                 {car.registration_number ? ` (${car.registration_number})` : ''}:{' '}
                 <span style={{ color: 'var(--gray-500)' }}>
-                  {t('vendor.checklist.registration')} {approved('carte_grise', car.id) ? '✓' : '☐'} ·{' '}
-                  {t('vendor.checklist.insurance')} {approved('insurance', car.id) ? '✓' : '☐'} ·{' '}
-                  {t('vendor.checklist.roadworthiness')} {approved('roadworthiness', car.id) ? '✓' : '☐'} ·{' '}
+                  {t('vendor.checklist.registration')} <DocMark done={approved('carte_grise', car.id)} /> ·{' '}
+                  {t('vendor.checklist.insurance')} <DocMark done={approved('insurance', car.id)} /> ·{' '}
+                  {t('vendor.checklist.roadworthiness')} <DocMark done={approved('roadworthiness', car.id)} /> ·{' '}
                   {t('vendor.checklist.photos')} {6 - photosMissing}/6
                 </span>
               </span>
@@ -1788,5 +1786,21 @@ function DocRow({
         </p>
       )}
     </div>
+  );
+}
+
+/** A per-car document status inside a sentence: a tick or an empty circle,
+ *  with the word for screen readers since the icon alone says nothing. */
+function DocMark({ done }: { done: boolean }) {
+  const { t } = useTranslation();
+  return (
+    <>
+      {done ? (
+        <CircleCheck aria-hidden="true" className="karu-inline-icon" style={{ color: 'var(--success)' }} />
+      ) : (
+        <Circle aria-hidden="true" className="karu-inline-icon" style={{ color: 'var(--gray-400)' }} />
+      )}
+      <span className="sr-only">{done ? t('common.done') : t('common.missing')}</span>
+    </>
   );
 }

@@ -1,3 +1,4 @@
+import { Check } from 'lucide-react';
 /**
  * Karu design system — faithful TSX port of the approved mockups'
  * KaruDesignSystem components (inline styles + CSS custom properties from
@@ -192,6 +193,7 @@ export function Badge({
       style={{
         display: 'inline-flex',
         alignItems: 'center',
+        gap: 6,
         padding: '5px 12px',
         borderRadius: 'var(--radius-sm)',
         fontFamily: 'var(--font-ui)',
@@ -431,7 +433,7 @@ export function StepNav({
                   color: active || done ? 'var(--ink)' : 'var(--gray-400)',
                 }}
               >
-                {done ? '✓' : i + 1}
+                {done ? <Check aria-hidden="true" className="karu-pop" style={{ width: 16, height: 16 }} strokeWidth={3} /> : i + 1}
               </span>
               <span
                 style={{

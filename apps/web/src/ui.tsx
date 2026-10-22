@@ -1,3 +1,4 @@
+import { CircleAlert, CircleCheck, Inbox, type LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type {
   ButtonHTMLAttributes,
@@ -205,18 +206,52 @@ export function ErrorNote({ children }: { children: ReactNode }) {
   return (
     <div
       role="alert"
-      className="karu-fade-in rounded-lg border border-karu-terracotta/30 bg-karu-terracotta/10 px-4 py-3 text-sm text-karu-terracotta"
+      className="karu-fade-in flex items-start gap-2.5 rounded-lg border border-karu-terracotta/30 bg-karu-terracotta/10 px-4 py-3 text-sm text-karu-terracotta"
     >
-      {children}
+      <CircleAlert aria-hidden="true" className="mt-px h-[1.15em] w-[1.15em] shrink-0" />
+      <div className="min-w-0">{children}</div>
     </div>
   );
 }
 
-export function EmptyState({ title, hint }: { title: string; hint?: string }) {
+/**
+ * "Nothing here" panel for lists and sections. Pattern from the starter
+ * pack: an icon in a soft circle, a title, an optional hint and an optional
+ * next step, so an empty list always says what to do about it.
+ */
+/** Inline "it worked" line next to the action that did it. The tick used to
+ *  be a ✓ inside each translated string; it is an icon now. */
+export function SuccessNote({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <div className="karu-rise-in py-16 text-center">
+    <span
+      role="status"
+      className={`karu-fade-in inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--success)] ${className}`}
+    >
+      <CircleCheck aria-hidden="true" className="karu-pop h-[1.1em] w-[1.1em] shrink-0" />
+      {children}
+    </span>
+  );
+}
+
+export function EmptyState({
+  title,
+  hint,
+  Icon = Inbox,
+  action,
+}: {
+  title: string;
+  hint?: string;
+  Icon?: LucideIcon;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="karu-rise-in flex flex-col items-center py-14 text-center">
+      <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-karu-yellow/20">
+        <Icon aria-hidden="true" className="h-6 w-6 text-karu-brown" />
+      </span>
       <p className="font-display text-xl text-karu-brown">{title}</p>
-      {hint && <p className="mt-1 text-sm text-karu-mute">{hint}</p>}
+      {hint && <p className="mt-1 max-w-sm text-sm text-karu-mute">{hint}</p>}
+      {action && <div className="mt-5 flex justify-center">{action}</div>}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { Megaphone, X } from 'lucide-react';
 import { useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
@@ -152,7 +153,7 @@ export function FeedbackScreen() {
                         aria-label={t('feedback.removeImage')}
                         className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-karu-ink text-xs text-karu-cream"
                       >
-                        ×
+                        <X aria-hidden="true" className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   ))}
@@ -197,7 +198,7 @@ export function FeedbackScreen() {
       {mine.isLoading ? (
         <Spinner label={t('common.loading')} />
       ) : !mine.data || mine.data.length === 0 ? (
-        <EmptyState title={t('feedback.emptyTitle')} hint={t('feedback.emptyHint')} />
+        <EmptyState Icon={Megaphone} title={t('feedback.emptyTitle')} hint={t('feedback.emptyHint')} />
       ) : (
         <div className="mt-4 grid gap-3">
           {mine.data.map((f) => (

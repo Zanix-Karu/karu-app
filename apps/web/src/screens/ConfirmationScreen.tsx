@@ -1,3 +1,4 @@
+import { Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useLocation, useParams } from 'react-router-dom';
@@ -29,8 +30,8 @@ export function ConfirmationScreen() {
   return (
     <div className="mx-auto max-w-xl">
       <div className="text-center">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-karu-yellow text-3xl">
-          ✓
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-karu-yellow text-karu-on-brand">
+          <Check aria-hidden="true" className="karu-pop h-8 w-8" strokeWidth={3} />
         </div>
         <h1 className="mt-4 font-display text-3xl font-bold">{t('booking.requestSent')}</h1>
         <p className="mt-1 text-sm text-karu-mute">

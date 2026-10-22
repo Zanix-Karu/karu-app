@@ -1,3 +1,4 @@
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -180,7 +181,8 @@ export function AssistantPanel() {
                     onClick={() => setTopicId(null)}
                     className="inline-flex items-center gap-1 text-sm font-semibold text-karu-brown hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-karu-gold"
                   >
-                    ← {t('assistant.back')}
+                    <ArrowLeft aria-hidden="true" className="h-4 w-4" />
+                    {t('assistant.back')}
                   </button>
                   <p className="font-display text-lg font-bold text-karu-ink">
                     {t(`assistant.topics.${topic.id}.q`)}
@@ -217,9 +219,10 @@ export function AssistantPanel() {
                   closePanel();
                   navigate('/feedback');
                 }}
-                className="text-sm font-semibold text-karu-brown hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-karu-gold"
+                className="inline-flex items-center gap-1 text-sm font-semibold text-karu-brown hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-karu-gold"
               >
-                {t('assistant.reportCta')} →
+                {t('assistant.reportCta')}
+                <ArrowRight aria-hidden="true" className="h-4 w-4" />
               </button>
             </div>
           </div>
