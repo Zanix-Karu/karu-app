@@ -335,6 +335,7 @@ export const fr = {
     cancelled: 'Annulée',
   },
   auth: {
+    emailRateLimit: "Trop d'e-mails ont été envoyés au cours de la dernière heure. Patientez un peu puis réessayez. Si le problème persiste, contactez-nous.",
     checkInboxVendor: 'Consultez votre boîte mail pour confirmer votre e-mail. Une fois confirmé, connectez-vous et nous vous demanderons les informations de votre entreprise : elles ne sont pas enregistrées avant la confirmation du compte.',
     alreadyHaveAccountVendor: 'Vous avez déjà un compte Karu avec cet e-mail. Connectez-vous ci-dessous, et nous vous aiderons à y ajouter votre entreprise.',
     createAccount: 'Créer un compte',
