@@ -9,7 +9,9 @@ import {
   approximatePoint,
   haversineKm,
   validDeliveryZones,
+  validPriceSeasons,
   type DeliveryZone,
+  type PriceSeason,
   VEHICLE_DOCUMENT_TYPES,
   type PublicVendor,
   type RatingSummary,
@@ -103,6 +105,18 @@ export class VendorsService {
         throw new BadRequestException('Set your location on the map before adding delivery zones');
       }
       patch.delivery_zones = [...zones].sort((a, b) => a.max_km - b.max_km);
+    }
+    if (patch.price_seasons !== undefined) {
+      const seasons = (patch.price_seasons as PriceSeason[]).map((x) => ({
+        label: x.label.trim(),
+        from: x.from,
+        to: x.to,
+        percent: x.percent,
+      }));
+      if (!validPriceSeasons(seasons)) {
+        throw new BadRequestException('Seasons need a name, valid dates and a change between -50% and +100%');
+      }
+      patch.price_seasons = seasons;
     }
     const { data, error } = await this.supabase.db
       .from('vendors')
@@ -360,7 +374,7 @@ export class VendorsService {
       .select(
         // lat/lng are read for the maths and the rounding below, and never
         // returned as they are (0034).
-        'id, business_name, city, delivery_fee_xaf, airport_fee_xaf, bio, delivery_zones, free_delivery_min_days, lat, lng, status, verified_at, created_at, updated_at',
+        'id, business_name, city, delivery_fee_xaf, airport_fee_xaf, bio, delivery_zones, free_delivery_min_days, price_seasons, lat, lng, status, verified_at, created_at, updated_at',
       )
       .eq('status', 'verified')
       .order('created_at', { ascending: false });

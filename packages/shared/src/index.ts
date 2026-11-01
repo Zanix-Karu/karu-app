@@ -140,6 +140,8 @@ export interface BookingQuoteInput {
   deliveryDistanceKm?: number | null;
   /** Address delivery is free from this many rental days. */
   freeDeliveryMinDays?: number | null;
+  /** 0037: the provider's seasonal price rules. */
+  priceSeasons?: PriceSeason[] | null;
 }
 
 export interface BookingQuote {
@@ -151,8 +153,81 @@ export interface BookingQuote {
   deliveryWaivedXaf: number;
   /** True when the pin is beyond the provider's last zone. */
   deliveryOutOfRange: boolean;
+  /** Already inside vehicleXaf: what the provider's seasons added (or took off). */
+  seasonAdjustmentXaf: number;
   totalXaf: number;
   depositXaf: number;
+}
+
+// ---- Seasonal prices (0037) ------------------------------------------------
+
+/**
+ * A yearly date range with a percentage change on the daily rate, e.g. +20%
+ * from 15 Dec to 5 Jan. Dates are "MM-DD" and repeat every year; a range whose
+ * end is before its start wraps over New Year.
+ */
+export interface PriceSeason {
+  label: string;
+  from: string;
+  to: string;
+  /** Whole percent, -50 to 100. Negative is a discount. */
+  percent: number;
+}
+
+const MM_DD = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+
+export function validPriceSeasons(seasons: PriceSeason[]): boolean {
+  return (
+    seasons.length <= 8 &&
+    seasons.every(
+      (s) =>
+        typeof s.label === 'string' &&
+        s.label.trim().length > 0 &&
+        s.label.length <= 40 &&
+        MM_DD.test(s.from) &&
+        MM_DD.test(s.to) &&
+        Number.isInteger(s.percent) &&
+        s.percent >= -50 &&
+        s.percent <= 100 &&
+        s.percent !== 0,
+    )
+  );
+}
+
+function inSeason(season: PriceSeason, monthDay: string): boolean {
+  return season.from <= season.to
+    ? monthDay >= season.from && monthDay <= season.to
+    : monthDay >= season.from || monthDay <= season.to;
+}
+
+/** The season covering one calendar day, or null. Overlaps: the biggest rise wins, else the deepest cut. */
+export function seasonForDate(seasons: PriceSeason[], isoDate: string): PriceSeason | null {
+  const monthDay = isoDate.slice(5, 10);
+  const hits = seasons.filter((s) => inSeason(s, monthDay));
+  if (hits.length === 0) return null;
+  return hits.reduce((best, s) => (Math.abs(s.percent) > Math.abs(best.percent) ? s : best));
+}
+
+/**
+ * What the seasons add to (or take off) a stay, day by day, on the daily rate.
+ * Charged per day even when weekly or monthly rates apply, so a long rental
+ * across peak season still pays for the peak days. Never takes the total below zero.
+ */
+export function seasonAdjustmentXaf(
+  seasons: PriceSeason[] | null | undefined,
+  startDate: string,
+  days: number,
+  dailyRateXaf: number,
+): number {
+  if (!seasons || seasons.length === 0) return 0;
+  let sum = 0;
+  const start = Date.parse(`${startDate}T00:00:00Z`);
+  for (let i = 0; i < days; i++) {
+    const iso = new Date(start + i * 86_400_000).toISOString().slice(0, 10);
+    const season = seasonForDate(seasons, iso);
+    if (season) sum += Math.round((dailyRateXaf * season.percent) / 100);
+  }
+  return sum;
 }
 
 // ---- Locations and delivery zones (0034) -----------------------------------
@@ -244,12 +319,17 @@ export function vehicleRentalCost(
  */
 export function quoteBooking(input: BookingQuoteInput): BookingQuote {
   const days = rentalDays(input.startDate, input.endDate);
-  const vehicleXaf = vehicleRentalCost(
+  const baseVehicleXaf = vehicleRentalCost(
     days,
     input.dailyRateXaf,
     input.weeklyRateXaf,
     input.monthlyRateXaf,
   );
+  const seasonAdjustment = Math.max(
+    -baseVehicleXaf,
+    seasonAdjustmentXaf(input.priceSeasons, input.startDate, days, input.dailyRateXaf),
+  );
+  const vehicleXaf = baseVehicleXaf + seasonAdjustment;
   const driverXaf = input.withDriver ? (input.driverDailyRateXaf ?? 0) * days : 0;
 
   let deliveryXaf = 0;
@@ -281,6 +361,7 @@ export function quoteBooking(input: BookingQuoteInput): BookingQuote {
     deliveryXaf,
     deliveryWaivedXaf,
     deliveryOutOfRange,
+    seasonAdjustmentXaf: seasonAdjustment,
     totalXaf,
     depositXaf: computeDepositXaf(totalXaf),
   };
@@ -336,6 +417,8 @@ export interface Vendor {
   lng: number | null;
   delivery_zones: DeliveryZone[];
   free_delivery_min_days: number | null;
+  /** 0037: yearly seasonal price changes. */
+  price_seasons: PriceSeason[];
   created_at: string;
   updated_at: string;
 }
@@ -497,6 +580,7 @@ export interface VehicleVendorSummary {
   /** 0034: delivery rings and the free-delivery threshold. */
   delivery_zones?: DeliveryZone[];
   free_delivery_min_days?: number | null;
+  price_seasons?: PriceSeason[];
   /** Base rounded to about 1 km. Never the exact pin on a public route. */
   approx_lat?: number | null;
   approx_lng?: number | null;

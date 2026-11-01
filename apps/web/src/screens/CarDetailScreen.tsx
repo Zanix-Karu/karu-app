@@ -133,6 +133,7 @@ export function CarDetailScreen() {
           : car.vendor.delivery_fee_xaf,
     airportFeeXaf: car.vendor.airport_fee_xaf,
     freeDeliveryMinDays: deliveryQuote ? null : car.vendor.free_delivery_min_days,
+    priceSeasons: car.vendor.price_seasons,
   });
   const days = windowChosen ? quote.days : 0;
   const total = quote.totalXaf;
@@ -434,6 +435,15 @@ export function CarDetailScreen() {
                     {t('car.driverLine')} × {days} day{days > 1 ? 's' : ''}
                   </span>
                   <span>{xaf(quote.driverXaf)}</span>
+                </div>
+              )}
+              {quote.seasonAdjustmentXaf !== 0 && (
+                <div className="flex justify-between">
+                  <span>{t('car.seasonAdjustment')}</span>
+                  <span>
+                    {quote.seasonAdjustmentXaf > 0 ? '+' : '-'}
+                    {xaf(Math.abs(quote.seasonAdjustmentXaf))}
+                  </span>
                 </div>
               )}
               {quote.deliveryXaf > 0 && (

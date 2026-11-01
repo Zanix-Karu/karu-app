@@ -265,7 +265,7 @@ export class VehiclesService {
       // SECURITY: same explicit list as browse — the plate stays out of the
       // public payload until pickup.
       .select(
-        'id, vendor_id, make, model, year, category, seats, transmission, fuel_type, daily_rate_xaf, weekly_rate_xaf, monthly_rate_xaf, driver_option, driver_daily_rate_xaf, city, pickup_locations, photos, photo_angles, description, status, created_at, updated_at, vendors!inner(id, business_name, city, status, delivery_fee_xaf, airport_fee_xaf, bio, delivery_zones, free_delivery_min_days, lat, lng)',
+        'id, vendor_id, make, model, year, category, seats, transmission, fuel_type, daily_rate_xaf, weekly_rate_xaf, monthly_rate_xaf, driver_option, driver_daily_rate_xaf, city, pickup_locations, photos, photo_angles, description, status, created_at, updated_at, vendors!inner(id, business_name, city, status, delivery_fee_xaf, airport_fee_xaf, bio, delivery_zones, free_delivery_min_days, price_seasons, lat, lng)',
       )
       .eq('id', id)
       .single();
@@ -288,7 +288,7 @@ export class VehiclesService {
       .from('vehicles')
       // SECURITY: same explicit list as browse/getPublicDetail.
       .select(
-        'id, vendor_id, make, model, year, category, seats, transmission, fuel_type, daily_rate_xaf, weekly_rate_xaf, monthly_rate_xaf, driver_option, driver_daily_rate_xaf, city, pickup_locations, photos, photo_angles, description, status, created_at, updated_at, vendors!inner(id, business_name, city, status, delivery_fee_xaf, airport_fee_xaf, bio, delivery_zones, free_delivery_min_days, lat, lng)',
+        'id, vendor_id, make, model, year, category, seats, transmission, fuel_type, daily_rate_xaf, weekly_rate_xaf, monthly_rate_xaf, driver_option, driver_daily_rate_xaf, city, pickup_locations, photos, photo_angles, description, status, created_at, updated_at, vendors!inner(id, business_name, city, status, delivery_fee_xaf, airport_fee_xaf, bio, delivery_zones, free_delivery_min_days, price_seasons, lat, lng)',
       )
       .eq('status', 'active')
       .eq('vendors.status', 'verified')

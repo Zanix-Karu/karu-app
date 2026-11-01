@@ -3,6 +3,7 @@ import { useState, type CSSProperties, type FormEvent } from 'react';
 import { ReviewBody } from '../components/ReviewBody';
 import { useTranslation } from 'react-i18next';
 import { VendorLocationSettings } from '../components/VendorLocationSettings';
+import { VendorSeasonSettings } from '../components/VendorSeasonSettings';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -687,6 +688,7 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
 
       {!asAdmin && <DeliverySettings vendor={vendor} />}
       {!asAdmin && <VendorLocationSettings vendor={vendor} />}
+      {!asAdmin && <VendorSeasonSettings vendor={vendor} />}
       {!asAdmin && <BusinessProfileSettings vendor={vendor} />}
 
       <h2 style={{ margin: '32px 0 14px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
