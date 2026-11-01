@@ -143,7 +143,7 @@ export function AssistantPanel() {
             </div>
 
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-900/10 px-5 py-4">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
               <div>
                 <p className="font-display text-lg font-bold text-slate-900">{t('assistant.title')}</p>
                 <p className="text-xs text-slate-500">{t('assistant.subtitle')}</p>
@@ -152,7 +152,7 @@ export function AssistantPanel() {
                 type="button"
                 onClick={closePanel}
                 aria-label={t('assistant.close')}
-                className="flex h-9 w-9 items-center justify-center rounded-full text-slate-800 transition hover:bg-slate-900/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-text"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-slate-800 transition hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-text"
               >
                 <CloseIcon />
               </button>
@@ -168,7 +168,7 @@ export function AssistantPanel() {
                       key={x.id}
                       type="button"
                       onClick={() => setTopicId(x.id)}
-                      className="rounded-md border border-slate-900/10 bg-surface px-4 py-3 text-left text-sm font-medium text-slate-900 transition hover:border-brand-text focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-text"
+                      className="rounded-md border border-slate-200 bg-surface px-4 py-3 text-left text-sm font-medium text-slate-900 transition hover:border-brand-text focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-text"
                     >
                       {t(`assistant.topics.${x.id}.q`)}
                     </button>
@@ -200,7 +200,7 @@ export function AssistantPanel() {
                             closePanel();
                             navigate(l.to);
                           }}
-                          className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-slate-900 transition hover:brightness-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-text focus-visible:ring-offset-2"
+                          className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-on-brand transition-colors hover:bg-brand-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-text focus-visible:ring-offset-2"
                         >
                           {t(l.labelKey)}
                         </button>
@@ -212,7 +212,7 @@ export function AssistantPanel() {
             </div>
 
             {/* Footer — escape hatch to a human / the feedback channel */}
-            <div className="border-t border-slate-900/10 px-5 py-3">
+            <div className="border-t border-slate-200 px-5 py-3">
               <button
                 type="button"
                 onClick={() => {

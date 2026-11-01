@@ -1,4 +1,4 @@
-import { BadgeCheck, CalendarDays, Car, Check, Circle, CircleCheck, Inbox, Star, Store } from 'lucide-react';
+import { BadgeCheck, CalendarDays, Car, Check, Circle, CircleCheck, Inbox, Plus, Star, Store, Upload, X } from 'lucide-react';
 import { useState, type CSSProperties, type FormEvent } from 'react';
 import { ReviewBody } from '../components/ReviewBody';
 import { useTranslation } from 'react-i18next';
@@ -156,7 +156,7 @@ export function VendorAreaScreen() {
           <div>
             <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{active.business_name}</h1>
             <div className="mt-1.5 flex flex-wrap items-center gap-2">
-              <Badge variant={active.status === 'verified' ? 'success' : 'warning'}>
+              <Badge variant={active.status === 'verified' ? 'success' : 'warning'} dot={active.status !== 'verified'}>
                 {active.status === 'verified' && <BadgeCheck aria-hidden="true" className="h-3.5 w-3.5" />}
                 {active.status === 'verified'
                   ? t('vendor.verifiedBadge')
@@ -410,7 +410,7 @@ function BusinessProfileSettings({ vendor }: { vendor: Vendor }) {
         </p>
         <Field label={t('vendor.profile.label')}>
           <textarea
-            className="w-full rounded-md border border-slate-900/15 bg-surface px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:border-brand-text focus:outline-none focus:ring-2 focus:ring-brand-text/30"
+            className="w-full rounded-md border border-slate-200 bg-surface px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:border-brand-text focus:outline-none focus:ring-2 focus:ring-brand-text/30"
             rows={4}
             maxLength={1000}
             value={bio}
@@ -910,7 +910,8 @@ function Cars({ vendorVerified, asVendorId }: { vendorVerified: boolean; asVendo
         {/* Adding posts to /vehicles as the caller, so it would land on the
             admin's own (non-existent) vendor record — hidden while viewing. */}
         {!asVendorId && (
-          <Button size="sm" onClick={() => setAdding((v) => !v)}>
+          <Button size="sm" arrow={false} variant={adding ? 'outline' : 'primary'} onClick={() => setAdding((v) => !v)}>
+            {adding ? <X className="h-4 w-4" aria-hidden="true" /> : <Plus className="h-4 w-4" aria-hidden="true" />}
             {adding ? t('vendor.cars.close') : t('vendor.cars.add')}
           </Button>
         )}
@@ -965,7 +966,7 @@ function CarRow({ car }: { car: Vehicle }) {
     <Card>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          {primaryPhoto(car) && <img src={primaryPhoto(car)} alt="" style={{ width: 90, height: 60, objectFit: 'contain' }} />}
+          {primaryPhoto(car) && <img src={primaryPhoto(car)} alt="" className="h-16 w-24 shrink-0 rounded-lg bg-slate-100 object-cover" />}
           <div>
             <span style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 20 }}>
               {car.make} {car.model} {car.year ?? ''}
@@ -978,23 +979,14 @@ function CarRow({ car }: { car: Vehicle }) {
             </div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <label
-            style={{
-              cursor: 'pointer',
-              fontFamily: 'var(--font-ui)',
-              fontWeight: 600,
-              fontSize: 14,
-              padding: '9px 16px',
-              borderRadius: 'var(--radius-md)',
-              border: '1.5px solid var(--ink)',
-            }}
-          >
+        <div className="flex flex-wrap gap-2">
+          <label className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-slate-300 bg-surface px-4 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-50 focus-within:ring-2 focus-within:ring-brand-text">
+            <Upload className="h-4 w-4" aria-hidden="true" />
             {uploadPhoto.isPending ? t('vendor.cars.uploading') : t('vendor.cars.photo')}
             <input
               type="file"
               accept="image/*"
-              style={{ display: 'none' }}
+              className="sr-only"
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) uploadPhoto.mutate(f);
@@ -1699,53 +1691,35 @@ function DocRow({
   const { t } = useTranslation();
   const [expiresAt, setExpiresAt] = useState('');
 
-  const statusColor =
-    doc?.status === 'approved' ? 'var(--success)'
-    : doc?.status === 'rejected' ? 'var(--danger, #c0392b)'
-    : doc ? 'var(--gold-600)'
-    : 'var(--gray-400)';
+  const statusVariant =
+    doc?.status === 'approved' ? 'success'
+    : doc?.status === 'rejected' ? 'danger'
+    : doc ? 'warning'
+    : 'neutral';
 
   return (
-    <div style={{ padding: '10px 0', borderTop: first ? 'none' : '1px solid var(--divider)', marginTop: first ? 0 : 4 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <span style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 14 }}>{label}</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 13, fontWeight: 700, color: statusColor }}>
+    <div className={first ? 'py-3' : 'mt-1 border-t border-slate-200 py-3'}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="text-sm font-semibold text-slate-900">{label}</span>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Badge variant={statusVariant}>
             {doc ? t(`vendor.docs.status.${doc.status}`) : t('vendor.docs.status.notUploaded')}
-            {doc?.expires_at && (
-              <span style={{ fontWeight: 500, color: 'var(--gray-500)' }}>
-                {' '}· {t('vendor.docs.until', { date: prettyDate(doc.expires_at) })}
-              </span>
-            )}
-          </span>
+          </Badge>
+          {doc?.expires_at && (
+            <span className="text-xs text-slate-500">{t('vendor.docs.until', { date: prettyDate(doc.expires_at) })}</span>
+          )}
           {onUpload && withExpiry && (
             <input
               type="date"
               aria-label={t('vendor.docs.expiryAria', { label })}
               value={expiresAt}
               onChange={(e) => setExpiresAt(e.target.value)}
-              style={{
-                fontFamily: 'var(--font-ui)',
-                fontSize: 13,
-                padding: '6px 8px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--divider)',
-              }}
+              className="min-h-10 rounded-md border border-slate-300 bg-surface px-2.5 text-sm text-slate-900 focus-visible:border-brand-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
             />
           )}
           {onUpload && (
-            <label
-              style={{
-                cursor: 'pointer',
-                fontFamily: 'var(--font-ui)',
-                fontWeight: 600,
-                fontSize: 13,
-                padding: '8px 14px',
-                borderRadius: 'var(--radius-md)',
-                background: 'var(--yellow)',
-                color: 'var(--ink)',
-              }}
-            >
+            <label className="inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full border border-slate-300 bg-surface px-4 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-50 focus-within:ring-2 focus-within:ring-brand-text">
+              <Upload className="h-4 w-4" aria-hidden="true" />
               {pending
                 ? t('vendor.docs.uploading')
                 : doc?.status === 'rejected'
@@ -1756,7 +1730,7 @@ function DocRow({
               <input
                 type="file"
                 accept="image/*,.pdf"
-                style={{ display: 'none' }}
+                className="sr-only"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (f) onUpload(f, expiresAt || undefined);
@@ -1768,7 +1742,7 @@ function DocRow({
         </div>
       </div>
       {doc?.status === 'rejected' && (
-        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--danger, #c0392b)', marginTop: 6, marginBottom: 0 }}>
+        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--color-danger)', marginTop: 6, marginBottom: 0 }}>
           {doc.notes ? t('vendor.docs.reviewerNote', { note: doc.notes }) : t('vendor.docs.rejectedFallback')}
         </p>
       )}

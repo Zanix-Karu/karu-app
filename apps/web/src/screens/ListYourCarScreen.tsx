@@ -58,7 +58,7 @@ export function ListYourCarScreen() {
         </div>
       </section>
 
-      <FadeIn className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <FadeIn className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {reasons.map((r) => (
           <Card key={r.title} className="transition-[transform,box-shadow] duration-250 ease-[var(--ease-smooth-out)] hover:-translate-y-[3px] hover:shadow-lg">
             <h2 className="font-display text-lg font-bold tracking-tight text-slate-900">{r.title}</h2>

@@ -28,7 +28,7 @@ const MAX_IMAGES = 5;
 const APP_VERSION = __APP_VERSION__;
 
 const textareaClass =
-  'w-full rounded-md border border-slate-900/15 bg-surface px-3 py-2 text-sm text-slate-900 ' +
+  'w-full rounded-md border border-slate-200 bg-surface px-3 py-2 text-sm text-slate-900 ' +
   'placeholder:text-slate-500 focus:border-brand-text focus:outline-none focus:ring-2 focus:ring-brand-text/30';
 
 export function FeedbackScreen() {
@@ -105,7 +105,7 @@ export function FeedbackScreen() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="max-w-3xl">
       <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{t('feedback.title')}</h1>
       <p className="mt-1 text-sm text-slate-500">{t('feedback.subtitle')}</p>
 
@@ -210,7 +210,7 @@ export function FeedbackScreen() {
                   </p>
                   <p className="mt-1 text-sm text-slate-900">{f.message}</p>
                 </div>
-                <span className="whitespace-nowrap rounded-full bg-slate-900/5 px-3 py-1 text-xs font-semibold text-slate-800">
+                <span className="whitespace-nowrap rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-800">
                   {t(`feedback.statuses.${f.status}`)}
                 </span>
               </div>

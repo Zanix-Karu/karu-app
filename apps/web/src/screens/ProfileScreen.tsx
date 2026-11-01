@@ -48,7 +48,7 @@ export function ProfileScreen() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="max-w-3xl">
       <header>
         <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{t('profile.title')}</h1>
         <p className="mt-1 text-slate-600">{session?.user.email}</p>

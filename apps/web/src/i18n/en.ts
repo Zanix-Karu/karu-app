@@ -940,7 +940,7 @@ export const en = {
     cars: {
       title: 'My cars',
       titleAdmin: 'Cars',
-      add: '+ Add a car',
+      add: 'Add a car',
       close: 'Close',
       awaiting:
         'Your account is awaiting verification: add your cars and paperwork now, but listings stay hidden from customers until the Karu team approves your documents.',
@@ -948,7 +948,7 @@ export const en = {
       noneHint: 'Add your first car to start earning.',
       dayShort: 'day',
       status: { active: 'active', draft: 'draft', inactive: 'inactive' },
-      photo: '+ Photo',
+      photo: 'Photo',
       uploading: 'Uploading…',
       edit: 'Edit',
       availability: 'Availability',
@@ -1058,7 +1058,7 @@ export const en = {
     },
     slots: {
       progress: 'Required photos, {{count}}/6 (all six needed to go live)',
-      done: 'Required photos, 6/6 ✓',
+      done: 'Required photos, 6/6',
       uploading: 'Uploading…',
     },
     strip: {
@@ -1201,12 +1201,13 @@ export const en = {
       },
     },
     cars: {
+      pickupPoints: 'Pick-up points (comma-separated)',
       addTitle: 'Add a car',
       vendor: 'Vendor',
       chooseVendor: 'Choose…',
       publish: 'Publish',
       takeOffline: 'Take offline',
-      photo: '+ Photo',
+      photo: 'Photo',
       uploading: 'Uploading…',
       photos_one: '{{count}} photo',
       photos_other: '{{count}} photos',
@@ -1220,6 +1221,15 @@ export const en = {
       adding: 'Adding…',
     },
     bookings: { none: 'No bookings' },
+    bookingsList: {
+      filterStatus: 'Filter by status',
+      active: 'Active',
+      archived: 'Archived',
+      noneActive: 'Nothing active',
+      noneArchived: 'Nothing archived',
+      none: 'No bookings',
+      viewDetails: 'View details',
+    },
     chats: {
       flag: {
         contact_elsewhere: "contact elsewhere",
@@ -1228,7 +1238,7 @@ export const en = {
       flagHint: "Someone in this thread talked about contacting or paying outside Karu. Worth a look, not proof.",
       none: 'No conversations yet',
       new: '{{count}} new',
-      redactions: 'redactions',
+      redactions: 'Contact details removed',
       redactionsTitle: 'Contact details were removed from at least one message in this thread',
       messages_one: '{{count}} message',
       messages_other: '{{count}} messages',

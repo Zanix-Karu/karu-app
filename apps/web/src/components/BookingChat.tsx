@@ -100,7 +100,7 @@ export function BookingChat({
 
       <div
         ref={scrollRef}
-        className="mt-3 max-h-80 space-y-3 overflow-y-auto rounded-lg bg-slate-900/5 p-3"
+        className="mt-3 max-h-80 space-y-3 overflow-y-auto rounded-lg bg-slate-100 p-3"
       >
         {isLoading && <p className="text-sm text-slate-500">{t('chat.loading')}</p>}
         {!isLoading && (messages?.length ?? 0) === 0 && (
@@ -116,7 +116,7 @@ export function BookingChat({
                   mine
                     ? 'bg-slate-900 text-surface'
                     : support
-                      ? 'border border-brand-text/60 bg-brand/20'
+                      ? 'border border-brand-text/60 bg-brand-tint'
                       : 'bg-surface shadow-sm'
                 }`}
               >
@@ -149,7 +149,7 @@ export function BookingChat({
           rows={2}
           maxLength={2000}
           placeholder={t('chat.placeholder')}
-          className="w-full rounded-lg border border-slate-900/15 px-3 py-2 text-sm focus:border-brand-text focus:outline-none"
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-text focus:outline-none"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
@@ -172,7 +172,7 @@ export function BookingChat({
       )}
 
       {view !== 'admin' && (
-        <div className="mt-3 border-t border-slate-900/10 pt-3">
+        <div className="mt-3 border-t border-slate-200 pt-3">
           {assistanceOpen || askForHelp.isSuccess ? (
             <p className="text-xs font-semibold text-brand-text">{t('chat.assistanceOpen')}</p>
           ) : (

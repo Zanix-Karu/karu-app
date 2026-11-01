@@ -8,7 +8,7 @@ import { ReviewBody } from './ReviewBody';
 export function ReceivedReview({ review }: { review: Review }) {
   const { t } = useTranslation();
   return (
-    <Card className="mt-3 border border-slate-900/10 p-4">
+    <Card className="mt-3 border border-slate-200 p-4">
       <p className="text-sm font-semibold">{t('review.providerRatedYou')}</p>
       <div className="mt-1">
         <Rating value={review.rating} />

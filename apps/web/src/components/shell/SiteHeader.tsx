@@ -197,11 +197,14 @@ export function SiteHeader() {
 export function SiteFooter() {
   const { t } = useTranslation();
   const view = useView();
+  const { pathname } = useLocation();
+  // The provider page already ends on its own sign-up call to action.
+  const showCta = view === 'guest' && pathname !== '/list-your-car';
   const RINGLINK = cn('inline-flex min-h-11 items-center rounded-sm transition-colors hover:text-brand-text', RING);
   return (
     <footer className="mt-16 border-t border-slate-200 bg-slate-50 text-slate-600">
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-        {view === 'guest' && (
+        {showCta && (
           <div className="mb-12 flex flex-col gap-4 rounded-2xl bg-surface p-6 shadow-sm ring-1 ring-slate-200 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-display text-lg font-bold text-slate-900">{t('footer.ctaTitle')}</p>

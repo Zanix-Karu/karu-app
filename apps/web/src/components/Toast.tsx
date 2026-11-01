@@ -96,7 +96,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               key={item.id}
               role={item.variant === 'error' ? 'alert' : 'status'}
               data-state={item.state}
-              className="toast-motion pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-xl border border-slate-900/10 bg-surface py-3 pr-2 pl-4 text-sm text-slate-900 shadow-lg"
+              className="toast-motion pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-xl border border-slate-200 bg-surface py-3 pr-2 pl-4 text-sm text-slate-900 shadow-lg"
             >
               <Icon aria-hidden="true" className={`h-5 w-5 shrink-0 ${ICON_COLOUR[item.variant]}`} />
               <p className="min-w-0 flex-1">{item.message}</p>

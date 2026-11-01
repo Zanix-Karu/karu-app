@@ -15,7 +15,11 @@ export const todayISO = () => new Date().toISOString().slice(0, 10);
 
 export function prettyDate(iso: string): string {
   const tag = i18n.resolvedLanguage === 'fr' ? 'fr-FR' : 'en-GB';
-  return new Date(`${iso}T00:00:00`).toLocaleDateString(tag, {
+  // A plain date ("2026-10-11") is read as local midnight so it never shifts
+  // a day; a full timestamp is used as it is.
+  const d = iso.includes('T') ? new Date(iso) : new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString(tag, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',

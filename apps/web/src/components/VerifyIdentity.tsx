@@ -26,8 +26,8 @@ const SLOTS: Array<{ type: CustomerDocumentType; capture?: 'user' | 'environment
 ];
 
 const TONE: Record<CustomerVerificationStatus, string> = {
-  unverified: 'bg-slate-900/5 text-slate-900',
-  pending: 'bg-brand/25 text-slate-800',
+  unverified: 'bg-slate-100 text-slate-900',
+  pending: 'bg-brand-tint text-slate-800',
   verified: 'bg-success-tint text-success',
   rejected: 'bg-danger/10 text-danger',
 };
@@ -123,7 +123,7 @@ export function VerifyIdentity() {
                   <li key={type}>
                     <label
                       className={`flex h-full cursor-pointer flex-col justify-between rounded-lg border px-3 py-2 text-sm transition-colors ${
-                        done ? 'border-success/40 bg-success-tint' : 'border-dashed border-slate-900/25 hover:bg-slate-900/5'
+                        done ? 'border-success/40 bg-success-tint' : 'border-dashed border-slate-300 hover:bg-slate-100'
                       } ${locked ? 'pointer-events-none opacity-60' : ''}`}
                     >
                       <span className="font-semibold">{t(`verify.doc.${type}`)}</span>

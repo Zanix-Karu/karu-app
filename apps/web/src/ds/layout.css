@@ -118,9 +118,6 @@
    is hidden — it would sit under the links and the strip is short enough that
    the overflow is obvious from the clipped item. */
 .karu-nav-strip {
-  /* `safe`: when the items overflow, start them at the left edge so the
-     first one can be scrolled to, instead of centring and clipping it. */
-  justify-content: safe center;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -175,3 +172,9 @@ button:focus-visible {
 
 /* Icons sitting inline with text line up with the cap height. */
 .karu-inline-icon { display: inline-block; width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; }
+
+/* The seeded "photo coming soon" image is a light SVG. In dark themes it
+   would glare, so invert it to sit on the dark surfaces. */
+[data-mode='dark'] img[src*='car-placeholder.svg'] {
+  filter: invert(0.9) hue-rotate(180deg);
+}

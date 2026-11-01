@@ -39,7 +39,7 @@ export function Button({
 
 export function Card({ className = '', children }: { className?: string; children: ReactNode }) {
   return (
-    <div className={cn('rounded-2xl border border-slate-200 bg-surface shadow-sm', className)}>{children}</div>
+    <div className={cn('rounded-2xl border border-slate-200 bg-surface p-6 shadow-sm', className)}>{children}</div>
   );
 }
 
@@ -136,31 +136,32 @@ export function PhoneInput({
 
   return (
     <div className="flex gap-2">
-      <select
-        // inputClass bakes in `w-full`; a `w-[8.5rem]` utility alongside it
-        // targets the same `width` property at equal specificity, and which
-        // one wins depends on their order in Tailwind's compiled stylesheet,
-        // not on their order in this class list. An inline style avoids that
-        // race and reliably keeps this select narrow.
-        className={`${inputClass} shrink-0`}
-        style={{ width: '8.5rem' }}
-        value={dial}
-        aria-label={t('common.countryCode')}
-        onChange={(e) => emit(e.target.value, national)}
-      >
-        {COUNTRY_CODES.map((c) => (
-          <option key={c.dial} value={c.dial}>
-            {c.label}
-          </option>
-        ))}
-      </select>
+      {/* The list shows "flag +code · country"; the closed picker shows just
+          "flag +code" (drawn over the select) so it never truncates. */}
+      <div className="relative shrink-0" style={{ width: '7.25rem' }}>
+        <select
+          className={cn(inputClass, 'pr-7 text-transparent')}
+          value={dial}
+          aria-label={t('common.countryCode')}
+          onChange={(e) => emit(e.target.value, national)}
+        >
+          {COUNTRY_CODES.map((c) => (
+            <option key={c.dial} value={c.dial} className="text-slate-900">
+              {c.label}
+            </option>
+          ))}
+        </select>
+        <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-base text-slate-900">
+          {COUNTRY_CODES.find((c) => c.dial === dial)?.label.split(' · ')[0]}
+        </span>
+      </div>
       <input
         type="tel"
         // min-w-0 + flex-1: without them, `inputClass`'s own `w-full` only
         // sets this input's flex-basis, so the fixed-width select next to it
         // squeezes the input down to its min-content width instead of the
         // remaining space.
-        className={`${inputClass} min-w-0 flex-1`}
+        className={cn(inputClass, 'min-w-0 flex-1')}
         value={national}
         placeholder={placeholder}
         onChange={(e) => emit(dial, e.target.value)}

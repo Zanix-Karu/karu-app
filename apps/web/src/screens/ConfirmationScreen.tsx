@@ -1,4 +1,4 @@
-import { Check } from 'lucide-react';
+import { ArrowLeft, Check, SearchX } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useLocation, useParams } from 'react-router-dom';
@@ -6,7 +6,7 @@ import type { Booking } from '@karu/shared';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { prettyDate, xaf } from '../lib/format';
-import { Card, ErrorNote, Spinner } from '../ui';
+import { Card, EmptyState, Spinner } from '../ui';
 
 export function ConfirmationScreen() {
   const { t } = useTranslation();
@@ -25,7 +25,22 @@ export function ConfirmationScreen() {
 
   if (isLoading && !passed) return <Spinner label={t('common.loading')} />;
   const booking = data ?? passed;
-  if (!booking) return <ErrorNote>{(error as Error | undefined)?.message ?? t('booking.notFound')}</ErrorNote>;
+  if (!booking) return (
+      <EmptyState
+        Icon={SearchX}
+        title={t('booking.notFound')}
+        hint={(error as Error | undefined)?.message}
+        action={
+        <Link
+          to={"/bookings"}
+          className="inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-300 bg-surface px-5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-50"
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          {t('nav.myBookings')}
+        </Link>
+      }
+      />
+    );
 
   return (
     <div className="mx-auto max-w-xl">

@@ -8,6 +8,7 @@ import { api } from '../lib/api';
 import { Button, Card, ErrorNote, Field, Input, PhoneInput, Select } from '../ui';
 import { Checkbox } from '../components/Controls';
 import { SegmentPill, segmentButton, segmentWrap } from '../ds';
+import { cn } from '../lib/cn';
 
 type Mode = 'login' | 'signup' | 'reset';
 /** The mockup's account-type switch: rent a car, or list one. */
@@ -222,7 +223,7 @@ export function AuthScreen() {
         setConfirmEmail('');
       }}
       aria-pressed={mode === m}
-      className={segmentButton(mode === m)}
+      className={cn(segmentButton(mode === m), 'justify-center px-2 text-center text-xs leading-tight sm:text-sm')}
     >
       {mode === m && <SegmentPill group="auth-mode" />}
       {label}
@@ -282,7 +283,7 @@ export function AuthScreen() {
       </div>
 
       <Card className="order-1 p-6 sm:p-8 lg:order-2">
-        <div className={`mb-5 flex-wrap ${segmentWrap}`}>
+        <div className={cn(segmentWrap, 'mb-5 grid w-full grid-cols-3')}>
           {tab('login', t('common.signIn'))}
           {tab('signup', t('auth.createAccount'))}
           {tab('reset', t('auth.resetPassword'))}
@@ -449,7 +450,7 @@ export function AuthScreen() {
 
           {error && <ErrorNote>{error}</ErrorNote>}
           {notice && (
-            <div className="rounded-lg border border-brand-text/40 bg-brand/15 px-4 py-3 text-sm text-slate-800">
+            <div className="rounded-lg border border-brand-text/40 bg-brand-tint px-4 py-3 text-sm text-slate-800">
               {notice}
             </div>
           )}

@@ -85,7 +85,7 @@ export function BookingsScreen() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-3xl">
+      <div className="max-w-4xl">
         <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{t('booking.myBookings')}</h1>
         <div className="mt-6 space-y-4">
           <SkeletonCard lines={3} />
@@ -97,7 +97,7 @@ export function BookingsScreen() {
   if (error) return <ErrorNote>{(error as Error).message}</ErrorNote>;
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="max-w-4xl">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{t('booking.myBookings')}</h1>

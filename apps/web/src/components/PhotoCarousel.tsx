@@ -97,7 +97,7 @@ export function PhotoCarousel({ photos, alt }: { photos: string[]; alt: string }
               type="button"
               onClick={() => go(index - 1)}
               aria-label={t('gallery.previous')}
-              className="absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-slate-900/60 text-2xl leading-none text-surface backdrop-blur-sm hover:bg-slate-900/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+              className="absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-2xl leading-none text-white backdrop-blur-sm hover:bg-black/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             >
               ‹
             </button>
@@ -105,17 +105,17 @@ export function PhotoCarousel({ photos, alt }: { photos: string[]; alt: string }
               type="button"
               onClick={() => go(index + 1)}
               aria-label={t('gallery.next')}
-              className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-slate-900/60 text-2xl leading-none text-surface backdrop-blur-sm hover:bg-slate-900/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+              className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-2xl leading-none text-white backdrop-blur-sm hover:bg-black/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             >
               ›
             </button>
 
-            <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-slate-900/60 px-3 py-1.5 backdrop-blur-sm">
+            <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 backdrop-blur-sm">
               {photos.map((p, i) => (
                 <span
                   key={p}
                   className={`h-1.5 rounded-full transition-all ${
-                    i === index ? 'w-4 bg-brand' : 'w-1.5 bg-slate-50/50'
+                    i === index ? 'w-4 bg-brand' : 'w-1.5 bg-white/60'
                   }`}
                 />
               ))}
@@ -123,7 +123,7 @@ export function PhotoCarousel({ photos, alt }: { photos: string[]; alt: string }
 
             <p
               aria-live="polite"
-              className="absolute right-3 top-3 rounded-full bg-slate-900/60 px-2.5 py-1 text-xs font-semibold text-surface backdrop-blur-sm"
+              className="absolute right-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-xs font-semibold text-white backdrop-blur-sm"
             >
               {t('gallery.position', { current: index + 1, total: count })}
             </p>
@@ -132,7 +132,7 @@ export function PhotoCarousel({ photos, alt }: { photos: string[]; alt: string }
       </div>
 
       {count > 1 && (
-        <div className="mt-3 flex gap-2 overflow-x-auto">
+        <div className="karu-nav-strip -mx-1 mt-3 flex gap-2 overflow-x-auto p-1">
           {photos.map((p, i) => (
             <button
               key={p}

@@ -1,5 +1,6 @@
 import { ThemeStudio } from '../components/ThemeStudio';
-import { SegmentPill, segmentButton, segmentWrap } from '../ds';
+import { Badge, SegmentPill, segmentButton, segmentWrap } from '../ds';
+import { Upload } from 'lucide-react';
 import { Archive, CalendarCheck, Car as CarIcon, LayoutDashboard, Palette, type LucideIcon, Flag, CalendarDays, FileText, IdCard, Mail, Megaphone, MessagesSquare, Store } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -268,12 +269,12 @@ function CustomerIds() {
                   href={d.url ?? undefined}
                   target="_blank"
                   rel="noreferrer"
-                  className="block rounded-lg border border-slate-900/10 p-1 text-center text-xs"
+                  className="block rounded-lg border border-slate-200 p-1 text-center text-xs"
                 >
                   {d.url && !/\.pdf(\?|$)/i.test(d.url) ? (
                     <img src={d.url} alt={t(`verify.doc.${d.type}`)} className="aspect-[4/3] w-full rounded object-cover" />
                   ) : (
-                    <span className="grid aspect-[4/3] place-items-center rounded bg-slate-900/5">PDF</span>
+                    <span className="grid aspect-[4/3] place-items-center rounded bg-slate-100">PDF</span>
                   )}
                   <span className="mt-1 block">{t(`verify.doc.${d.type}`)}</span>
                 </a>
@@ -374,7 +375,7 @@ function Vendors() {
   });
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+    <div className="grid gap-6 xl:grid-cols-[1fr_340px] xl:items-start">
       <div>
         <Field label={t('admin.filterStatus')} className="max-w-48">
           <Select value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -436,9 +437,7 @@ function Vendors() {
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-slate-900/5 px-2.5 py-0.5 text-xs font-semibold">
-                    {t(`vendor.status.${v.status}`)}
-                  </span>
+                  <Badge variant={VENDOR_STATUS_VARIANT[v.status]}>{t(`vendor.status.${v.status}`)}</Badge>
                   {v.status !== 'verified' && (
                     <Button onClick={() => setVendorStatus.mutate({ id: v.id, status: 'verified' })}>
                       {t('admin.vendors.verify')}
@@ -806,7 +805,7 @@ function Cars() {
   });
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+    <div className="grid gap-6 xl:grid-cols-[1fr_340px] xl:items-start">
       <div>
         {isLoading && <Spinner />}
         <div className="space-y-3">
@@ -823,13 +822,7 @@ function Cars() {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                    c.status === 'active' ? 'bg-success-tint text-success' : 'bg-slate-900/5 text-slate-500'
-                  }`}
-                >
-                  {t(`vendor.cars.status.${c.status}`)}
-                </span>
+                <Badge variant={c.status === 'active' ? 'success' : 'neutral'}>{t(`vendor.cars.status.${c.status}`)}</Badge>
                 <Button
                   variant={c.status === 'active' ? 'outline' : 'primary'}
                   disabled={setStatus.isPending}
@@ -850,7 +843,8 @@ function Cars() {
                     <ErrorNote>{(setStatus.error as Error).message}</ErrorNote>
                   </div>
                 )}
-                <label className="cursor-pointer rounded-full border-[1.5px] border-slate-900 px-4 py-1.5 text-sm font-semibold hover:bg-slate-900 hover:text-surface">
+                <label className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-slate-300 bg-surface px-4 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-50 focus-within:ring-2 focus-within:ring-brand-text">
+                  <Upload className="h-4 w-4" aria-hidden="true" />
                   {uploadPhoto.isPending ? t('admin.cars.uploading') : t('admin.cars.photo')}
                   <input
                     type="file"
@@ -1023,7 +1017,7 @@ function Cars() {
               </Field>
             )}
           </div>
-          <Field label="Pick-up points (comma-separated)">
+          <Field label={t('admin.cars.pickupPoints')}>
             <Input
               value={form.pickup_locations}
               onChange={(e) => setForm({ ...form, pickup_locations: e.target.value })}
@@ -1050,14 +1044,14 @@ function Cars() {
 
 const NEXT_ACTIONS: Partial<Record<BookingStatus, Array<{ to: BookingStatus; label: string; danger?: boolean }>>> = {
   requested: [
-    { to: 'confirmed', label: 'Confirm' },
-    { to: 'rejected', label: 'Reject', danger: true },
+    { to: 'confirmed', label: 'confirm' },
+    { to: 'rejected', label: 'reject', danger: true },
   ],
   confirmed: [
-    { to: 'in_progress', label: 'Start trip' },
-    { to: 'cancelled', label: 'Cancel', danger: true },
+    { to: 'in_progress', label: 'startTrip' },
+    { to: 'cancelled', label: 'cancel', danger: true },
   ],
-  in_progress: [{ to: 'completed', label: 'Complete' }],
+  in_progress: [{ to: 'completed', label: 'complete' }],
 };
 
 // --- Chats ------------------------------------------------------------------
@@ -1101,14 +1095,14 @@ function Chats() {
   if (isLoading) return <Spinner />;
   if (error) return <ErrorNote>{(error as Error).message}</ErrorNote>;
   if (!data || data.length === 0) {
-    return <EmptyState Icon={MessagesSquare} title="No conversations yet" />;
+    return <EmptyState Icon={MessagesSquare} title={t('admin.chats.none')} />;
   }
 
   return (
     <div className="space-y-3">
       {data.map((c) => (
         <Link key={c.booking_id} to={`/bookings/${c.booking_id}`} className="block">
-          <Card className="flex flex-wrap items-center justify-between gap-3 p-4 transition hover:bg-slate-900/5">
+          <Card className="flex flex-wrap items-center justify-between gap-3 p-4 transition hover:bg-slate-100">
             <div className="min-w-0">
               <p className="font-mono text-xs text-slate-500">{c.reference ?? c.booking_id}</p>
               <p className="mt-0.5 font-semibold">
@@ -1129,10 +1123,10 @@ function Chats() {
               )}
               {c.any_redacted && (
                 <span
-                  className="rounded-full bg-brand/40 px-2.5 py-0.5 text-xs font-semibold text-slate-800"
-                  title="Contact details were removed from at least one message in this thread"
+                  className="rounded-full bg-brand-tint px-2.5 py-0.5 text-xs font-semibold text-slate-800"
+                  title={t('admin.chats.redactionsTitle')}
                 >
-                  redactions
+                  {t('admin.chats.redactions')}
                 </span>
               )}
               {(c.flags ?? []).map((f) => (
@@ -1148,7 +1142,7 @@ function Chats() {
                 </Tooltip>
               ))}
               <span className="text-xs text-slate-500">
-                {c.message_count} message{c.message_count === 1 ? '' : 's'}
+                {t('admin.chats.messages', { count: c.message_count })}
               </span>
               <StatusBadge status={c.booking_status} />
             </div>
@@ -1186,9 +1180,9 @@ function Bookings() {
   return (
     <div>
       <div className="flex flex-wrap items-end gap-4">
-        <Field label="Filter by status" className="max-w-48">
+        <Field label={t('admin.bookingsList.filterStatus')} className="max-w-48">
           <Select value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="">All</option>
+            <option value="">{t('admin.all')}</option>
             {['requested', 'confirmed', 'in_progress', 'completed', 'rejected', 'cancelled'].map((s) => (
               <option key={s} value={s}>
                 {t(`status.${s}`)}
@@ -1200,16 +1194,16 @@ function Bookings() {
           {(['active', 'archived'] as const).map((k) => (
             <button key={k} type="button" aria-pressed={tab === k} onClick={() => setTab(k)} className={segmentButton(tab === k)}>
               {tab === k && <SegmentPill group="admin-bookings" />}
-              {k === 'active' ? 'Active' : 'Archived'}
+              {k === 'active' ? t('admin.bookingsList.active') : t('admin.bookingsList.archived')}
             </button>
           ))}
         </div>
       </div>
 
       {isLoading && <Spinner />}
-      {data?.length === 0 && <EmptyState Icon={CalendarDays} title="No bookings" />}
+      {data?.length === 0 && <EmptyState Icon={CalendarDays} title={t('admin.bookingsList.none')} />}
       {data && data.length > 0 && shown.length === 0 && (
-        <EmptyState Icon={Archive} title={tab === 'archived' ? 'Nothing archived' : 'Nothing active'} />
+        <EmptyState Icon={Archive} title={tab === 'archived' ? t('admin.bookingsList.noneArchived') : t('admin.bookingsList.noneActive')} />
       )}
 
       <div className="mt-4 space-y-3">
@@ -1226,7 +1220,7 @@ function Bookings() {
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge status={b.status} />
               <Link to={`/bookings/${b.id}`}>
-                <Button variant="outline">View details</Button>
+                <Button variant="outline">{t('admin.bookingsList.viewDetails')}</Button>
               </Link>
               {NEXT_ACTIONS[b.status]?.map((a) => (
                 <Button
@@ -1235,7 +1229,7 @@ function Bookings() {
                   disabled={transition.isPending}
                   onClick={() => transition.mutate({ id: b.id, to: a.to })}
                 >
-                  {a.label}
+                  {t(`vendor.actions.${a.label}`)}
                 </Button>
               ))}
             </div>
@@ -1265,11 +1259,18 @@ interface AdminFeedback {
   created_at: string;
 }
 
-const FEEDBACK_STATUS_STYLE: Record<AdminFeedback['status'], string> = {
-  new: 'bg-brand/20 text-slate-800',
-  triaging: 'bg-brand-tint text-slate-900',
-  resolved: 'bg-success-tint text-success',
-};
+const FEEDBACK_STATUS_VARIANT = {
+  new: 'upcoming',
+  triaging: 'warning',
+  resolved: 'success',
+} as const satisfies Record<AdminFeedback['status'], string>;
+
+const VENDOR_STATUS_VARIANT = {
+  pending: 'warning',
+  verified: 'success',
+  rejected: 'danger',
+  suspended: 'danger',
+} as const;
 
 function Feedback() {
   const { t } = useTranslation();
@@ -1323,11 +1324,7 @@ function Feedback() {
                   </div>
                 )}
               </div>
-              <span
-                className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${FEEDBACK_STATUS_STYLE[f.status]}`}
-              >
-                {t(`feedback.statuses.${f.status}`)}
-              </span>
+              <Badge variant={FEEDBACK_STATUS_VARIANT[f.status]}>{t(`feedback.statuses.${f.status}`)}</Badge>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               {(['new', 'triaging', 'resolved'] as const)

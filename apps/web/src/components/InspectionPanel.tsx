@@ -89,7 +89,7 @@ export function InspectionPanel({
 function InspectionSummary({ report }: { report: InspectionWithUrls }) {
   const { t } = useTranslation();
   return (
-    <div className="rounded-xl border border-slate-900/10 p-3">
+    <div className="rounded-xl border border-slate-200 p-3">
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         {t(`inspection.stage.${report.stage}`)} · {t(`inspection.by.${report.recorded_role}`)}
       </p>
@@ -183,7 +183,7 @@ function InspectionForm({
 
   return (
     <form
-      className="mt-4 border-t border-slate-900/10 pt-4"
+      className="mt-4 border-t border-slate-200 pt-4"
       onSubmit={(e) => {
         e.preventDefault();
         if (enough) save.mutate();
@@ -205,7 +205,7 @@ function InspectionForm({
           <img key={p.path} src={p.preview} alt={t('inspection.photoAlt', { n: i + 1 })} className="karu-pop-in" />
         ))}
         {photos.length < MAX_INSPECTION_PHOTOS && (
-          <label className="grid aspect-[4/3] cursor-pointer place-items-center rounded-md border-2 border-dashed border-slate-900/20 text-center text-xs font-semibold text-slate-500">
+          <label className="grid aspect-[4/3] cursor-pointer place-items-center rounded-md border-2 border-dashed border-slate-300 text-center text-xs font-semibold text-slate-500">
             {upload.isPending ? t('common.oneMoment') : t('inspection.addPhotos')}
             <input
               type="file"
@@ -235,7 +235,7 @@ function InspectionForm({
           <select
             value={fuel}
             onChange={(e) => setFuel(e.target.value === '' ? '' : Number(e.target.value))}
-            className="w-full rounded-lg border border-slate-900/15 px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
           >
             <option value="">{t('inspection.fuelPick')}</option>
             {Array.from({ length: 9 }, (_, n) => (
@@ -254,7 +254,7 @@ function InspectionForm({
             value={odometer}
             onChange={(e) => setOdometer(e.target.value.replace(/\D/g, '').slice(0, 7))}
             placeholder="84 250"
-            className="w-full rounded-lg border border-slate-900/15 px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
           />
         </label>
       </div>
@@ -267,7 +267,7 @@ function InspectionForm({
           onChange={(e) => setNotes(e.target.value.slice(0, 1000))}
           rows={2}
           placeholder={t('inspection.notesPlaceholder')}
-          className="w-full rounded-lg border border-slate-900/15 px-3 py-2 text-sm"
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
         />
       </label>
 

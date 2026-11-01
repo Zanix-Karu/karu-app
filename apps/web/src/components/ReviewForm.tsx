@@ -70,7 +70,7 @@ export function ReviewForm({
   }
 
   return (
-    <Card className="mt-3 border border-slate-900/10 p-4">
+    <Card className="mt-3 border border-slate-200 p-4">
       <p className="text-sm font-semibold">{prompt}</p>
       <form
         className="mt-3 space-y-3"
@@ -86,7 +86,7 @@ export function ReviewForm({
           maxLength={1000}
           rows={3}
           placeholder={t('review.placeholder')}
-          className="w-full rounded-lg border border-slate-900/15 px-3 py-2 text-sm focus:border-brand-text focus:outline-none"
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-text focus:outline-none"
         />
         {submit.isError && <ErrorNote>{(submit.error as Error).message}</ErrorNote>}
         <Button type="submit" disabled={rating === 0 || submit.isPending}>

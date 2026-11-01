@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MotionConfig } from 'motion/react';
 import { usePageMeta } from './lib/page-meta';
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { AuthProvider, RequireView, useView } from './lib/auth';
+import { AuthProvider, RequireView, useAuth, useView } from './lib/auth';
 import { HOME } from './lib/roles';
 import { useTranslation } from 'react-i18next';
 import { AssistantPanel } from './components/AssistantPanel';
@@ -48,7 +48,11 @@ const queryClient = new QueryClient({
 
 /** "/" sends each view to its own home. */
 function HomeRedirect() {
+  const { session, profile } = useAuth();
   const view = useView();
+  // Wait for the role: right after sign-in the session exists but the profile
+  // is still loading, and guessing "customer" sent providers to the search.
+  if (session === undefined || (session && !profile)) return null;
   return <Navigate to={HOME[view]} replace />;
 }
 

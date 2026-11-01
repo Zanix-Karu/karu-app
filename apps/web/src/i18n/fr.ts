@@ -944,7 +944,7 @@ export const fr = {
     cars: {
       title: 'Mes voitures',
       titleAdmin: 'Voitures',
-      add: '+ Ajouter une voiture',
+      add: 'Ajouter une voiture',
       close: 'Fermer',
       awaiting:
         'Votre compte est en attente de vérification: ajoutez vos voitures et documents dès maintenant ; vos annonces resteront masquées aux clients tant que l’équipe Karu n’aura pas approuvé vos documents.',
@@ -952,7 +952,7 @@ export const fr = {
       noneHint: 'Ajoutez votre première voiture pour commencer à gagner.',
       dayShort: 'jour',
       status: { active: 'active', draft: 'brouillon', inactive: 'inactive' },
-      photo: '+ Photo',
+      photo: 'Photo',
       uploading: 'Téléversement…',
       edit: 'Modifier',
       availability: 'Disponibilités',
@@ -1062,7 +1062,7 @@ export const fr = {
     },
     slots: {
       progress: 'Photos requises, {{count}}/6 (les six sont nécessaires pour la mise en ligne)',
-      done: 'Photos requises, 6/6 ✓',
+      done: 'Photos requises, 6/6',
       uploading: 'Téléversement…',
     },
     strip: {
@@ -1205,12 +1205,13 @@ export const fr = {
       },
     },
     cars: {
+      pickupPoints: 'Points de prise en charge (séparés par des virgules)',
       addTitle: 'Ajouter une voiture',
       vendor: 'Loueur',
       chooseVendor: 'Choisir…',
       publish: 'Publier',
       takeOffline: 'Retirer de la vitrine',
-      photo: '+ Photo',
+      photo: 'Photo',
       uploading: 'Téléversement…',
       photos_one: '{{count}} photo',
       photos_other: '{{count}} photos',
@@ -1224,6 +1225,15 @@ export const fr = {
       adding: 'Ajout…',
     },
     bookings: { none: 'Aucune réservation' },
+    bookingsList: {
+      filterStatus: 'Filtrer par statut',
+      active: 'Actives',
+      archived: 'Archivées',
+      noneActive: 'Aucune réservation active',
+      noneArchived: 'Rien dans les archives',
+      none: 'Aucune réservation',
+      viewDetails: 'Voir les détails',
+    },
     chats: {
       flag: {
         contact_elsewhere: "contact ailleurs",
@@ -1232,7 +1242,7 @@ export const fr = {
       flagHint: "Quelqu'un dans cette conversation a parlé de se contacter ou de payer hors de Karu. À vérifier, ce n'est pas une preuve.",
       none: 'Aucune conversation pour l’instant',
       new: '{{count}} nouveau(x)',
-      redactions: 'expurgé',
+      redactions: 'Coordonnées masquées',
       redactionsTitle: 'Des coordonnées ont été supprimées d’au moins un message de ce fil',
       messages_one: '{{count}} message',
       messages_other: '{{count}} messages',

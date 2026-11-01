@@ -136,7 +136,7 @@ export function VendorDirectoryScreen() {
                   </div>
                 </div>
                 {v.status === 'verified' && (
-                  <Badge variant="success">
+                  <Badge variant="success" dot={false}>
                     <BadgeCheck aria-hidden="true" style={{ width: 15, height: 15 }} />
                     {t('providers.verified')}
                   </Badge>
@@ -205,7 +205,7 @@ export function VendorProfileScreen() {
             </div>
           </div>
           {vendor.status === 'verified' && (
-            <Badge variant="success" className="badge-pop">
+            <Badge variant="success" className="badge-pop" dot={false}>
               <BadgeCheck aria-hidden="true" className="h-3.5 w-3.5" />
               {t('providers.verifiedProvider')}
             </Badge>

@@ -55,7 +55,7 @@ export const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
   secondary: 'border border-slate-300 bg-surface text-slate-700 hover:border-slate-400 hover:bg-slate-50',
   outline: 'border border-slate-300 bg-surface text-slate-700 hover:border-slate-400 hover:bg-slate-50',
   ghost: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
-  danger: 'bg-danger text-surface shadow-sm hover:opacity-90',
+  danger: 'border border-danger/30 bg-surface text-danger hover:border-danger/50 hover:bg-danger-tint',
 };
 
 export const BUTTON_SIZES: Record<ButtonSize, string> = {
@@ -494,7 +494,7 @@ export function StatCard({
           </span>
         )}
       </div>
-      <div className={cn('value-pop mt-2 font-display text-3xl font-bold tracking-tight', accent ? 'text-brand-text' : 'text-slate-900')}>
+      <div className={cn('value-pop mt-2 whitespace-nowrap font-display text-xl font-bold leading-tight tracking-tight tabular-nums lg:text-[1.375rem]', accent ? 'text-brand-text' : 'text-slate-900')}>
         {value}
       </div>
       {hint && <div className="mt-1 text-sm text-slate-500">{hint}</div>}

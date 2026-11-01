@@ -1,4 +1,4 @@
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, SearchX } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -15,7 +15,7 @@ import { api } from '../lib/api';
 import { useAuth, useView } from '../lib/auth';
 import { CATEGORY_LABEL, CITY_LABEL, prettyDate, rentalDays, xaf } from '../lib/format';
 import { Badge, Button, Card } from '../ds';
-import { ErrorNote, StatusBadge, SuccessNote } from '../ui';
+import { EmptyState, ErrorNote, StatusBadge, SuccessNote } from '../ui';
 import { Skeleton, SkeletonCard } from '../components/Skeleton';
 import { useCurrency } from '../lib/currency';
 import { ReviewForm } from '../components/ReviewForm';
@@ -175,7 +175,7 @@ export function BookingDetailScreen() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-3xl">
+      <div className="max-w-4xl">
         <Skeleton width={140} height={13} />
         <Skeleton width="55%" height={34} style={{ marginTop: 14 }} />
         <div style={{ display: 'grid', gap: 16, marginTop: 24 }}>
@@ -186,7 +186,22 @@ export function BookingDetailScreen() {
     );
   }
   if (error || !data) {
-    return <ErrorNote>{(error as Error | undefined)?.message ?? t('booking.notFound')}</ErrorNote>;
+    return (
+      <EmptyState
+        Icon={SearchX}
+        title={t('booking.notFound')}
+        hint={(error as Error | undefined)?.message}
+        action={
+        <Link
+          to={"/bookings"}
+          className="inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-300 bg-surface px-5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-50"
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          {t('nav.myBookings')}
+        </Link>
+      }
+      />
+    );
   }
 
   const b = data;
@@ -197,14 +212,14 @@ export function BookingDetailScreen() {
     b.status === 'confirmed' && until >= 0 && until <= 7;
 
   const row = (label: string, value: React.ReactNode) => (
-    <div className="flex justify-between gap-4 border-b border-slate-900/10 py-2 text-sm last:border-0">
+    <div className="flex justify-between gap-4 border-b border-slate-200 py-2 text-sm last:border-0">
       <span className="text-slate-500">{label}</span>
       <span className="text-right font-semibold">{value}</span>
     </div>
   );
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="max-w-4xl">
       <button
         onClick={() => navigate(-1)}
         className="inline-flex items-center gap-1 text-sm font-semibold text-slate-800 hover:underline"
@@ -227,7 +242,7 @@ export function BookingDetailScreen() {
       <TripProgress status={b.status} />
 
       {showCountdown && (
-        <div className="mt-4 rounded-xl bg-brand/20 px-4 py-3 text-sm font-semibold text-slate-800">
+        <div className="mt-4 rounded-xl bg-brand-tint px-4 py-3 text-sm font-semibold text-slate-800">
           {until === 0 ? t('booking.pickupToday') : t('booking.pickupInDays', { count: until })}
         </div>
       )}
@@ -255,7 +270,7 @@ export function BookingDetailScreen() {
         !b.with_driver &&
         profile &&
         profile.verification_status !== 'verified' && (
-          <div className="mt-4 rounded-xl bg-brand/20 px-4 py-3 text-sm text-slate-800">
+          <div className="mt-4 rounded-xl bg-brand-tint px-4 py-3 text-sm text-slate-800">
             <p className="font-semibold">
               {profile.verification_status === 'pending' ? t('verify.banner.pendingTitle') : t('verify.banner.title')}
             </p>
@@ -277,7 +292,7 @@ export function BookingDetailScreen() {
       )}
 
       {b.status === 'cancelled' && b.cancelled_by && (
-        <div className="mt-4 rounded-xl bg-slate-900/5 px-4 py-3 text-sm">
+        <div className="mt-4 rounded-xl bg-slate-100 px-4 py-3 text-sm">
           <p className="font-semibold">{t(`booking.cancelledBy.${b.cancelled_by}`)}</p>
           {b.cancellation_reason && <p className="mt-1">&ldquo;{b.cancellation_reason}&rdquo;</p>}
           {b.deposit_refund_due !== null && (
@@ -501,7 +516,7 @@ export function BookingDetailScreen() {
                   onChange={(e) => setCancelReason(e.target.value.slice(0, 500))}
                   rows={2}
                   autoFocus
-                  className="w-full rounded-lg border border-slate-900/15 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 />
               </label>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -678,7 +693,7 @@ function DepositBlock({ bookingId, view }: { bookingId: string; view: string }) 
   const copy = status ? PAYMENT_COPY[status] : null;
 
   return (
-    <div className="mt-3 border-t border-slate-900/10 pt-3">
+    <div className="mt-3 border-t border-slate-200 pt-3">
       {copy ? (
         <p
           className={`text-xs font-semibold ${
@@ -788,7 +803,7 @@ function RecordDeposit({ bookingId }: { bookingId: string }) {
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as typeof status)}
-            className="rounded-lg border border-slate-900/15 px-3 py-2 text-sm"
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
           >
             <option value="held">{t('booking.recordDeposit.statusHeld')}</option>
             <option value="released">{t('booking.recordDeposit.statusReleased')}</option>
@@ -804,7 +819,7 @@ function RecordDeposit({ bookingId }: { bookingId: string }) {
             value={reference}
             onChange={(e) => setReference(e.target.value)}
             placeholder={t('booking.recordDeposit.referencePlaceholder')}
-            className="rounded-lg border border-slate-900/15 px-3 py-2 text-sm"
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
           />
         </label>
         <Button type="submit" loading={record.isPending}>
