@@ -206,8 +206,15 @@ export function AuthScreen() {
     } catch (err) {
       // Auth failures sometimes surface a raw body ("{}") or nothing at all —
       // a person retrying their password deserves words, not JSON.
-      const message = (err as Error).message?.trim();
-      setError(message && message !== '{}' ? message : t('auth.genericError'));
+      const e = err as Error & { status?: number; code?: string };
+      // Supabase caps how many auth emails (sign-up, reset) go out per hour.
+      // Its raw "email rate limit exceeded" doesn't say what to do next.
+      const rateLimited =
+        e.status === 429 || e.code === 'over_email_send_rate_limit' || /rate limit/i.test(e.message ?? '');
+      const message = e.message?.trim();
+      setError(
+        rateLimited ? t('auth.emailRateLimit') : message && message !== '{}' ? message : t('auth.genericError'),
+      );
     } finally {
       setBusy(false);
     }
