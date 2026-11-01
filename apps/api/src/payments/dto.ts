@@ -14,3 +14,10 @@ export class RecordPaymentDto {
   @MaxLength(120)
   reference?: string;
 }
+
+export class CreateIntentDto {
+  /** Card for the diaspora, mobile money in Cameroon. Omitted = whichever is on. */
+  @IsOptional()
+  @IsIn(['card', 'mobile_money'])
+  method?: 'card' | 'mobile_money';
+}

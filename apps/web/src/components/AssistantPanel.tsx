@@ -1,3 +1,4 @@
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -108,7 +109,7 @@ export function AssistantPanel() {
           type="button"
           onClick={openPanel}
           aria-label={t('assistant.launch')}
-          className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-karu-ink text-karu-cream shadow-lg transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-karu-gold focus-visible:ring-offset-2"
+          className="karu-pop-in fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-surface shadow-lg transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-text focus-visible:ring-offset-2"
         >
           <ChatIcon />
         </button>
@@ -129,7 +130,7 @@ export function AssistantPanel() {
             ref={panelRef}
             tabIndex={-1}
             className={[
-              'absolute flex flex-col bg-karu-cream shadow-lg outline-none',
+              'absolute flex flex-col bg-slate-50 shadow-lg outline-none',
               'inset-x-0 bottom-0 max-h-[85vh] rounded-t-2xl',
               'sm:inset-y-0 sm:right-0 sm:left-auto sm:w-full sm:max-w-[400px] sm:max-h-none sm:rounded-none',
               'transition-transform duration-200 ease-out motion-reduce:transition-none',
@@ -138,20 +139,20 @@ export function AssistantPanel() {
           >
             {/* Drag handle (mobile affordance only) */}
             <div className="flex justify-center pt-2 sm:hidden" aria-hidden="true">
-              <span className="h-1 w-8 rounded-full bg-karu-ink/20" />
+              <span className="h-1 w-8 rounded-full bg-slate-900/20" />
             </div>
 
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-karu-ink/10 px-5 py-4">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
               <div>
-                <p className="font-display text-lg font-bold text-karu-ink">{t('assistant.title')}</p>
-                <p className="text-xs text-karu-mute">{t('assistant.subtitle')}</p>
+                <p className="font-display text-lg font-bold text-slate-900">{t('assistant.title')}</p>
+                <p className="text-xs text-slate-500">{t('assistant.subtitle')}</p>
               </div>
               <button
                 type="button"
                 onClick={closePanel}
                 aria-label={t('assistant.close')}
-                className="flex h-9 w-9 items-center justify-center rounded-full text-karu-brown transition hover:bg-karu-ink/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-karu-gold"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-slate-800 transition hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-text"
               >
                 <CloseIcon />
               </button>
@@ -161,13 +162,13 @@ export function AssistantPanel() {
             <div className="flex-1 overflow-y-auto px-5 py-4">
               {!topic ? (
                 <div className="grid gap-2">
-                  <p className="mb-1 text-sm text-karu-mute">{t('assistant.intro')}</p>
+                  <p className="mb-1 text-sm text-slate-500">{t('assistant.intro')}</p>
                   {topics.map((x) => (
                     <button
                       key={x.id}
                       type="button"
                       onClick={() => setTopicId(x.id)}
-                      className="rounded-md border border-karu-ink/10 bg-white px-4 py-3 text-left text-sm font-medium text-karu-ink transition hover:border-karu-gold focus:outline-none focus-visible:ring-2 focus-visible:ring-karu-gold"
+                      className="rounded-md border border-slate-200 bg-surface px-4 py-3 text-left text-sm font-medium text-slate-900 transition hover:border-brand-text focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-text"
                     >
                       {t(`assistant.topics.${x.id}.q`)}
                     </button>
@@ -178,14 +179,15 @@ export function AssistantPanel() {
                   <button
                     type="button"
                     onClick={() => setTopicId(null)}
-                    className="inline-flex items-center gap-1 text-sm font-semibold text-karu-brown hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-karu-gold"
+                    className="inline-flex items-center gap-1 text-sm font-semibold text-slate-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-text"
                   >
-                    ← {t('assistant.back')}
+                    <ArrowLeft aria-hidden="true" className="h-4 w-4" />
+                    {t('assistant.back')}
                   </button>
-                  <p className="font-display text-lg font-bold text-karu-ink">
+                  <p className="font-display text-lg font-bold text-slate-900">
                     {t(`assistant.topics.${topic.id}.q`)}
                   </p>
-                  <p className="whitespace-pre-line text-sm leading-relaxed text-karu-ink/90">
+                  <p className="whitespace-pre-line text-sm leading-relaxed text-slate-900/90">
                     {answerFor(topic.id)}
                   </p>
                   {topic.links && topic.links.length > 0 && (
@@ -198,7 +200,7 @@ export function AssistantPanel() {
                             closePanel();
                             navigate(l.to);
                           }}
-                          className="rounded-full bg-karu-yellow px-4 py-2 text-sm font-semibold text-karu-ink transition hover:brightness-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-karu-gold focus-visible:ring-offset-2"
+                          className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-on-brand transition-colors hover:bg-brand-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-text focus-visible:ring-offset-2"
                         >
                           {t(l.labelKey)}
                         </button>
@@ -210,16 +212,17 @@ export function AssistantPanel() {
             </div>
 
             {/* Footer — escape hatch to a human / the feedback channel */}
-            <div className="border-t border-karu-ink/10 px-5 py-3">
+            <div className="border-t border-slate-200 px-5 py-3">
               <button
                 type="button"
                 onClick={() => {
                   closePanel();
                   navigate('/feedback');
                 }}
-                className="text-sm font-semibold text-karu-brown hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-karu-gold"
+                className="inline-flex items-center gap-1 text-sm font-semibold text-slate-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-text"
               >
-                {t('assistant.reportCta')} →
+                {t('assistant.reportCta')}
+                <ArrowRight aria-hidden="true" className="h-4 w-4" />
               </button>
             </div>
           </div>

@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, Query } from '@nestjs/common';
 import { CurrentUser, Public, Roles } from '../auth/decorators';
 import { VendorsService } from './vendors.service';
-import { CreateVendorDto, UpdateVendorDto, UploadDocumentDto } from './dto';
+import { CreateVendorDto, NearQuery, UpdateVendorDto, UploadDocumentDto } from './dto';
 
 @Controller('vendors')
 export class VendorsController {
@@ -10,8 +10,12 @@ export class VendorsController {
   /** Public directory of operating vendors (verified + pending). */
   @Public()
   @Get()
-  listPublic() {
-    return this.vendors.listPublic();
+  listPublic(@Query() near: NearQuery) {
+    return this.vendors.listPublic(
+      near.near_lat !== undefined && near.near_lng !== undefined
+        ? { lat: near.near_lat, lng: near.near_lng }
+        : undefined,
+    );
   }
 
   /** Any authenticated user can register as a vendor. */

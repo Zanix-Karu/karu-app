@@ -3,8 +3,13 @@ import { Throttle } from '@nestjs/throttler';
 import type { UserRole } from '@karu/shared';
 import { CurrentUser, Roles } from '../auth/decorators';
 import { BookingsService } from './bookings.service';
+import { InspectionsService } from './inspections.service';
+import { TrackingService } from './tracking.service';
 import {
   CreateBookingDto,
+  InspectionUploadDto,
+  RecordInspectionDto,
+  TrackingPointDto,
   RelayMessageDto,
   RequestAssistanceDto,
   TransitionBookingDto,
@@ -12,7 +17,11 @@ import {
 
 @Controller('bookings')
 export class BookingsController {
-  constructor(private readonly bookings: BookingsService) {}
+  constructor(
+    private readonly bookings: BookingsService,
+    private readonly inspections: InspectionsService,
+    private readonly tracking: TrackingService,
+  ) {}
 
   /**
    * Customers create booking requests. Admins may too — the ops team books on
@@ -99,5 +108,81 @@ export class BookingsController {
   @Patch(':id/assistance/resolve')
   resolveAssistance(@Param('id') id: string) {
     return this.bookings.resolveAssistance(id);
+  }
+
+  // --- condition reports (0030) ---------------------------------------------
+
+  /** Both sides' reports for this booking, with short-lived photo URLs. */
+  @Get(':id/inspections')
+  listInspections(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole,
+  ) {
+    return this.inspections.list(id, userId, role);
+  }
+
+  /** Signed upload URL for one condition photo. */
+  @Throttle({ default: { limit: 40, ttl: 60_000 } })
+  @Post(':id/inspections/upload')
+  inspectionUpload(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole,
+    @Body() dto: InspectionUploadDto,
+  ) {
+    return this.inspections.createPhotoUpload(id, userId, role, dto.file_name);
+  }
+
+  /** Record or replace the caller's report for handover or return. */
+  @Post(':id/inspections')
+  recordInspection(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole,
+    @Body() dto: RecordInspectionDto,
+  ) {
+    return this.inspections.record(id, userId, role, dto);
+  }
+
+  // --- live tracking of the delivery leg (0035) --------------------------------
+
+  @Get(':id/tracking')
+  trackingState(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole,
+  ) {
+    return this.tracking.state(id, userId, role);
+  }
+
+  @Post(':id/tracking/start')
+  trackingStart(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole,
+  ) {
+    return this.tracking.start(id, userId, role);
+  }
+
+  /** A position every ~10 s while the driver's screen is open. */
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Post(':id/tracking')
+  trackingUpdate(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole,
+    @Body() dto: TrackingPointDto,
+  ) {
+    return this.tracking.update(id, userId, role, dto);
+  }
+
+  @Post(':id/tracking/stop')
+  trackingStop(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole,
+  ) {
+    return this.tracking.stop(id, userId, role);
   }
 }

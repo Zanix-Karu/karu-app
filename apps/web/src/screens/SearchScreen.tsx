@@ -1,3 +1,5 @@
+import { ChevronLeft, ChevronRight, CircleAlert, Search as SearchIcon, SearchX } from 'lucide-react';
+import { AnimatedList } from '../components/motion/AnimatedList';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePageMeta } from '../lib/page-meta';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +11,7 @@ import { CATEGORY_LABEL, CITY_LABEL, todayISO } from '../lib/format';
 import { Button, CarCard, Card, Field, Input, Select } from '../ds';
 import { EmptyState, ErrorNote } from '../ui';
 import { SkeletonCarCard } from '../components/Skeleton';
+import { locateMe } from '../components/KaruMap';
 import { useCurrency } from '../lib/currency';
 
 interface Filters {
@@ -90,8 +93,37 @@ export function SearchScreen() {
     setSearchParams(p);
   };
 
+  /**
+   * 0034: "near me". The position lives in memory only, never in the URL:
+   * the address bar is for sharing a search with family, and where someone
+   * is standing is not part of what they meant to share.
+   */
+  const [near, setNear] = useState<{ lat: number; lng: number } | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locateError, setLocateError] = useState(false);
+  const findNearMe = async () => {
+    setLocating(true);
+    setLocateError(false);
+    try {
+      setNear(await locateMe());
+      commit({ ...applied, sort: 'distance' });
+    } catch {
+      setLocateError(true);
+    } finally {
+      setLocating(false);
+    }
+  };
+
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(applied)) if (v) params.set(k, v);
+  if (near) {
+    params.set('near_lat', near.lat.toFixed(4));
+    params.set('near_lng', near.lng.toFixed(4));
+  } else if (applied.sort === 'distance') {
+    // A shared "nearest first" link opened by someone who hasn't shared
+    // their position yet: fall back rather than error.
+    params.set('sort', 'price_asc');
+  }
   params.set('limit', String(PAGE));
   params.set('offset', String(offset));
 
@@ -140,64 +172,56 @@ export function SearchScreen() {
 
   return (
     <div>
-      {/* Espresso search band — the mockup's dark hero strip */}
-      <div
-        style={{
-          background: 'var(--bg-gradient)',
-          borderRadius: 'var(--radius-lg)',
-          padding: '40px 48px',
-          color: 'var(--white)',
-        }}
-      >
-        <h1 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 44 }}>
-          {t('search.heroA')} <span style={{ color: 'var(--yellow)' }}>{t('search.heroB')}</span>
+      {/* Hero, as on NourishwithB's home page: an eyebrow pill, a headline
+          that rises out of a slight blur, then the search card. */}
+      <section className="pb-2 pt-2 sm:pt-6">
+        <span className="headline-in inline-flex items-center gap-2 rounded-full bg-brand-tint px-3.5 py-1.5 text-sm font-semibold text-slate-900">
+          <span className="h-2 w-2 rounded-full bg-brand" aria-hidden="true" />
+          {t('search.eyebrow')}
+        </span>
+        <h1 className="headline-in mt-5 max-w-3xl font-display text-4xl font-bold leading-[1.08] tracking-tight text-slate-900 sm:text-[3.25rem]">
+          {t('search.heroA')} <span className="text-brand-text">{t('search.heroB')}</span>
         </h1>
-        <p style={{ margin: '6px 0 0', fontFamily: 'var(--font-ui)', color: 'var(--text-on-dark-muted)', fontSize: 15 }}>
-          {t('search.sub')}
-        </p>
+        <p className="headline-in-2 mt-4 max-w-xl text-lg leading-relaxed text-slate-600">{t('search.sub')}</p>
 
-        <div
-          style={{
-            marginTop: 26,
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-            gap: 14,
-            alignItems: 'end',
-          }}
-        >
-          <Field label={t('search.keyword')} onDark>
-            <Input
-              value={draft.q}
-              onChange={setAndApplyDebounced('q')}
-              placeholder={t('search.keywordPlaceholder')}
-            />
-          </Field>
-          <Field label={t('search.city')} onDark>
-            <Select value={draft.city} onChange={set('city')}>
-              <option value="">{t('search.allCities')}</option>
-              <option value="douala">Douala</option>
-              <option value="yaounde">Yaoundé</option>
-            </Select>
-          </Field>
-          <Field label={t('search.pickUp')} onDark>
-            <Input type="date" min={todayISO()} value={draft.from} onChange={set('from')} />
-          </Field>
-          <Field label={t('search.return')} onDark>
-            <Input type="date" min={draft.from || todayISO()} value={draft.to} onChange={set('to')} />
-          </Field>
-          <Button variant="primary" onClick={apply} disabled={datesHalfSet} style={{ height: 50 }}>
-            {t('search.searchCars')}
-          </Button>
+        <div className="headline-in-2 mt-8 rounded-2xl border border-slate-200 bg-surface p-4 shadow-sm sm:p-6">
+          <div className="grid items-end gap-4 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr_auto]">
+            <Field label={t('search.keyword')}>
+              <Input
+                value={draft.q}
+                onChange={setAndApplyDebounced('q')}
+                placeholder={t('search.keywordPlaceholder')}
+              />
+            </Field>
+            <Field label={t('search.city')}>
+              <Select value={draft.city} onChange={set('city')}>
+                <option value="">{t('search.allCities')}</option>
+                <option value="douala">Douala</option>
+                <option value="yaounde">Yaoundé</option>
+              </Select>
+            </Field>
+            <Field label={t('search.pickUp')}>
+              <Input type="date" min={todayISO()} value={draft.from} onChange={set('from')} />
+            </Field>
+            <Field label={t('search.return')}>
+              <Input type="date" min={draft.from || todayISO()} value={draft.to} onChange={set('to')} />
+            </Field>
+            <Button variant="primary" onClick={apply} disabled={datesHalfSet} arrow={false} className="min-h-11">
+              <SearchIcon className="h-4 w-4" aria-hidden="true" />
+              {t('search.searchCars')}
+            </Button>
+          </div>
+          {datesHalfSet && (
+            <p role="alert" className="label-in mt-3 flex items-center gap-1.5 text-sm font-medium text-warn">
+              <CircleAlert className="h-4 w-4" aria-hidden="true" />
+              {t('search.bothDates')}
+            </p>
+          )}
         </div>
-        {datesHalfSet && (
-          <p style={{ margin: '10px 0 0', fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--yellow-soft)' }}>
-            {t('search.bothDates')}
-          </p>
-        )}
-      </div>
+      </section>
 
       {/* Sidebar + results — the mockup's 280px/1fr split */}
-      <div className="karu-sidebar-layout" style={{ marginTop: 28 }}>
+      <div className="karu-sidebar-layout" style={{ marginTop: 32 }}>
         <Card pad={24}>
           {/*
             A fieldset/legend so the group announces as "Car type" rather than
@@ -213,11 +237,11 @@ export function SearchScreen() {
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 10,
+                  gap: 12,
                   // >=24px tall: WCAG 2.2 target size. The radio itself is
                   // 13px, so the row carries the hit area.
                   minHeight: 24,
-                  padding: '7px 0',
+                  padding: '8px 0',
                   fontFamily: 'var(--font-ui)',
                   fontWeight: draft.category === value ? 700 : 500,
                   fontSize: 15,
@@ -270,24 +294,35 @@ export function SearchScreen() {
         </Card>
 
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <span style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 15, color: 'var(--gray-500)' }}>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <span className="whitespace-nowrap text-sm font-semibold text-slate-500">
               {data ? t('search.available', { count: total }) : ' '}
             </span>
-            <Select
-              aria-label={t('search.sortBy')}
-              value={applied.sort}
-              onChange={(e) => commit({ ...applied, sort: e.target.value })}
-              style={{ width: 220, padding: '10px 14px' }}
-            >
-              <option value="price_asc">{t('search.sortPriceAsc')}</option>
-              <option value="price_desc">{t('search.sortPriceDesc')}</option>
-              <option value="newest">{t('search.sortNewest')}</option>
-            </Select>
+            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+              <Button variant="outline" size="sm" loading={locating} onClick={findNearMe}>
+                {near ? t('location.nearMeOn') : t('location.nearMe')}
+              </Button>
+              <Select
+                aria-label={t('search.sortBy')}
+                value={near ? applied.sort : applied.sort === 'distance' ? 'price_asc' : applied.sort}
+                onChange={(e) => commit({ ...applied, sort: e.target.value })}
+                className="w-auto min-w-48"
+              >
+                <option value="price_asc">{t('search.sortPriceAsc')}</option>
+                <option value="price_desc">{t('search.sortPriceDesc')}</option>
+                <option value="newest">{t('search.sortNewest')}</option>
+                {near && <option value="distance">{t('location.sortNearest')}</option>}
+              </Select>
+            </div>
           </div>
 
+          {locateError && (
+            <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--danger)', margin: '0 0 12px' }}>
+              {t('location.denied')}
+            </p>
+          )}
           {isLoading && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <SkeletonCarCard />
               <SkeletonCarCard />
               <SkeletonCarCard />
@@ -299,10 +334,11 @@ export function SearchScreen() {
             </ErrorNote>
           )}
           {cars && cars.length === 0 && (
-            <EmptyState title={t('search.noneTitle')} hint={t('search.noneHint')} />
+            <EmptyState Icon={SearchX} title={t('search.noneTitle')} hint={t('search.noneHint')} />
           )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          {/* Results slide to their new places when filters change (Nourish's AnimatedList). */}
+          <AnimatedList className="flex flex-col gap-4">
             {cars?.map((v) => (
               <CarCard
                 key={v.id}
@@ -312,7 +348,11 @@ export function SearchScreen() {
                 category={`${t('search.orSimilar', { category: CATEGORY_LABEL[v.category] })}${v.year ? ` · ${v.year}` : ''}`}
                 seats={v.seats ? t('common.seats', { count: v.seats }) : '—'}
                 transmission={v.transmission === 'automatic' ? t('common.automatic') : t('common.manual')}
-                extra={CITY_LABEL[v.city]}
+                extra={
+                  (v as Vehicle & { distance_km?: number | null }).distance_km != null
+                    ? `${CITY_LABEL[v.city]} · ${t('location.kmAway', { km: (v as Vehicle & { distance_km?: number | null }).distance_km })}`
+                    : CITY_LABEL[v.city]
+                }
                 price={v.daily_rate_xaf}
                 subPrice={t('common.allFeesIn')}
                 perDayLabel={t('common.perDay')}
@@ -325,7 +365,7 @@ export function SearchScreen() {
                 }
               />
             ))}
-          </div>
+          </AnimatedList>
 
           {/* Also shown when offset > 0 even if everything fits one page: now
               that offset lives in the URL, a shared deep link could otherwise
@@ -338,7 +378,8 @@ export function SearchScreen() {
                 disabled={offset === 0}
                 onClick={() => commit(applied, Math.max(0, offset - PAGE))}
               >
-                ← {t('search.prev')}
+                <ChevronLeft aria-hidden="true" className="h-4 w-4" />
+                {t('search.prev')}
               </Button>
               <span style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)' }}>
                 {t('search.showing', {
@@ -353,7 +394,8 @@ export function SearchScreen() {
                 disabled={offset + PAGE >= total}
                 onClick={() => commit(applied, offset + PAGE)}
               >
-                {t('search.next')} →
+                {t('search.next')}
+                <ChevronRight aria-hidden="true" className="h-4 w-4" />
               </Button>
             </div>
           )}

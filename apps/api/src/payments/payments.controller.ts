@@ -9,10 +9,10 @@ import {
   Req,
 } from '@nestjs/common';
 import type { Request } from 'express';
-import type { UserRole } from '@karu/shared';
+import type { PaymentMethod, UserRole } from '@karu/shared';
 import { CurrentUser, Public, Roles } from '../auth/decorators';
 import { PaymentsService } from './payments.service';
-import { RecordPaymentDto } from './dto';
+import { CreateIntentDto, RecordPaymentDto } from './dto';
 
 @Controller()
 export class PaymentsController {
@@ -24,8 +24,9 @@ export class PaymentsController {
     @Param('id') id: string,
     @CurrentUser('id') userId: string,
     @CurrentUser('role') role: UserRole,
+    @Body() dto: CreateIntentDto,
   ) {
-    return this.payments.createDepositIntent(id, userId, role);
+    return this.payments.createDepositIntent(id, userId, role, dto.method);
   }
 
   /** Current deposit state, for anyone who may see the booking. */
@@ -59,6 +60,15 @@ export class PaymentsController {
     // The HMAC is over the exact bytes Stripe sent — never a re-serialisation.
     const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
     const raw = rawBody ? rawBody.toString('utf8') : JSON.stringify(req.body ?? {});
-    return this.payments.handleWebhook(raw, headers);
+    return this.payments.handleWebhook(raw, headers, 'card');
+  }
+
+  /** Notch Pay (mobile money) callback; same rules, its own signature scheme. */
+  @Public()
+  @Post('payments/webhook/notchpay')
+  notchpayWebhook(@Req() req: Request, @Headers() headers: Record<string, string | undefined>) {
+    const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
+    const raw = rawBody ? rawBody.toString('utf8') : JSON.stringify(req.body ?? {});
+    return this.payments.handleWebhook(raw, headers, 'mobile_money' satisfies PaymentMethod);
   }
 }

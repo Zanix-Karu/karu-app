@@ -40,7 +40,7 @@ export function SkeletonCard({ lines = 3 }: { lines?: number }) {
       <Skeleton width="35%" height={12} />
       <Skeleton width="60%" height={20} style={{ marginTop: 12 }} />
       {Array.from({ length: Math.max(0, lines - 2) }).map((_, i) => (
-        <Skeleton key={i} width={i % 2 ? '45%' : '70%'} height={13} style={{ marginTop: 10 }} />
+        <Skeleton key={i} width={i % 2 ? '45%' : '70%'} height={13} style={{ marginTop: 12 }} />
       ))}
     </div>
   );
@@ -61,7 +61,7 @@ export function SkeletonCarCard() {
       <Skeleton height={150} radius="var(--radius-sm)" />
       <div>
         <Skeleton width="55%" height={26} />
-        <Skeleton width="35%" height={14} style={{ marginTop: 10 }} />
+        <Skeleton width="35%" height={14} style={{ marginTop: 12 }} />
         <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
           <Skeleton width={90} height={38} />
           <Skeleton width={90} height={38} />

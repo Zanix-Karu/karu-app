@@ -1,7 +1,11 @@
+import { ThemeStudio } from '../components/ThemeStudio';
+import { Badge, SegmentPill, segmentButton, segmentWrap } from '../ds';
+import { Upload } from 'lucide-react';
+import { Archive, CalendarCheck, Car as CarIcon, LayoutDashboard, Palette, type LucideIcon, Flag, CalendarDays, FileText, IdCard, Mail, Megaphone, MessagesSquare, Store } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { isBookingArchived, type Booking, type BookingStatus, type Vehicle, type Vendor } from '@karu/shared';
 import { api } from '../lib/api';
 import { PhotoStrip } from '../components/PhotoStrip';
@@ -18,25 +22,16 @@ import {
   Spinner,
   StatusBadge,
 } from '../ui';
+import { useToast } from '../components/Toast';
+import { Tooltip } from '../components/Controls';
 
-type Tab = 'overview' | 'vendors' | 'documents' | 'cars' | 'bookings' | 'chats' | 'feedback' | 'emails';
-
-const TAB_PATH: Record<Tab, string> = {
-  overview: '/admin',
-  vendors: '/admin/vendors',
-  documents: '/admin/documents',
-  cars: '/admin/cars',
-  bookings: '/admin/bookings',
-  chats: '/admin/chats',
-  feedback: '/admin/feedback',
-  emails: '/admin/emails',
-};
+type Tab = 'overview' | 'vendors' | 'documents' | 'ids' | 'cars' | 'bookings' | 'chats' | 'feedback' | 'emails' | 'appearance';
 
 /** Tab comes from the URL so the header nav and the console agree. */
 function tabFromPath(pathname: string): Tab {
   const rest = pathname.replace(/^\/admin\/?/, '');
   return (
-    (['vendors', 'documents', 'cars', 'bookings', 'chats', 'feedback', 'emails'] as Tab[]).find(
+    (['vendors', 'documents', 'ids', 'cars', 'bookings', 'chats', 'feedback', 'emails', 'appearance'] as Tab[]).find(
       (t) => rest.startsWith(t),
     ) ?? 'overview'
   );
@@ -45,43 +40,40 @@ function tabFromPath(pathname: string): Tab {
 export function AdminScreen() {
   const { t } = useTranslation();
   const location = useLocation();
-  const navigate = useNavigate();
   const tab = tabFromPath(location.pathname);
 
-  const tabBtn = (t: Tab, label: string) => (
-    <button
-      key={t}
-      onClick={() => navigate(TAB_PATH[t])}
-      className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
-        tab === t ? 'bg-karu-ink text-karu-cream' : 'text-karu-brown hover:bg-karu-ink/5'
-      }`}
-    >
-      {label}
-    </button>
-  );
+  const HEAD: Record<Tab, LucideIcon> = {
+    overview: LayoutDashboard, vendors: Store, documents: FileText, ids: IdCard, cars: CarIcon,
+    bookings: CalendarCheck, chats: MessagesSquare, feedback: Megaphone, emails: Mail, appearance: Palette,
+  };
+  const HeadIcon = HEAD[tab];
 
+  // The sections are in the sidebar (AdminShell); each page gets Nourish's
+  // admin header: an icon tile, the title and one line on what it's for.
   return (
-    <div>
-      <h1 className="font-display text-3xl font-bold">{t('admin.title')}</h1>
-      <div className="mt-4 flex flex-wrap gap-2">
-        {tabBtn('overview', t('admin.tabs.overview'))}
-        {tabBtn('vendors', t('admin.tabs.vendors'))}
-        {tabBtn('documents', t('admin.tabs.documents'))}
-        {tabBtn('cars', t('admin.tabs.cars'))}
-        {tabBtn('bookings', t('admin.tabs.bookings'))}
-        {tabBtn('chats', t('admin.tabs.chats'))}
-        {tabBtn('feedback', t('admin.tabs.feedback'))}
-        {tabBtn('emails', t('admin.tabs.emails'))}
-      </div>
-      <div className="mt-6">
+    <div className="space-y-6">
+      {tab !== 'appearance' && (
+        <header className="flex items-start gap-3">
+          <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-tint text-brand-text">
+            <HeadIcon className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div>
+            <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900">{t(`admin.nav.${tab}.label`)}</h1>
+            <p className="mt-1 max-w-2xl text-sm text-slate-500">{t(`admin.nav.${tab}.hint`)}</p>
+          </div>
+        </header>
+      )}
+      <div>
         {tab === 'overview' && <Overview />}
         {tab === 'vendors' && <Vendors />}
         {tab === 'documents' && <Documents />}
+        {tab === 'ids' && <CustomerIds />}
         {tab === 'cars' && <Cars />}
         {tab === 'bookings' && <Bookings />}
         {tab === 'chats' && <Chats />}
         {tab === 'feedback' && <Feedback />}
         {tab === 'emails' && <EmailLog />}
+        {tab === 'appearance' && <ThemeStudio />}
       </div>
     </div>
   );
@@ -103,6 +95,13 @@ interface OverviewData {
   /** ...expiring within docExpiryWarningDays, not yet expired. */
   documentsExpiringSoon: number;
   docExpiryWarningDays: number;
+  /** 0030: providers cancelling accepted bookings repeatedly. */
+  vendorsCancelling: Array<{ id: string; business_name: string; cancellations: number }>;
+  /** 0030: conversations with talk of moving the deal off Karu. */
+  flaggedConversations: number;
+  reliabilityWindowDays: number;
+  /** 0032: customer ID checks waiting on review. */
+  pendingVerifications: number;
 }
 
 function Overview() {
@@ -125,10 +124,10 @@ function Overview() {
 
   const stat = (label: string, value: number, urgent = false) => (
     <Card className="p-5">
-      <p className={`font-display text-4xl font-bold ${urgent && value > 0 ? 'text-karu-terracotta' : ''}`}>
+      <p className={`font-display text-4xl font-bold ${urgent && value > 0 ? 'text-danger' : ''}`}>
         {value}
       </p>
-      <p className="mt-1 text-sm text-karu-mute">{label}</p>
+      <p className="mt-1 text-sm text-slate-500">{label}</p>
     </Card>
   );
 
@@ -154,17 +153,32 @@ function Overview() {
       }),
     data.pendingDocuments > 0 &&
       t('admin.overview.alertDocuments', { count: data.pendingDocuments }),
+    data.pendingVerifications > 0 &&
+      t('admin.overview.alertCustomerIds', { count: data.pendingVerifications }),
     data.pendingVendors > 0 &&
       t('admin.overview.alertVendors', { count: data.pendingVendors }),
     unansweredChats > 0 && t('admin.overview.alertChats', { count: unansweredChats }),
+    // 0030: cheating signals. Each is "go and look", never a verdict.
+    ...(data.vendorsCancelling ?? []).map((v) =>
+      t('admin.overview.alertVendorCancelling', {
+        name: v.business_name,
+        count: v.cancellations,
+        days: data.reliabilityWindowDays,
+      }),
+    ),
+    data.flaggedConversations > 0 &&
+      t('admin.overview.alertFlaggedChats', {
+        count: data.flaggedConversations,
+        days: data.reliabilityWindowDays,
+      }),
   ].filter(Boolean) as string[];
 
   return (
     <div className="space-y-4">
       {alerts.length > 0 && (
-        <Card className="border-l-4 border-karu-terracotta p-4">
+        <Card className="border-l-4 border-danger p-4">
           <p className="text-sm font-semibold">{t('admin.overview.needsAttention')}</p>
-          <ul className="mt-2 space-y-1 text-sm text-karu-mute">
+          <ul className="mt-2 space-y-1 text-sm text-slate-500">
             {alerts.map((a) => (
               <li key={a}>{a}</li>
             ))}
@@ -179,6 +193,127 @@ function Overview() {
         {stat(t('admin.overview.activeCars'), data.activeVehicles)}
         {stat(t('admin.overview.customers'), data.customers)}
       </div>
+    </div>
+  );
+}
+
+// --- Customer ID checks (0032) ------------------------------------------------
+
+interface CustomerIdCheck {
+  id: string;
+  full_name: string | null;
+  verification_status: string;
+  verification_note: string | null;
+  date_of_birth: string | null;
+  licence_expires_at: string | null;
+  updated_at: string;
+  documents: Array<{ type: string; url: string | null }>;
+}
+
+/**
+ * The ID queue. The reviewer checks that the licence and ID name the same
+ * person as the selfie shows, and that the typed date of birth and licence
+ * expiry match what is printed. Rejections need a note, which the customer
+ * sees on their profile.
+ */
+function CustomerIds() {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const [status, setStatus] = useState('pending');
+  const [rejecting, setRejecting] = useState<string | null>(null);
+  const [note, setNote] = useState('');
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['admin-ids', status],
+    queryFn: () => api<CustomerIdCheck[]>(`/admin/verifications?status=${status}`),
+  });
+  const review = useMutation({
+    mutationFn: ({ id, decision, note }: { id: string; decision: 'verified' | 'rejected'; note?: string }) =>
+      api(`/admin/verifications/${id}`, { method: 'PATCH', body: JSON.stringify({ decision, note }) }),
+    onSuccess: () => {
+      setRejecting(null);
+      setNote('');
+      void qc.invalidateQueries({ queryKey: ['admin-ids'] });
+      void qc.invalidateQueries({ queryKey: ['admin-overview'] });
+    },
+  });
+
+  return (
+    <div>
+      <Field label={t('admin.filterStatus')} className="max-w-48">
+        <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+          {(['pending', 'verified', 'rejected', 'unverified'] as const).map((s) => (
+            <option key={s} value={s}>
+              {t(`verify.status.${s}`)}
+            </option>
+          ))}
+        </Select>
+      </Field>
+
+      {isLoading && <Spinner />}
+      {error && <ErrorNote>{(error as Error).message}</ErrorNote>}
+      {data?.length === 0 && <EmptyState Icon={IdCard} title={t('admin.ids.none')} />}
+
+      <div className="mt-4 space-y-4 karu-stagger">
+        {data?.map((p) => (
+          <Card key={p.id} className="p-5">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <p className="font-semibold">{p.full_name ?? t('admin.ids.noName')}</p>
+              <p className="text-xs text-slate-500">
+                {t('verify.dob')}: {p.date_of_birth ?? '—'} · {t('verify.licenceExpiry')}: {p.licence_expires_at ?? '—'}
+              </p>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+              {p.documents.map((d) => (
+                <a
+                  key={d.type}
+                  href={d.url ?? undefined}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block rounded-lg border border-slate-200 p-1 text-center text-xs"
+                >
+                  {d.url && !/\.pdf(\?|$)/i.test(d.url) ? (
+                    <img src={d.url} alt={t(`verify.doc.${d.type}`)} className="aspect-[4/3] w-full rounded object-cover" />
+                  ) : (
+                    <span className="grid aspect-[4/3] place-items-center rounded bg-slate-100">PDF</span>
+                  )}
+                  <span className="mt-1 block">{t(`verify.doc.${d.type}`)}</span>
+                </a>
+              ))}
+            </div>
+            {p.verification_status === 'pending' &&
+              (rejecting === p.id ? (
+                <form
+                  className="mt-3 flex flex-wrap items-end gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    review.mutate({ id: p.id, decision: 'rejected', note: note.trim() });
+                  }}
+                >
+                  <Field label={t('admin.ids.rejectReason')} className="min-w-64 flex-1">
+                    <Input value={note} onChange={(e) => setNote(e.target.value)} autoFocus />
+                  </Field>
+                  <Button type="submit" variant="danger" disabled={!note.trim() || review.isPending}>
+                    {t('admin.ids.reject')}
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={() => setRejecting(null)}>
+                    {t('common.cancel')}
+                  </Button>
+                </form>
+              ) : (
+                <div className="mt-3 flex gap-2">
+                  <Button disabled={review.isPending} onClick={() => review.mutate({ id: p.id, decision: 'verified' })}>
+                    {t('admin.ids.approve')}
+                  </Button>
+                  <Button variant="danger" disabled={review.isPending} onClick={() => setRejecting(p.id)}>
+                    {t('admin.ids.reject')}
+                  </Button>
+                </div>
+              ))}
+            {p.verification_note && <p className="mt-2 text-sm text-danger">{p.verification_note}</p>}
+          </Card>
+        ))}
+      </div>
+      {review.isError && <ErrorNote>{(review.error as Error).message}</ErrorNote>}
     </div>
   );
 }
@@ -240,7 +375,7 @@ function Vendors() {
   });
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+    <div className="grid gap-6 xl:grid-cols-[1fr_340px] xl:items-start">
       <div>
         <Field label={t('admin.filterStatus')} className="max-w-48">
           <Select value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -253,18 +388,18 @@ function Vendors() {
         </Field>
 
         {isLoading && <Spinner />}
-        {data?.length === 0 && <EmptyState title={t('admin.vendors.none')} />}
+        {data?.length === 0 && <EmptyState Icon={Store} title={t('admin.vendors.none')} />}
         <div className="mt-4 space-y-3">
           {data?.map((v) => (
             <Card key={v.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
               <div>
                 <p className="font-semibold">{v.business_name}</p>
-                <p className="text-xs text-karu-mute">
+                <p className="text-xs text-slate-500">
                   {CITY_LABEL[v.city]} · {v.contact_email ?? t('admin.vendors.noEmail')} ·{' '}
                   {v.contact_phone ?? t('admin.vendors.noPhone')}
                 </p>
                 {v.status === 'suspended' && v.suspension_reason && (
-                  <p className="mt-1 text-xs text-karu-terracotta">
+                  <p className="mt-1 text-xs text-danger">
                     {t('admin.vendors.suspensionReason', { reason: v.suspension_reason })}
                   </p>
                 )}
@@ -302,9 +437,7 @@ function Vendors() {
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-karu-ink/5 px-2.5 py-0.5 text-xs font-semibold">
-                    {t(`vendor.status.${v.status}`)}
-                  </span>
+                  <Badge variant={VENDOR_STATUS_VARIANT[v.status]}>{t(`vendor.status.${v.status}`)}</Badge>
                   {v.status !== 'verified' && (
                     <Button onClick={() => setVendorStatus.mutate({ id: v.id, status: 'verified' })}>
                       {t('admin.vendors.verify')}
@@ -335,7 +468,7 @@ function Vendors() {
 
       <Card className="h-fit p-5">
         <h2 className="font-display text-lg font-bold">{t('admin.vendors.onboardTitle')}</h2>
-        <p className="mt-1 text-xs text-karu-mute">{t('admin.vendors.onboardSub')}</p>
+        <p className="mt-1 text-xs text-slate-500">{t('admin.vendors.onboardSub')}</p>
         <form
           className="mt-4 space-y-3"
           onSubmit={(e: FormEvent) => {
@@ -437,6 +570,7 @@ const FLAG_KEY: Record<string, string> = {
 
 function Documents() {
   const { t } = useTranslation();
+  const toast = useToast();
   const qc = useQueryClient();
   const [status, setStatus] = useState('pending');
   const [opening, setOpening] = useState<string | null>(null);
@@ -474,7 +608,7 @@ function Documents() {
       </Field>
 
       {isLoading && <Spinner />}
-      {data?.length === 0 && <EmptyState title={t('admin.docs.none')} hint={t('admin.docs.noneHint')} />}
+      {data?.length === 0 && <EmptyState Icon={FileText} title={t('admin.docs.none')} hint={t('admin.docs.noneHint')} />}
 
       <div className="mt-4 space-y-3">
         {data?.map((d) => (
@@ -483,7 +617,7 @@ function Documents() {
               <p className="font-semibold">
                 {t(`vendor.docs.type.${d.type}`)} — {d.vendors?.business_name ?? t('admin.docs.unknownVendor')}
               </p>
-              <p className="text-xs text-karu-mute">
+              <p className="text-xs text-slate-500">
                 {d.vehicles && (
                   <>
                     {d.vehicles.make} {d.vehicles.model}
@@ -519,7 +653,7 @@ function Documents() {
                     const { url } = await api<{ url: string }>(`/admin/documents/${d.id}/download`);
                     window.open(url, '_blank', 'noopener');
                   } catch (err) {
-                    window.alert((err as Error).message);
+                    toast((err as Error).message, 'error');
                   } finally {
                     setOpening(null);
                   }
@@ -671,7 +805,7 @@ function Cars() {
   });
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+    <div className="grid gap-6 xl:grid-cols-[1fr_340px] xl:items-start">
       <div>
         {isLoading && <Spinner />}
         <div className="space-y-3">
@@ -681,20 +815,14 @@ function Cars() {
                 <p className="font-semibold">
                   {c.make} {c.model} {c.year ?? ''}
                 </p>
-                <p className="text-xs text-karu-mute">
+                <p className="text-xs text-slate-500">
                   {vendors?.find((v) => v.id === c.vendor_id)?.business_name ?? '—'} ·{' '}
                   {CITY_LABEL[c.city]} · {CATEGORY_LABEL[c.category]} · {xaf(c.daily_rate_xaf)}/
                   {t('vendor.cars.dayShort')} · {t('admin.cars.photos', { count: c.photos.length })}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                    c.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-karu-ink/5 text-karu-mute'
-                  }`}
-                >
-                  {t(`vendor.cars.status.${c.status}`)}
-                </span>
+                <Badge variant={c.status === 'active' ? 'success' : 'neutral'}>{t(`vendor.cars.status.${c.status}`)}</Badge>
                 <Button
                   variant={c.status === 'active' ? 'outline' : 'primary'}
                   disabled={setStatus.isPending}
@@ -715,7 +843,8 @@ function Cars() {
                     <ErrorNote>{(setStatus.error as Error).message}</ErrorNote>
                   </div>
                 )}
-                <label className="cursor-pointer rounded-full border-[1.5px] border-karu-ink px-4 py-1.5 text-sm font-semibold hover:bg-karu-ink hover:text-karu-cream">
+                <label className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-slate-300 bg-surface px-4 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-50 focus-within:ring-2 focus-within:ring-brand-text">
+                  <Upload className="h-4 w-4" aria-hidden="true" />
                   {uploadPhoto.isPending ? t('admin.cars.uploading') : t('admin.cars.photo')}
                   <input
                     type="file"
@@ -888,7 +1017,7 @@ function Cars() {
               </Field>
             )}
           </div>
-          <Field label="Pick-up points (comma-separated)">
+          <Field label={t('admin.cars.pickupPoints')}>
             <Input
               value={form.pickup_locations}
               onChange={(e) => setForm({ ...form, pickup_locations: e.target.value })}
@@ -915,14 +1044,14 @@ function Cars() {
 
 const NEXT_ACTIONS: Partial<Record<BookingStatus, Array<{ to: BookingStatus; label: string; danger?: boolean }>>> = {
   requested: [
-    { to: 'confirmed', label: 'Confirm' },
-    { to: 'rejected', label: 'Reject', danger: true },
+    { to: 'confirmed', label: 'confirm' },
+    { to: 'rejected', label: 'reject', danger: true },
   ],
   confirmed: [
-    { to: 'in_progress', label: 'Start trip' },
-    { to: 'cancelled', label: 'Cancel', danger: true },
+    { to: 'in_progress', label: 'startTrip' },
+    { to: 'cancelled', label: 'cancel', danger: true },
   ],
-  in_progress: [{ to: 'completed', label: 'Complete' }],
+  in_progress: [{ to: 'completed', label: 'complete' }],
 };
 
 // --- Chats ------------------------------------------------------------------
@@ -936,6 +1065,8 @@ interface Conversation {
   message_count: number;
   unread_count: number;
   any_redacted: boolean;
+  /** 0030: off-platform flags raised anywhere in the thread. */
+  flags?: string[];
   last_message: { sender_role: string; body: string; created_at: string } | null;
 }
 
@@ -951,6 +1082,7 @@ const SENDER_LABEL: Record<string, string> = {
  * posts into the same thread as Karu Support.
  */
 function Chats() {
+  const { t } = useTranslation();
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-conversations'],
     queryFn: () => api<Conversation[]>('/admin/conversations'),
@@ -963,21 +1095,21 @@ function Chats() {
   if (isLoading) return <Spinner />;
   if (error) return <ErrorNote>{(error as Error).message}</ErrorNote>;
   if (!data || data.length === 0) {
-    return <EmptyState title="No conversations yet" />;
+    return <EmptyState Icon={MessagesSquare} title={t('admin.chats.none')} />;
   }
 
   return (
     <div className="space-y-3">
       {data.map((c) => (
         <Link key={c.booking_id} to={`/bookings/${c.booking_id}`} className="block">
-          <Card className="flex flex-wrap items-center justify-between gap-3 p-4 transition hover:bg-karu-ink/5">
+          <Card className="flex flex-wrap items-center justify-between gap-3 p-4 transition hover:bg-slate-100">
             <div className="min-w-0">
-              <p className="font-mono text-xs text-karu-mute">{c.reference ?? c.booking_id}</p>
+              <p className="font-mono text-xs text-slate-500">{c.reference ?? c.booking_id}</p>
               <p className="mt-0.5 font-semibold">
                 {c.customer_name} ↔ {c.vendor_name}
               </p>
               {c.last_message && (
-                <p className="mt-0.5 max-w-xl truncate text-sm text-karu-mute">
+                <p className="mt-0.5 max-w-xl truncate text-sm text-slate-500">
                   {SENDER_LABEL[c.last_message.sender_role] ?? c.last_message.sender_role}:{' '}
                   {c.last_message.body}
                 </p>
@@ -985,20 +1117,32 @@ function Chats() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {c.unread_count > 0 && (
-                <span className="rounded-full bg-karu-terracotta px-2.5 py-0.5 text-xs font-bold text-white">
+                <span className="rounded-full bg-danger px-2.5 py-0.5 text-xs font-bold text-white">
                   {c.unread_count} new
                 </span>
               )}
               {c.any_redacted && (
                 <span
-                  className="rounded-full bg-karu-yellow/40 px-2.5 py-0.5 text-xs font-semibold text-karu-brown"
-                  title="Contact details were removed from at least one message in this thread"
+                  className="rounded-full bg-brand-tint px-2.5 py-0.5 text-xs font-semibold text-slate-800"
+                  title={t('admin.chats.redactionsTitle')}
                 >
-                  redactions
+                  {t('admin.chats.redactions')}
                 </span>
               )}
-              <span className="text-xs text-karu-mute">
-                {c.message_count} message{c.message_count === 1 ? '' : 's'}
+              {(c.flags ?? []).map((f) => (
+                <Tooltip key={f} content={t('admin.chats.flagHint')}>
+                  <span
+                    // Focusable so keyboard users can reach the explanation too.
+                    tabIndex={0}
+                    className="inline-flex items-center gap-1 rounded-full bg-danger/15 px-2.5 py-0.5 text-xs font-semibold text-danger"
+                  >
+                    <Flag aria-hidden="true" className="h-3 w-3" />
+                    {t(`admin.chats.flag.${f}`, { defaultValue: f })}
+                  </span>
+                </Tooltip>
+              ))}
+              <span className="text-xs text-slate-500">
+                {t('admin.chats.messages', { count: c.message_count })}
               </span>
               <StatusBadge status={c.booking_status} />
             </div>
@@ -1036,9 +1180,9 @@ function Bookings() {
   return (
     <div>
       <div className="flex flex-wrap items-end gap-4">
-        <Field label="Filter by status" className="max-w-48">
+        <Field label={t('admin.bookingsList.filterStatus')} className="max-w-48">
           <Select value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="">All</option>
+            <option value="">{t('admin.all')}</option>
             {['requested', 'confirmed', 'in_progress', 'completed', 'rejected', 'cancelled'].map((s) => (
               <option key={s} value={s}>
                 {t(`status.${s}`)}
@@ -1046,43 +1190,37 @@ function Bookings() {
             ))}
           </Select>
         </Field>
-        <div className="flex gap-2 pb-1">
+        <div className={segmentWrap}>
           {(['active', 'archived'] as const).map((k) => (
-            <button
-              key={k}
-              type="button"
-              onClick={() => setTab(k)}
-              className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
-                tab === k ? 'bg-karu-ink text-karu-cream' : 'text-karu-brown hover:bg-karu-ink/5'
-              }`}
-            >
-              {k === 'active' ? 'Active' : 'Archived'}
+            <button key={k} type="button" aria-pressed={tab === k} onClick={() => setTab(k)} className={segmentButton(tab === k)}>
+              {tab === k && <SegmentPill group="admin-bookings" />}
+              {k === 'active' ? t('admin.bookingsList.active') : t('admin.bookingsList.archived')}
             </button>
           ))}
         </div>
       </div>
 
       {isLoading && <Spinner />}
-      {data?.length === 0 && <EmptyState title="No bookings" />}
+      {data?.length === 0 && <EmptyState Icon={CalendarDays} title={t('admin.bookingsList.none')} />}
       {data && data.length > 0 && shown.length === 0 && (
-        <EmptyState title={tab === 'archived' ? 'Nothing archived' : 'Nothing active'} />
+        <EmptyState Icon={Archive} title={tab === 'archived' ? t('admin.bookingsList.noneArchived') : t('admin.bookingsList.noneActive')} />
       )}
 
       <div className="mt-4 space-y-3">
         {shown.map((b) => (
           <Card key={b.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
             <div>
-              <p className="font-mono text-xs text-karu-mute">{b.reference ?? b.id}</p>
+              <p className="font-mono text-xs text-slate-500">{b.reference ?? b.id}</p>
               <p className="mt-0.5 font-semibold">
                 {prettyDate(b.start_date)} → {prettyDate(b.end_date)} · {xaf(b.total_xaf)}
               </p>
-              {b.customer_note && <p className="text-xs text-karu-mute">“{b.customer_note}”</p>}
+              {b.customer_note && <p className="text-xs text-slate-500">“{b.customer_note}”</p>}
 
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge status={b.status} />
               <Link to={`/bookings/${b.id}`}>
-                <Button variant="outline">View details</Button>
+                <Button variant="outline">{t('admin.bookingsList.viewDetails')}</Button>
               </Link>
               {NEXT_ACTIONS[b.status]?.map((a) => (
                 <Button
@@ -1091,7 +1229,7 @@ function Bookings() {
                   disabled={transition.isPending}
                   onClick={() => transition.mutate({ id: b.id, to: a.to })}
                 >
-                  {a.label}
+                  {t(`vendor.actions.${a.label}`)}
                 </Button>
               ))}
             </div>
@@ -1121,11 +1259,18 @@ interface AdminFeedback {
   created_at: string;
 }
 
-const FEEDBACK_STATUS_STYLE: Record<AdminFeedback['status'], string> = {
-  new: 'bg-karu-amber/20 text-karu-brown',
-  triaging: 'bg-blue-100 text-blue-800',
-  resolved: 'bg-green-100 text-green-800',
-};
+const FEEDBACK_STATUS_VARIANT = {
+  new: 'upcoming',
+  triaging: 'warning',
+  resolved: 'success',
+} as const satisfies Record<AdminFeedback['status'], string>;
+
+const VENDOR_STATUS_VARIANT = {
+  pending: 'warning',
+  verified: 'success',
+  rejected: 'danger',
+  suspended: 'danger',
+} as const;
 
 function Feedback() {
   const { t } = useTranslation();
@@ -1155,7 +1300,7 @@ function Feedback() {
 
       {isLoading && <Spinner />}
       {data?.length === 0 && (
-        <EmptyState title={t('admin.feedback.none')} hint={t('admin.feedback.noneHint')} />
+        <EmptyState Icon={Megaphone} title={t('admin.feedback.none')} hint={t('admin.feedback.noneHint')} />
       )}
 
       <div className="mt-4 space-y-3">
@@ -1163,12 +1308,12 @@ function Feedback() {
           <Card key={f.id} className="p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-xs uppercase tracking-wide text-karu-mute">
+                <p className="text-xs uppercase tracking-wide text-slate-500">
                   {t(`feedback.categories.${f.category}`)} · {t(`admin.feedback.role.${f.author_role}`)}
                   {f.author?.full_name ? ` · ${f.author.full_name}` : ''} · {prettyDate(f.created_at)}
                   {f.page ? ` · ${f.page}` : ''}
                 </p>
-                <p className="mt-1 whitespace-pre-wrap text-sm text-karu-ink">{f.message}</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-slate-900">{f.message}</p>
                 {f.image_urls.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {f.image_urls.map((url, i) => (
@@ -1179,11 +1324,7 @@ function Feedback() {
                   </div>
                 )}
               </div>
-              <span
-                className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${FEEDBACK_STATUS_STYLE[f.status]}`}
-              >
-                {t(`feedback.statuses.${f.status}`)}
-              </span>
+              <Badge variant={FEEDBACK_STATUS_VARIANT[f.status]}>{t(`feedback.statuses.${f.status}`)}</Badge>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               {(['new', 'triaging', 'resolved'] as const)
@@ -1255,7 +1396,7 @@ function EmailLog() {
 
       {isLoading && <Spinner />}
       {error && <ErrorNote>{(error as Error).message}</ErrorNote>}
-      {data?.length === 0 && <EmptyState title={t('admin.emails.none')} />}
+      {data?.length === 0 && <EmptyState Icon={Mail} title={t('admin.emails.none')} />}
 
       <div className="mt-4 space-y-2">
         {data?.map((row) => (
@@ -1266,16 +1407,16 @@ function EmailLog() {
                   {row.template}
                   {row.bookings?.reference ? ` · ${row.bookings.reference}` : ''}
                 </p>
-                <p className="text-xs text-karu-mute">
+                <p className="text-xs text-slate-500">
                   {t('admin.emails.to', { recipient: row.recipient })} · {row.locale} · {prettyDate(row.created_at)}
                 </p>
                 {row.error && (
-                  <p className="mt-1 font-mono text-xs text-karu-terracotta">{row.error}</p>
+                  <p className="mt-1 font-mono text-xs text-danger">{row.error}</p>
                 )}
               </div>
               <span
                 className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${
-                  row.status === 'failed' ? 'bg-karu-terracotta/15 text-karu-terracotta' : 'bg-green-100 text-green-800'
+                  row.status === 'failed' ? 'bg-danger/15 text-danger' : 'bg-success-tint text-success'
                 }`}
               >
                 {t(`admin.emails.status${row.status === 'failed' ? 'Failed' : 'Sent'}`)}

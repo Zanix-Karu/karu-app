@@ -1,3 +1,4 @@
+import { Archive, CalendarDays, Search } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -7,6 +8,8 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { prettyDate, xaf } from '../lib/format';
 import { ReviewForm } from '../components/ReviewForm';
+import { SegmentPill, segmentButton, segmentWrap } from '../ds';
+import { AnimatedList } from '../components/motion/AnimatedList';
 import { ReceivedReview } from '../components/ReceivedReview';
 import { Skeleton, SkeletonCard } from '../components/Skeleton';
 import { ConfirmButton } from '../components/ConfirmButton';
@@ -82,8 +85,8 @@ export function BookingsScreen() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-3xl">
-        <h1 className="font-display text-3xl font-bold">{t('booking.myBookings')}</h1>
+      <div className="max-w-4xl">
+        <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{t('booking.myBookings')}</h1>
         <div className="mt-6 space-y-4">
           <SkeletonCard lines={3} />
           <SkeletonCard lines={3} />
@@ -94,60 +97,74 @@ export function BookingsScreen() {
   if (error) return <ErrorNote>{(error as Error).message}</ErrorNote>;
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <h1 className="font-display text-3xl font-bold">{t('booking.myBookings')}</h1>
+    <div className="max-w-4xl">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{t('booking.myBookings')}</h1>
+        </div>
+        <Link
+          to="/search"
+          className="inline-flex min-h-11 items-center gap-2 rounded-full bg-brand px-5 text-sm font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-text focus-visible:ring-offset-2"
+        >
+          <Search className="h-4 w-4" aria-hidden="true" />
+          {t('nav.findCar')}
+        </Link>
+      </header>
 
       {data && data.length > 0 && (
-        <div className="mt-4 flex gap-2">
-          <button
-            type="button"
-            onClick={() => setTab('active')}
-            className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
-              tab === 'active' ? 'bg-karu-ink text-karu-cream' : 'text-karu-brown hover:bg-karu-ink/5'
-            }`}
-          >
+        <div className={`mt-6 ${segmentWrap}`}>
+          <button type="button" aria-pressed={tab === 'active'} onClick={() => setTab('active')} className={segmentButton(tab === 'active')}>
+            {tab === 'active' && <SegmentPill group="bookings" />}
             {t('booking.tabActive')}
           </button>
-          <button
-            type="button"
-            onClick={() => setTab('archived')}
-            className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
-              tab === 'archived' ? 'bg-karu-ink text-karu-cream' : 'text-karu-brown hover:bg-karu-ink/5'
-            }`}
-          >
+          <button type="button" aria-pressed={tab === 'archived'} onClick={() => setTab('archived')} className={segmentButton(tab === 'archived')}>
+            {tab === 'archived' && <SegmentPill group="bookings" />}
             {t('booking.tabArchived')} ({archivedCount})
           </button>
         </div>
       )}
 
       {data && data.length === 0 && (
-        <EmptyState title={t('booking.noneTitle')} hint={t('booking.noneHint')} />
+        <EmptyState
+          Icon={CalendarDays}
+          title={t('booking.noneTitle')}
+          hint={t('booking.noneHint')}
+          action={
+            <Link
+              to="/search"
+              className="karu-btn inline-flex items-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-on-brand"
+            >
+              <Search aria-hidden="true" className="h-4 w-4" />
+              {t('nav.findCar')}
+            </Link>
+          }
+        />
       )}
       {data && data.length > 0 && shown.length === 0 && (
-        <EmptyState
+        <EmptyState Icon={Archive}
           title={tab === 'archived' ? t('booking.noneArchivedTitle') : t('booking.noneTitle')}
           hint={tab === 'archived' ? t('booking.noneArchivedHint') : t('booking.noneHint')}
         />
       )}
 
-      <div className="mt-6 space-y-4">
+      <AnimatedList className="mt-6 space-y-4">
         {shown.map((b) => {
           const action = CUSTOMER_ACTIONS[b.status];
           return (
             <Card key={b.id} className="p-5">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                  <p className="font-mono text-xs text-karu-mute">{b.reference ?? b.id}</p>
+                  <p className="font-mono text-xs text-slate-500">{b.reference ?? b.id}</p>
                   <p className="mt-1 font-semibold">
                     {prettyDate(b.start_date)} → {prettyDate(b.end_date)}
                   </p>
-                  <p className="text-sm text-karu-mute">
+                  <p className="text-sm text-slate-500">
                     {xaf(b.total_xaf)}
                     {b.pickup_location ? ` · ${b.pickup_location}` : ''}
                   </p>
                   <Link
                     to={`/bookings/${b.id}`}
-                    className="mt-1 inline-block text-xs font-semibold text-karu-brown underline"
+                    className="mt-1 inline-block text-xs font-semibold text-slate-800 underline"
                   >
                     {t('common.viewDetails')}
                   </Link>
@@ -185,7 +202,7 @@ export function BookingsScreen() {
             </Card>
           );
         })}
-      </div>
+      </AnimatedList>
 
       {cancel.isError && (
         <div className="mt-4">

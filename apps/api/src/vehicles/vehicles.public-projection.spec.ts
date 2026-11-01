@@ -80,3 +80,38 @@ describe('public vehicle projection', () => {
     expect(selects[0]).not.toMatch(/^\*/);
   });
 });
+
+/**
+ * 0034: the provider's exact base is read for distances but must never ship
+ * on a public route. These assert on the response, since the select has to
+ * ask for lat/lng to do the maths.
+ */
+describe('public vehicle projection — provider location', () => {
+  const pinned = {
+    ...ROW,
+    vendors: { id: 'ven1', business_name: 'Test', status: 'verified', lat: 4.051123, lng: 9.708547 },
+  };
+
+  it('getPublicDetail() rounds the base to about a kilometre and drops the exact pin', async () => {
+    const { supabase } = makeSupabase(pinned);
+    const detail = await new VehiclesService(supabase, vendors).getPublicDetail('v1');
+    const vendor = detail.vendor as unknown as Record<string, unknown>;
+    expect(vendor.lat).toBeUndefined();
+    expect(vendor.lng).toBeUndefined();
+    expect(vendor.approx_lat).toBe(4.05);
+    expect(vendor.approx_lng).toBe(9.71);
+  });
+
+  it('browse() returns a distance, not the coordinates, when the searcher shares theirs', async () => {
+    const { supabase } = makeSupabase(pinned);
+    const result = await new VehiclesService(supabase, vendors).browse({
+      near_lat: 4.0897,
+      near_lng: 9.7426,
+      sort: 'distance',
+    } as never);
+    const item = result.items[0] as unknown as Record<string, unknown>;
+    expect(item.vendors).toBeUndefined();
+    expect(item.distance_km).toBeGreaterThan(5);
+    expect(item.distance_km).toBeLessThan(6);
+  });
+});

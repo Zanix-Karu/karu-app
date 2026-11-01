@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { UserRole } from '@karu/shared';
 import { CurrentUser, Roles } from '../auth/decorators';
@@ -29,6 +29,19 @@ export class MessagesController {
     @Body() dto: SendMessageDto,
   ) {
     return this.messages.send(id, userId, role, dto.message);
+  }
+
+  /** 0031: a chat message in the reader's language, on request. */
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Get('bookings/:id/messages/:messageId/translation')
+  translation(
+    @Param('id') id: string,
+    @Param('messageId') messageId: string,
+    @Query('to') to: string,
+    @CurrentUser('id') userId: string,
+    @CurrentUser('role') role: UserRole,
+  ) {
+    return this.messages.translation(id, messageId, userId, role, to === 'fr' ? 'fr' : 'en');
   }
 
   /** Every conversation on the platform — the admin oversight surface. */

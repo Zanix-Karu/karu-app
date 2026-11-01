@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { redactContactDetails } from './redact';
+import { offPlatformFlags, redactContactDetails } from './redact';
 
 describe('redactContactDetails — the contact-isolation guardrail', () => {
   it('removes email addresses', () => {
@@ -50,5 +50,23 @@ describe('redactContactDetails — the contact-isolation guardrail', () => {
   it('reports redacted=false when nothing matched', () => {
     const r = redactContactDetails('Can we move the pick-up to 10am?');
     expect(r).toEqual({ text: 'Can we move the pick-up to 10am?', redacted: false });
+  });
+});
+
+describe('offPlatformFlags — talk of taking the deal elsewhere (0030)', () => {
+  it('flags a move to WhatsApp, in English or French', () => {
+    expect(offPlatformFlags('Just WhatsApp me the details')).toEqual(['contact_elsewhere']);
+    expect(offPlatformFlags('Appelle-moi demain matin')).toEqual(['contact_elsewhere']);
+  });
+
+  it('flags paying around Karu, accents or not', () => {
+    expect(offPlatformFlags('On peut régler en espèces')).toEqual(['off_platform_payment']);
+    expect(offPlatformFlags('Payez-moi directement, sans Karu')).toEqual(['off_platform_payment']);
+    expect(offPlatformFlags('pay me directly and we skip the app')).toEqual(['off_platform_payment']);
+  });
+
+  it('leaves ordinary logistics alone', () => {
+    expect(offPlatformFlags('I land at 14:20, terminal 1. Is the car clean?')).toEqual([]);
+    expect(offPlatformFlags('Merci, à demain devant la pharmacie')).toEqual([]);
   });
 });

@@ -1,10 +1,17 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { Booking, BookingMessage, UserRole } from '@karu/shared';
 import { SupabaseService } from '../supabase/supabase.service';
 import { dbErrorMessage } from '../supabase/db-error';
 import { BookingsService } from '../bookings/bookings.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { redactContactDetails } from './redact';
+import { offPlatformFlags, redactContactDetails } from './redact';
+import {
+  DeepLProvider,
+  NullTranslationProvider,
+  guessLanguage,
+  type TranslationProvider,
+} from '../reviews/translation';
 
 /**
  * In-app chat between the parties of a booking.
@@ -18,11 +25,63 @@ import { redactContactDetails } from './redact';
  */
 @Injectable()
 export class MessagesService {
+  /** Same engine as reviews: a DeepL key turns it on, none hides the control. */
+  private readonly translator: TranslationProvider;
+
   constructor(
     private readonly supabase: SupabaseService,
     private readonly bookings: BookingsService,
     private readonly notifications: NotificationsService,
-  ) {}
+    config: ConfigService,
+  ) {
+    const key = config.get<string>('DEEPL_API_KEY');
+    this.translator = key ? new DeepLProvider({ apiKey: key }) : new NullTranslationProvider();
+  }
+
+  get canTranslate(): boolean {
+    return this.translator.canTranslate;
+  }
+
+  /**
+   * "See translation" on one chat message (0031), cached per target language.
+   *
+   * What gets translated is the stored body, which for a non-admin sender is
+   * already redacted, so a translation can never put back a phone number the
+   * redaction took out. Access rides on the booking, like the thread itself.
+   */
+  async translation(bookingId: string, messageId: string, userId: string, role: UserRole, target: 'en' | 'fr') {
+    await this.bookings.getForUser(bookingId, userId, role);
+    if (!this.translator.canTranslate) {
+      throw new BadRequestException('Translation is not available');
+    }
+
+    const { data: row } = await this.supabase.db
+      .from('booking_messages')
+      .select('id, booking_id, body, language')
+      .eq('id', messageId)
+      .eq('booking_id', bookingId)
+      .maybeSingle();
+    const message = row as { body: string; language: 'en' | 'fr' | null } | null;
+    if (!message) throw new NotFoundException('Message not found');
+
+    const source = message.language ?? guessLanguage(message.body);
+    if (source === target) return { body: message.body, cached: false };
+
+    const { data: cached } = await this.supabase.db
+      .from('booking_message_translations')
+      .select('body')
+      .eq('message_id', messageId)
+      .eq('target_lang', target)
+      .maybeSingle();
+    if (cached) return { body: (cached as { body: string }).body, cached: true };
+
+    const body = await this.translator.translate(message.body, target);
+    // Best-effort cache: a failed write costs a re-translation, not the reply.
+    await this.supabase.db
+      .from('booking_message_translations')
+      .insert({ message_id: messageId, target_lang: target, body, provider: this.translator.name });
+    return { body, cached: false };
+  }
 
   /** The thread, oldest first. Opening it moves the caller's read cursor. */
   async list(bookingId: string, userId: string, role: UserRole): Promise<BookingMessage[]> {
@@ -40,7 +99,10 @@ export class MessagesService {
       .from('booking_message_reads')
       .upsert({ booking_id: bookingId, profile_id: userId, last_read_at: new Date().toISOString() });
 
-    return (data ?? []) as BookingMessage[];
+    const messages = (data ?? []) as BookingMessage[];
+    // Flags are an admin signal; a party seeing "flagged" on their own
+    // message would only teach them which words to avoid.
+    return role === 'admin' ? messages : messages.map(({ flags: _flags, ...m }) => m);
   }
 
   /**
@@ -61,6 +123,19 @@ export class MessagesService {
 
     const { text, redacted } =
       role === 'admin' ? { text: trimmed, redacted: false } : redactContactDetails(trimmed);
+    // Read off the original, not the redacted text: "call me on [hidden]"
+    // is exactly the sentence worth flagging.
+    const flags = role === 'admin' ? [] : offPlatformFlags(trimmed);
+
+    // 0031: the sender's interface language, so the reader is only offered a
+    // translation when it differs from theirs.
+    const { data: senderProfile } = await this.supabase.db
+      .from('profiles')
+      .select('locale')
+      .eq('id', userId)
+      .maybeSingle();
+    const senderLocale = (senderProfile as { locale?: string } | null)?.locale;
+    const language = role !== 'admin' && (senderLocale === 'en' || senderLocale === 'fr') ? senderLocale : null;
 
     const { data, error } = await this.supabase.db
       .from('booking_messages')
@@ -70,13 +145,15 @@ export class MessagesService {
         sender_role: role,
         body: text,
         redacted,
+        flags,
+        language,
       })
       .select('*')
       .single();
     if (error || !data) {
       throw new BadRequestException(dbErrorMessage(error, 'Could not send message'));
     }
-    const message = data as BookingMessage;
+    const { flags: _flags, ...message } = data as BookingMessage;
 
     // Sending posted the message; a failed nudge must never undo that.
     try {
@@ -103,11 +180,11 @@ export class MessagesService {
   async adminConversations(adminId: string) {
     const { data, error } = await this.supabase.db
       .from('booking_messages')
-      .select('booking_id, sender_role, body, redacted, created_at')
+      .select('booking_id, sender_role, body, redacted, flags, created_at')
       .order('created_at', { ascending: false });
     if (error) throw new BadRequestException(dbErrorMessage(error, 'Could not load conversations'));
     const messages = (data ?? []) as Array<
-      Pick<BookingMessage, 'booking_id' | 'sender_role' | 'body' | 'redacted' | 'created_at'>
+      Pick<BookingMessage, 'booking_id' | 'sender_role' | 'body' | 'redacted' | 'flags' | 'created_at'>
     >;
     if (messages.length === 0) return [];
 
@@ -185,6 +262,8 @@ export class MessagesService {
             : thread.length,
           /** True when any message in the thread had contact details removed. */
           any_redacted: thread.some((m) => m.redacted),
+          /** Distinct off-platform flags raised anywhere in the thread (0030). */
+          flags: [...new Set(thread.flatMap((m) => m.flags ?? []))],
           last_message: latest
             ? { sender_role: latest.sender_role, body: latest.body, created_at: latest.created_at }
             : null,

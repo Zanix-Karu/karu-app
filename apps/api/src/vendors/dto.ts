@@ -1,4 +1,11 @@
+import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
+  IsLatitude,
+  IsLongitude,
+  ValidateNested,
+  Max,
   IsBoolean,
   IsDateString,
   IsEmail,
@@ -117,4 +124,33 @@ export class UpdateVendorDto {
   @IsOptional() @IsInt() @Min(0) delivery_fee_xaf?: number;
   @IsOptional() @IsInt() @Min(0) airport_fee_xaf?: number;
   @IsOptional() @EmptyToNull() @IsString() @MaxLength(1000) @WordCountRange() bio?: string;
+
+  /** 0034: the pin for the provider's base. Both or neither. */
+  @IsOptional() @IsLatitude() lat?: number;
+  @IsOptional() @IsLongitude() lng?: number;
+  /** Delivery rings; [] goes back to the single flat fee. Checked in the service. */
+  @IsOptional() @IsArray() @ArrayMaxSize(6) @ValidateNested({ each: true }) @Type(() => DeliveryZoneDto)
+  delivery_zones?: DeliveryZoneDto[];
+  /** Free address delivery from this many days; null switches it off. */
+  @IsOptional() @EmptyToNull() @IsInt() @Min(1) @Max(60) free_delivery_min_days?: number | null;
+  /** 0037: yearly seasonal price changes; [] removes them all. Checked in the service. */
+  @IsOptional() @IsArray() @ArrayMaxSize(8) @ValidateNested({ each: true }) @Type(() => PriceSeasonDto)
+  price_seasons?: PriceSeasonDto[];
+}
+
+export class PriceSeasonDto {
+  @IsString() @MaxLength(40) label!: string;
+  @IsString() from!: string;
+  @IsString() to!: string;
+  @Type(() => Number) @IsInt() @Min(-50) @Max(100) percent!: number;
+}
+
+export class DeliveryZoneDto {
+  @Type(() => Number) @IsInt() @Min(1) @Max(200) max_km!: number;
+  @Type(() => Number) @IsInt() @Min(0) fee_xaf!: number;
+}
+
+export class NearQuery {
+  @IsOptional() @Type(() => Number) @IsLatitude() near_lat?: number;
+  @IsOptional() @Type(() => Number) @IsLongitude() near_lng?: number;
 }

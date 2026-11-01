@@ -1,3 +1,4 @@
+import { CircleAlert, CircleCheck, Inbox, type LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type {
   ButtonHTMLAttributes,
@@ -6,58 +7,39 @@ import type {
   SelectHTMLAttributes,
 } from 'react';
 import type { BookingStatus } from '@karu/shared';
-
-/** Karu UI primitives — visual language of the approved mockups. */
+import { Badge, Button as DsButton, inputClass } from './ds';
+import { cn } from './lib/cn';
 
 /**
- * NOTE: there are two Button components in this app, this one and the DS one
- * in ds/index.tsx, with different variant sets, and screens import from both.
- * They should converge. Until they do, both carry the same states so a
- * keyboard user gets the same focus ring either way.
+ * Karu UI primitives, in NourishwithB's style. These and ds/index.tsx used
+ * to be two different looks; both now share the same classes (Nourish's
+ * pill buttons, rounded-2xl cards, stone inputs), so it no longer matters
+ * which one a screen imports.
  */
+
+const VARIANT_MAP = { primary: 'primary', outline: 'outline', danger: 'danger', ghost: 'ghost' } as const;
+
 export function Button({
   variant = 'primary',
   className = '',
   loading = false,
-  disabled,
-  children,
+  arrow,
   ...rest
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: 'primary' | 'outline' | 'danger' | 'ghost';
   /** Shows a spinner and blocks clicks, keeping the label in place. */
   loading?: boolean;
+  /** Trailing arrow on primary buttons (Nourish). On by default for primary. */
+  arrow?: boolean;
 }) {
-  const variants = {
-    primary:
-      'bg-karu-yellow text-karu-ink hover:brightness-95 disabled:opacity-40 disabled:hover:brightness-100',
-    outline:
-      'border-[1.5px] border-karu-ink text-karu-ink hover:bg-karu-ink hover:text-karu-cream disabled:opacity-40',
-    danger: 'bg-karu-terracotta text-white hover:brightness-95 disabled:opacity-40',
-    ghost: 'text-karu-brown hover:bg-karu-ink/5 disabled:opacity-40',
-  } as const;
   return (
-    <button
-      disabled={disabled || loading}
-      aria-busy={loading || undefined}
-      className={`karu-btn inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition ${variants[variant]} ${className}`}
-      {...rest}
-    >
-      {loading && (
-        <span
-          aria-hidden="true"
-          className="karu-btn-spinner inline-block h-[1em] w-[1em] shrink-0 rounded-full border-2 border-current border-t-transparent"
-        />
-      )}
-      {children}
-    </button>
+    <DsButton variant={VARIANT_MAP[variant]} size="sm" loading={loading} arrow={arrow} className={className} {...rest} />
   );
 }
 
 export function Card({ className = '', children }: { className?: string; children: ReactNode }) {
   return (
-    <div className={`rounded-2xl border border-karu-ink/10 bg-white shadow-sm ${className}`}>
-      {children}
-    </div>
+    <div className={cn('rounded-2xl border border-slate-200 bg-surface p-6 shadow-sm', className)}>{children}</div>
   );
 }
 
@@ -71,24 +53,19 @@ export function Field({
   className?: string;
 }) {
   return (
-    <label className={`block ${className}`}>
-      <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-karu-mute">
-        {label}
-      </span>
+    <label className={cn('block', className)}>
+      <span className="mb-2 block text-sm font-semibold text-slate-900">{label}</span>
       {children}
     </label>
   );
 }
 
-const inputClass =
-  'w-full rounded-lg border border-karu-ink/15 bg-white px-3 py-2.5 text-sm text-karu-ink placeholder:text-karu-mute/70 focus:border-karu-gold focus:outline-none focus:ring-2 focus:ring-karu-yellow/40';
-
-export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={inputClass} {...props} />;
+export function Input({ className = '', ...props }: InputHTMLAttributes<HTMLInputElement>) {
+  return <input className={cn(inputClass, className)} {...props} />;
 }
 
-export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={inputClass} {...props} />;
+export function Select({ className = '', ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+  return <select className={cn(inputClass, className)} {...props} />;
 }
 
 /**
@@ -159,31 +136,32 @@ export function PhoneInput({
 
   return (
     <div className="flex gap-2">
-      <select
-        // inputClass bakes in `w-full`; a `w-[8.5rem]` utility alongside it
-        // targets the same `width` property at equal specificity, and which
-        // one wins depends on their order in Tailwind's compiled stylesheet,
-        // not on their order in this class list. An inline style avoids that
-        // race and reliably keeps this select narrow.
-        className={`${inputClass} shrink-0`}
-        style={{ width: '8.5rem' }}
-        value={dial}
-        aria-label={t('common.countryCode')}
-        onChange={(e) => emit(e.target.value, national)}
-      >
-        {COUNTRY_CODES.map((c) => (
-          <option key={c.dial} value={c.dial}>
-            {c.label}
-          </option>
-        ))}
-      </select>
+      {/* The list shows "flag +code · country"; the closed picker shows just
+          "flag +code" (drawn over the select) so it never truncates. */}
+      <div className="relative shrink-0" style={{ width: '7.25rem' }}>
+        <select
+          className={cn(inputClass, 'pr-7 text-transparent')}
+          value={dial}
+          aria-label={t('common.countryCode')}
+          onChange={(e) => emit(e.target.value, national)}
+        >
+          {COUNTRY_CODES.map((c) => (
+            <option key={c.dial} value={c.dial} className="text-slate-900">
+              {c.label}
+            </option>
+          ))}
+        </select>
+        <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-base text-slate-900">
+          {COUNTRY_CODES.find((c) => c.dial === dial)?.label.split(' · ')[0]}
+        </span>
+      </div>
       <input
         type="tel"
         // min-w-0 + flex-1: without them, `inputClass`'s own `w-full` only
         // sets this input's flex-basis, so the fixed-width select next to it
         // squeezes the input down to its min-content width instead of the
         // remaining space.
-        className={`${inputClass} min-w-0 flex-1`}
+        className={cn(inputClass, 'min-w-0 flex-1')}
         value={national}
         placeholder={placeholder}
         onChange={(e) => emit(dial, e.target.value)}
@@ -194,48 +172,80 @@ export function PhoneInput({
 
 export function Spinner({ label = 'Loading…' }: { label?: string }) {
   return (
-    <div className="flex items-center justify-center gap-3 py-16 text-karu-mute">
-      <span className="h-5 w-5 animate-spin rounded-full border-2 border-karu-gold border-t-transparent" />
-      <span className="text-sm">{label}</span>
+    <div aria-busy="true" className="flex items-center justify-center gap-3 py-16 text-slate-500">
+      <span className="karu-btn-spinner h-5 w-5 rounded-full border-2 border-brand border-t-transparent" />
+      <span className="shimmer-text text-sm font-medium">{label}</span>
     </div>
   );
 }
 
+/** Error message box. The icon shakes once as it appears (ds/icon-motion.css). */
 export function ErrorNote({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-lg border border-karu-terracotta/30 bg-karu-terracotta/10 px-4 py-3 text-sm text-karu-terracotta">
-      {children}
+    <div
+      role="alert"
+      className="error-summary flex items-start gap-2.5 rounded-xl border border-danger/25 bg-danger-tint px-4 py-3 text-sm text-danger"
+    >
+      <CircleAlert aria-hidden="true" className="mt-px h-[1.15em] w-[1.15em] shrink-0" />
+      <div className="min-w-0">{children}</div>
     </div>
   );
 }
 
-export function EmptyState({ title, hint }: { title: string; hint?: string }) {
+/** Inline "it worked" line next to the action that did it. The tick draws in. */
+export function SuccessNote({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <div className="py-16 text-center">
-      <p className="font-display text-xl text-karu-brown">{title}</p>
-      {hint && <p className="mt-1 text-sm text-karu-mute">{hint}</p>}
+    <span
+      role="status"
+      className={cn('label-in inline-flex items-center gap-1.5 text-sm font-semibold text-success', className)}
+    >
+      <CircleCheck aria-hidden="true" className="h-[1.1em] w-[1.1em] shrink-0" />
+      {children}
+    </span>
+  );
+}
+
+/**
+ * "Nothing here" panel for lists and sections, as in NourishwithB: a card
+ * with an icon in a soft circle, a title, an optional hint and next step.
+ */
+export function EmptyState({
+  title,
+  hint,
+  Icon = Inbox,
+  action,
+  className = '',
+}: {
+  title: string;
+  hint?: string;
+  Icon?: LucideIcon;
+  action?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn('karu-rise-in rounded-2xl border border-slate-200 bg-surface p-8 text-center shadow-sm', className)}>
+      <span className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100">
+        <Icon aria-hidden="true" className="h-5 w-5 text-slate-600" />
+      </span>
+      <p className="text-sm font-medium text-slate-900">{title}</p>
+      {hint && <p className="mx-auto mt-1 max-w-md text-sm text-slate-600">{hint}</p>}
+      {action && <div className="mt-4 flex justify-center">{action}</div>}
     </div>
   );
 }
 
-const STATUS_STYLE: Record<BookingStatus, string> = {
-  requested: 'bg-karu-amber/20 text-karu-brown',
-  confirmed: 'bg-green-100 text-green-800',
-  in_progress: 'bg-blue-100 text-blue-800',
-  completed: 'bg-karu-ink/10 text-karu-ink',
-  rejected: 'bg-karu-terracotta/15 text-karu-terracotta',
-  cancelled: 'bg-karu-ink/5 text-karu-mute',
-};
+const STATUS_VARIANT = {
+  requested: 'warning',
+  confirmed: 'success',
+  in_progress: 'upcoming',
+  completed: 'neutral',
+  rejected: 'danger',
+  cancelled: 'neutral',
+} as const satisfies Record<BookingStatus, string>;
 
 export function StatusBadge({ status }: { status: BookingStatus }) {
   const { t } = useTranslation();
-  return (
-    <span
-      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLE[status]}`}
-    >
-      {t(`status.${status}`)}
-    </span>
-  );
+  return <Badge variant={STATUS_VARIANT[status]}>{t(`status.${status}`)}</Badge>;
 }
 
 /**
@@ -266,7 +276,7 @@ export function CarImage({
   /** Set on the one above-the-fold image so it is not deferred. */
   eager?: boolean;
 }) {
-  const box = `overflow-hidden bg-karu-brown/10 ${className}`;
+  const box = `overflow-hidden bg-slate-100 ${className}`;
 
   if (photos.length > 0) {
     return (
@@ -276,17 +286,17 @@ export function CarImage({
           alt={alt}
           loading={eager ? 'eager' : 'lazy'}
           decoding="async"
-          className="h-full w-full object-cover object-center"
+          className="h-full w-full object-cover object-center transition-transform duration-500 ease-[var(--ease-smooth-out)] group-hover:scale-[1.03]"
         />
       </div>
     );
   }
   return (
     <div
-      className={`flex items-center justify-center bg-gradient-to-br from-karu-brown to-karu-ink ${box}`}
+      className={`flex items-center justify-center bg-brand-tint ${box}`}
       style={{ aspectRatio: ratio }}
     >
-      <span className="font-display text-2xl font-bold tracking-widest text-karu-yellow/80">
+      <span className="font-display text-2xl font-extrabold tracking-[0.18em] text-slate-900/70">
         KARU
       </span>
     </div>

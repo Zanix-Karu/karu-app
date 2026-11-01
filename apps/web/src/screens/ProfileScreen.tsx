@@ -4,7 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import type { Profile } from '@karu/shared';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { Button, Card, ErrorNote, Field, Input, PhoneInput, Select } from '../ui';
+import { Button, Card, ErrorNote, Field, Input, PhoneInput, Select, SuccessNote } from '../ui';
+import { VerifyIdentity } from '../components/VerifyIdentity';
+import { ModeSegmented } from '../components/ModeToggle';
+import { Link } from 'react-router-dom';
+import { Palette } from 'lucide-react';
 
 export function ProfileScreen() {
   const { t } = useTranslation();
@@ -44,9 +48,11 @@ export function ProfileScreen() {
   };
 
   return (
-    <div className="mx-auto max-w-md">
-      <h1 className="font-display text-3xl font-bold">{t('profile.title')}</h1>
-      <p className="mt-1 text-sm text-karu-mute">{session?.user.email}</p>
+    <div className="max-w-3xl">
+      <header>
+        <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{t('profile.title')}</h1>
+        <p className="mt-1 text-slate-600">{session?.user.email}</p>
+      </header>
 
       <Card className="mt-6 p-6">
         <form onSubmit={save} className="space-y-4">
@@ -64,14 +70,32 @@ export function ProfileScreen() {
           </Field>
 
           {error && <ErrorNote>{error}</ErrorNote>}
-          {saved && <p className="text-sm font-semibold text-green-700">{t('profile.saved')}</p>}
+          {saved && <SuccessNote>{t('profile.saved')}</SuccessNote>}
 
-          <Button type="submit" disabled={busy} className="w-full">
-            {busy ? t('common.saving') : t('common.save')}
+          <Button type="submit" loading={busy}>
+            {t('common.save')}
           </Button>
         </form>
       </Card>
 
+      <Card className="mt-6 p-6">
+        <h2 className="font-display text-lg font-bold text-slate-900">{t('theme.title')}</h2>
+        <p className="mt-1 text-sm text-slate-600">{t('theme.sub')}</p>
+        <div className="mt-4">
+          <ModeSegmented />
+        </div>
+        {profile?.role === 'admin' && (
+          <Link
+            to="/admin/appearance"
+            className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-text hover:underline"
+          >
+            <Palette className="h-4 w-4" aria-hidden="true" />
+            {t('theme.adminLink')}
+          </Link>
+        )}
+      </Card>
+
+      {profile?.role === 'customer' && <VerifyIdentity />}
       {profile?.role === 'customer' && <BecomeVendor />}
     </div>
   );
@@ -84,7 +108,7 @@ function BecomeVendor() {
   return (
     <Card className="mt-6 p-6">
       <h2 className="font-display text-lg font-bold">{t('profile.haveCars')}</h2>
-      <p className="mt-1 text-sm text-karu-mute">
+      <p className="mt-1 text-sm text-slate-500">
         {t('profile.haveCarsSub')}
       </p>
       <Button className="mt-4" onClick={() => navigate('/list-your-car')}>

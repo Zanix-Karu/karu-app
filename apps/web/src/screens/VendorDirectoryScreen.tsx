@@ -1,17 +1,22 @@
+import { BadgeCheck, MapPin, Car, SearchX, Store } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ReviewBody } from '../components/ReviewBody';
 import { usePageMeta } from '../lib/page-meta';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
-import type { RatingSummary, Review, Vehicle, Vendor } from '@karu/shared';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import type { PublicVendor, RatingSummary, Review, Vehicle, Vendor } from '@karu/shared';
 import { api, type Page } from '../lib/api';
 import { CATEGORY_LABEL, CITY_LABEL } from '../lib/format';
 import { Badge, Card, CarCard, Rating } from '../ds';
 import { EmptyState, ErrorNote, Spinner } from '../ui';
 import { SkeletonCard } from '../components/Skeleton';
 import { useCurrency } from '../lib/currency';
+import { Button } from '../ds';
+import { DOUALA, KaruMap, locateMe, type MapMarker } from '../components/KaruMap';
 
 type VendorWithRating = Vendor & { rating: RatingSummary };
+type DirectoryVendor = PublicVendor & { rating: RatingSummary };
 
 /** Public directory of verified providers — trust is the product. */
 export function VendorDirectoryScreen() {
@@ -20,18 +25,57 @@ export function VendorDirectoryScreen() {
     title: t('seo.vendors.title'),
     description: t('seo.vendors.description'),
   });
+  const navigate = useNavigate();
+  // 0034: "who's near me". Position stays in memory; it goes to our API to be
+  // sorted against and nowhere else.
+  const [near, setNear] = useState<{ lat: number; lng: number } | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locateError, setLocateError] = useState(false);
   const { data, isLoading, error } = useQuery({
-    queryKey: ['vendors-public'],
-    queryFn: () => api<VendorWithRating[]>('/vendors'),
+    queryKey: ['vendors-public', near?.lat, near?.lng],
+    queryFn: () =>
+      api<DirectoryVendor[]>(
+        near ? `/vendors?near_lat=${near.lat.toFixed(4)}&near_lng=${near.lng.toFixed(4)}` : '/vendors',
+      ),
   });
 
-  if (isLoading) {
+  const markers = useMemo<MapMarker[]>(
+    () => [
+      ...(data ?? [])
+        .filter((v) => v.approx_lat != null && v.approx_lng != null)
+        .map((v) => ({
+          id: v.id,
+          lat: v.approx_lat!,
+          lng: v.approx_lng!,
+          // Short enough to sit on a pin, long enough to tell two apart.
+          label: v.business_name.length <= 16 ? v.business_name : `${v.business_name.slice(0, 15)}…`,
+          title: v.business_name,
+          onClick: () => navigate(`/vendors/${v.id}`),
+        })),
+      ...(near ? [{ id: 'you', lat: near.lat, lng: near.lng, label: '●', title: t('location.you'), tone: 'you' as const }] : []),
+    ],
+    [data, near, navigate, t],
+  );
+
+  const findNearMe = async () => {
+    setLocating(true);
+    setLocateError(false);
+    try {
+      setNear(await locateMe());
+    } catch {
+      setLocateError(true);
+    } finally {
+      setLocating(false);
+    }
+  };
+
+  if (isLoading && !data) {
     return (
       <div>
-        <h1 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 40 }}>
+        <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
           Verified providers
         </h1>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 18, marginTop: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16, marginTop: 24 }}>
           <SkeletonCard lines={3} />
           <SkeletonCard lines={3} />
         </div>
@@ -42,25 +86,44 @@ export function VendorDirectoryScreen() {
 
   return (
     <div>
-      <h1 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 40 }}>
+      <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
         {t('providers.title')}
       </h1>
-      <p style={{ fontFamily: 'var(--font-ui)', fontSize: 15, color: 'var(--gray-500)', marginTop: 6 }}>
+      <p style={{ fontFamily: 'var(--font-ui)', fontSize: 15, color: 'var(--gray-500)', marginTop: 4 }}>
         {t('providers.sub')}
       </p>
 
-      {data?.length === 0 && <EmptyState title={t('providers.none')} />}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 18, marginTop: 24 }}>
+      <div style={{ marginTop: 20 }}>
+        <KaruMap
+          center={near ?? DOUALA}
+          zoom={near ? 13 : 12}
+          markers={markers}
+          height={300}
+          ariaLabel={t('location.directoryMapAria')}
+        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
+          <Button size="sm" variant="outline" loading={locating} onClick={findNearMe}>
+            {near ? t('location.nearMeOn') : t('location.nearMe')}
+          </Button>
+          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-500)' }}>
+            {locateError ? t('location.denied') : t('location.approxNote')}
+          </span>
+        </div>
+      </div>
+
+      {data?.length === 0 && <EmptyState Icon={Store} title={t('providers.none')} />}
+      <div className="karu-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16, marginTop: 24 }}>
         {data?.map((v) => (
-          <Link key={v.id} to={`/vendors/${v.id}`}>
+          <Link key={v.id} to={`/vendors/${v.id}`} className="karu-card-link" style={{ borderRadius: 'var(--radius-md)' }}>
             <Card>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 12 }}>
                 <div>
                   <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 20, color: 'var(--ink)' }}>
                     {v.business_name}
                   </div>
                   <div style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 4 }}>
                     {CITY_LABEL[v.city]}
+                    {v.distance_km != null && ` · ${t('location.kmAway', { km: v.distance_km })}`}
                   </div>
                   <div style={{ marginTop: 8 }}>
                     {v.rating?.average != null ? (
@@ -72,7 +135,12 @@ export function VendorDirectoryScreen() {
                     )}
                   </div>
                 </div>
-                {v.status === 'verified' && <Badge variant="success">{t('providers.verified')}</Badge>}
+                {v.status === 'verified' && (
+                  <Badge variant="success" dot={false}>
+                    <BadgeCheck aria-hidden="true" style={{ width: 15, height: 15 }} />
+                    {t('providers.verified')}
+                  </Badge>
+                )}
               </div>
             </Card>
           </Link>
@@ -101,7 +169,7 @@ export function VendorProfileScreen() {
   // An unknown id must say so, not render an empty fleet as if the provider existed.
   if (!vendor) {
     return (
-      <EmptyState
+      <EmptyState Icon={SearchX}
         title={t('providers.notFound')}
         hint={t('providers.notFoundHint')}
       />
@@ -111,46 +179,38 @@ export function VendorProfileScreen() {
   return (
     <div>
       {vendor && (
-        <div
-          style={{
-            background: 'var(--bg-gradient)',
-            borderRadius: 'var(--radius-lg)',
-            padding: '36px 44px',
-            color: 'var(--white)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: 14,
-          }}
-        >
-          <div>
-            <h1 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 38 }}>
-              {vendor.business_name}
-            </h1>
-            <p style={{ margin: '6px 0 0', fontFamily: 'var(--font-ui)', color: 'var(--text-on-dark-muted)' }}>
-              {/*
-                No phone here: this header renders to logged-out visitors, and
-                the provider signup page promises that a vendor's number stays
-                private with contact routed through Karu. The API no longer
-                sends it either (vendors.service listPublic).
-              */}
-              {CITY_LABEL[vendor.city]}
-            </p>
-            <div style={{ marginTop: 10 }}>
-              {vendor.rating?.average != null ? (
-                <Rating value={vendor.rating.average} count={vendor.rating.count} color="var(--white)" size={18} />
-              ) : (
-                <span style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--text-on-dark-muted)' }}>
-                  {t('providers.noReviews')}
-                </span>
-              )}
+        <header className="flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-surface p-6 shadow-sm sm:p-8">
+          <div className="flex items-start gap-4">
+            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand-tint text-brand-text">
+              <Store className="h-7 w-7" aria-hidden="true" />
+            </span>
+            <div>
+              <h1 className="headline-in font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+                {vendor.business_name}
+              </h1>
+              {/* No phone here: this header renders to logged-out visitors, and
+                  the provider signup page promises that a vendor's number stays
+                  private with contact routed through Karu. */}
+              <p className="mt-1 inline-flex items-center gap-1.5 text-slate-600">
+                <MapPin className="h-4 w-4" aria-hidden="true" />
+                {CITY_LABEL[vendor.city]}
+              </p>
+              <div className="mt-2">
+                {vendor.rating?.average != null ? (
+                  <Rating value={vendor.rating.average} count={vendor.rating.count} size={18} />
+                ) : (
+                  <span className="text-sm text-slate-500">{t('providers.noReviews')}</span>
+                )}
+              </div>
             </div>
           </div>
           {vendor.status === 'verified' && (
-            <Badge variant="solid">{t('providers.verifiedProvider')}</Badge>
+            <Badge variant="success" className="badge-pop" dot={false}>
+              <BadgeCheck aria-hidden="true" className="h-3.5 w-3.5" />
+              {t('providers.verifiedProvider')}
+            </Badge>
           )}
-        </div>
+        </header>
       )}
 
       {vendor.bio && (
@@ -169,11 +229,11 @@ export function VendorProfileScreen() {
 
       <VendorReviews vendorId={id} />
 
-      <h2 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22, margin: '28px 0 14px' }}>
+      <h2 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22, margin: '32px 0 16px' }}>
         {t('providers.availableCars')}
       </h2>
       {isLoading && <Spinner />}
-      {cars?.length === 0 && <EmptyState title={t('providers.noCars')} />}
+      {cars?.length === 0 && <EmptyState Icon={Car} title={t('providers.noCars')} />}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {cars?.map((v) => (
           <CarCardLink key={v.id} vehicle={v} />
@@ -194,10 +254,10 @@ function VendorReviews({ vendorId }: { vendorId: string }) {
 
   return (
     <>
-      <h2 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22, margin: '28px 0 14px' }}>
+      <h2 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22, margin: '32px 0 16px' }}>
         {t('providers.whatCustomersSaid')}
       </h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
         {data.map((r) => (
           <Card key={r.id}>
             <Rating value={r.rating} />

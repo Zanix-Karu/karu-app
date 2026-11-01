@@ -6,14 +6,14 @@
 .karu-sidebar-layout {
   display: grid;
   grid-template-columns: 280px 1fr;
-  gap: 28px;
+  gap: 24px;
   align-items: start;
 }
 
 .karu-vendor-layout {
   display: grid;
   grid-template-columns: 240px 1fr;
-  gap: 28px;
+  gap: 24px;
   align-items: start;
 }
 
@@ -21,7 +21,7 @@
 .karu-car-card {
   display: grid;
   grid-template-columns: 230px 1fr auto;
-  gap: 28px;
+  gap: 24px;
   align-items: center;
 }
 
@@ -29,7 +29,7 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 10px;
+  gap: 12px;
   min-width: 150px;
 }
 
@@ -52,6 +52,8 @@
 
   .karu-car-card-actions {
     align-items: flex-start;
+    width: 100%;
+    min-width: 0;
   }
 }
 
@@ -59,7 +61,7 @@
 .karu-form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: 16px;
 }
 
 @media (max-width: 600px) {
@@ -68,22 +70,15 @@
   }
 }
 
-/* Skeleton shimmer. Respects prefers-reduced-motion: the placeholder still
-   shows, it just stops animating. */
+/* Loading placeholder: a soft pulse, as in NourishwithB's Skeleton. */
 .karu-skeleton {
-  background: linear-gradient(
-    90deg,
-    var(--cream-200) 25%,
-    rgba(217, 217, 217, 0.55) 37%,
-    var(--cream-200) 63%
-  );
-  background-size: 400% 100%;
-  animation: karu-shimmer 1.4s ease-in-out infinite;
+  background: var(--color-slate-100);
+  border-radius: var(--radius-sm);
+  animation: karu-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-@keyframes karu-shimmer {
-  0% { background-position: 100% 50%; }
-  100% { background-position: 0 50%; }
+@keyframes karu-pulse {
+  50% { opacity: 0.5; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -133,34 +128,11 @@
   display: none;
 }
 
-/* ─── Buttons: the states the component could not express inline (DS-4) ──── */
-.karu-btn {
-  transition: filter 150ms ease, transform 100ms ease, box-shadow 150ms ease;
-}
-
-.karu-btn:hover:not(:disabled) {
-  filter: brightness(0.95);
-}
-
-.karu-btn:active:not(:disabled) {
-  transform: scale(0.985);
-  filter: brightness(0.92);
-}
-
-/* The important one. There was no focus indicator on any DS button, so a
-   keyboard user could not see where they were. Offset so the ring reads
-   against both the yellow primary and the dark ghost variant. */
-.karu-btn:focus-visible {
-  outline: 2px solid var(--gold-600);
-  outline-offset: 2px;
-}
-
+/* ─── Buttons ─────────────────────────────────────────────────────────────── */
+/* Colours, hover and focus live on the components (Nourish classes). Only
+   the spinner's rotation is here. */
 .karu-btn-spinner {
   animation: karu-spin 700ms linear infinite;
-}
-
-@keyframes karu-spin {
-  to { transform: rotate(360deg); }
 }
 
 /* Inputs, selects and links were in the same position. */
@@ -176,10 +148,35 @@ button:focus-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .karu-btn,
-  .karu-btn-spinner {
-    transition: none;
-    animation-duration: 2s;
-  }
-  .karu-btn:active:not(:disabled) { transform: none; }
+  .karu-btn-spinner { animation-duration: 2s; }
+}
+
+/* ─── Ported from the starter pack's UI kit ─────────────────────────────── */
+
+/* Shared focus ring for custom controls (Switch, Checkbox). */
+.karu-focus:focus-visible {
+  outline: 2px solid var(--gold-600);
+  outline-offset: 2px;
+}
+
+/* Icon-only buttons: a 40px round target that tints on hover. */
+.karu-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-pill);
+  transition: background-color var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out);
+}
+.karu-icon-btn:hover { background-color: color-mix(in srgb, var(--k-ink) 6%, transparent); }
+.karu-icon-btn:focus-visible { outline: 2px solid var(--gold-600); outline-offset: 2px; }
+
+/* Icons sitting inline with text line up with the cap height. */
+.karu-inline-icon { display: inline-block; width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; }
+
+/* The seeded "photo coming soon" image is a light SVG. In dark themes it
+   would glare, so invert it to sit on the dark surfaces. */
+[data-mode='dark'] img[src*='car-placeholder.svg'] {
+  filter: invert(0.9) hue-rotate(180deg);
 }

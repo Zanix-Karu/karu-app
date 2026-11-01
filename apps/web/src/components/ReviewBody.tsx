@@ -59,7 +59,7 @@ export function ReviewBody({ review }: { review: Review }) {
           type="button"
           onClick={() => setShowTranslation((v) => !v)}
           style={{
-            marginTop: 6,
+            marginTop: 4,
             padding: 0,
             background: 'none',
             border: 'none',

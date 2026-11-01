@@ -30,6 +30,8 @@ export interface DepositIntent {
 
 export interface WebhookEvent {
   providerRef: string;
+  /** Our payments.id, when the provider echoes it back. */
+  paymentId?: string;
   /** Maps onto payments.status. */
   status: 'held' | 'released' | 'refunded' | 'failed';
 }
@@ -49,6 +51,9 @@ export interface PaymentProviderAdapter {
     booking: Booking;
     amountXaf: number;
     paymentId: string;
+    /** For providers that need a way to reach the payer (mobile money). */
+    customerEmail?: string | null;
+    customerPhone?: string | null;
   }): Promise<Omit<DepositIntent, 'paymentId'>>;
 
   /**
@@ -224,5 +229,116 @@ export class StripeCardProvider implements PaymentProviderAdapter {
       return sigBuf.length === expectedBuf.length && timingSafeEqual(sigBuf, expectedBuf);
     });
     if (!valid) throw new Error('Webhook signature verification failed');
+  }
+}
+
+/**
+ * MTN Mobile Money and Orange Money via Notch Pay (IDEAS #1), the local half
+ * of "diaspora and local-friendly payment". Notch Pay is Cameroonian, takes
+ * both networks in XAF through one hosted page, and the customer picks their
+ * network there, so Karu never handles a wallet number or PIN.
+ *
+ * Two env vars turn it on: NOTCHPAY_PUBLIC_KEY (sent as `Authorization`) and
+ * NOTCHPAY_WEBHOOK_HASH (the hash key that signs callbacks). As with Stripe,
+ * money truth only ever comes from a signed webhook.
+ */
+export class NotchPayMobileMoneyProvider implements PaymentProviderAdapter {
+  readonly name = 'mobile_money' as const;
+  readonly canCharge = true;
+
+  constructor(
+    private readonly opts: {
+      publicKey: string;
+      webhookHash: string;
+      webAppUrl: string;
+      fetchFn?: typeof fetch;
+    },
+  ) {}
+
+  async createDepositIntent({
+    booking,
+    amountXaf,
+    paymentId,
+    customerEmail,
+    customerPhone,
+  }: {
+    booking: Booking;
+    amountXaf: number;
+    paymentId: string;
+    customerEmail?: string | null;
+    customerPhone?: string | null;
+  }): Promise<Omit<DepositIntent, 'paymentId'>> {
+    const base = this.opts.webAppUrl.replace(/\/$/, '');
+    const doFetch = this.opts.fetchFn ?? fetch;
+    const res = await doFetch('https://api.notchpay.co/payments', {
+      method: 'POST',
+      headers: {
+        Authorization: this.opts.publicKey,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        amount: amountXaf,
+        currency: 'XAF',
+        // Notch Pay needs one way to reach the payer; email first, as the
+        // receipt goes there.
+        ...(customerEmail ? { email: customerEmail } : { phone: customerPhone ?? undefined }),
+        // Our payments.id, so a callback can always be tied back to its row.
+        reference: paymentId,
+        description: `Karu booking deposit — ${booking.reference ?? booking.id}`,
+        callback: `${base}/bookings/${booking.id}?deposit=returned`,
+        locked_country: 'CM',
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`Notch Pay payment failed to start (${res.status})`);
+    }
+    const json = (await res.json()) as { transaction?: unknown; authorization_url?: string };
+    const providerRef =
+      typeof json.transaction === 'string'
+        ? json.transaction
+        : ((json.transaction as { reference?: string } | undefined)?.reference ?? null);
+
+    return {
+      providerRef,
+      redirectUrl: json.authorization_url ?? null,
+      instructions:
+        'Pay the deposit with MTN Mobile Money or Orange Money on the secure Notch Pay page, ' +
+        'then approve the request on your phone.',
+      settled: false,
+    };
+  }
+
+  parseWebhook(rawBody: string, headers: Record<string, string | undefined>): WebhookEvent | null {
+    const signature = headers['x-notch-signature'];
+    if (!signature) throw new Error('Missing x-notch-signature header');
+    const expected = createHmac('sha256', this.opts.webhookHash).update(rawBody).digest('hex');
+    const a = Buffer.from(signature);
+    const b = Buffer.from(expected);
+    if (a.length !== b.length || !timingSafeEqual(a, b)) {
+      throw new Error('Webhook signature verification failed');
+    }
+
+    const event = JSON.parse(rawBody) as {
+      event?: string;
+      type?: string;
+      data?: Record<string, unknown>;
+    };
+    const type = event.event ?? event.type ?? '';
+    const data = event.data ?? {};
+    // Notch Pay's own reference, and ours echoed back. Either finds the row.
+    const providerRef = String(data.reference ?? data.trxref ?? data.id ?? '');
+    const merchantRef = (data.merchant_reference as string | undefined) ?? undefined;
+
+    switch (type) {
+      case 'payment.complete':
+        return { providerRef, paymentId: merchantRef, status: 'held' };
+      case 'payment.failed':
+      case 'payment.canceled':
+      case 'payment.expired':
+        return { providerRef, paymentId: merchantRef, status: 'failed' };
+      default:
+        return null;
+    }
   }
 }

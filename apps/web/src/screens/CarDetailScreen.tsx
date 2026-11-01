@@ -1,3 +1,4 @@
+import { ArrowLeft, BadgeCheck, CircleCheck, MapPin, SearchX, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { PhotoCarousel } from '../components/PhotoCarousel';
 import { usePageMeta } from '../lib/page-meta';
@@ -5,13 +6,14 @@ import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { Booking, DeliveryType, VehicleDetail } from '@karu/shared';
-import { orderedPhotos, primaryPhoto, quoteBooking } from '@karu/shared';
+import { orderedPhotos, primaryPhoto, quoteBooking, rentalDays } from '@karu/shared';
+import { DOUALA, KaruMap, YAOUNDE, locateMe } from '../components/KaruMap';
 import { api } from '../lib/api';
 import { useAuth, useView } from '../lib/auth';
 import { CAN_BOOK } from '../lib/roles';
 import { useCurrency } from '../lib/currency';
 import { CATEGORY_LABEL, CITY_LABEL, prettyDate, todayISO, xaf } from '../lib/format';
-import { Button, Card, ErrorNote, Field, Input, Spinner } from '../ui';
+import { Button, Card, EmptyState, ErrorNote, Field, Input, Spinner } from '../ui';
 import { CarCard } from '../ds';
 
 interface Availability {
@@ -37,6 +39,9 @@ export function CarDetailScreen() {
   const [deliveryType, setDeliveryType] = useState<DeliveryType>('pickup_point');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [pickupTime, setPickupTime] = useState('');
+  // 0034: where to bring the car, as a pin, and directions in words.
+  const [deliveryPin, setDeliveryPin] = useState<{ lat: number; lng: number } | null>(null);
+  const [landmark, setLandmark] = useState('');
 
   const { data: car, isLoading } = useQuery({
     queryKey: ['vehicle', id],
@@ -71,6 +76,10 @@ export function CarDetailScreen() {
           with_driver: withDriver,
           delivery_type: deliveryType,
           delivery_address: deliveryAddress || undefined,
+          ...(deliveryType === 'address' && deliveryPin
+            ? { delivery_lat: deliveryPin.lat, delivery_lng: deliveryPin.lng }
+            : {}),
+          delivery_landmark: deliveryType === 'address' ? landmark || undefined : undefined,
           pickup_time: pickupTime || undefined,
         }),
       }),
@@ -78,8 +87,40 @@ export function CarDetailScreen() {
       navigate(`/bookings/${booking.id}/confirmed`, { state: { booking } }),
   });
 
+  // The exact delivery fee for the pin, from the provider's real base (the
+  // public one is rounded), so the quote here is the fee the booking stores.
+  const quoteDays = from && to && from <= to ? rentalDays(from, to) : 1;
+  const { data: deliveryQuote } = useQuery({
+    queryKey: ['delivery-quote', id, deliveryPin?.lat, deliveryPin?.lng, quoteDays],
+    queryFn: () =>
+      api<{
+        distance_km: number | null;
+        fee_xaf: number;
+        waived_xaf: number;
+        out_of_range: boolean;
+        free_delivery_min_days: number | null;
+      }>(`/vehicles/${id}/delivery-quote?lat=${deliveryPin!.lat}&lng=${deliveryPin!.lng}&days=${quoteDays}`),
+    enabled: deliveryType === 'address' && Boolean(deliveryPin),
+  });
+
   if (isLoading) return <Spinner label={t('common.loading')} />;
-  if (!car) return <ErrorNote>{t('car.notFound')}</ErrorNote>;
+  if (!car)
+    return (
+      <EmptyState
+        Icon={SearchX}
+        title={t('car.notFound')}
+        action={
+        <Link
+          to={"/search"}
+          className="inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-300 bg-surface px-5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-50"
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          {t('nav.findCar')}
+        </Link>
+      }
+      />
+    );
+  const zoned = (car.vendor.delivery_zones?.length ?? 0) > 0;
 
   const driverAvailable = car.driver_option !== 'none';
   const driverRequired = car.driver_option === 'required';
@@ -97,8 +138,17 @@ export function CarDetailScreen() {
     withDriver: driverChosen,
     driverDailyRateXaf: car.driver_daily_rate_xaf,
     deliveryType,
-    deliveryFeeXaf: car.vendor.delivery_fee_xaf,
+    // With a pin, the server's figure for it; otherwise the flat fee (or, for
+    // a zoned provider, nothing until a pin is dropped).
+    deliveryFeeXaf:
+      deliveryType === 'address' && deliveryQuote
+        ? deliveryQuote.fee_xaf
+        : zoned
+          ? 0
+          : car.vendor.delivery_fee_xaf,
     airportFeeXaf: car.vendor.airport_fee_xaf,
+    freeDeliveryMinDays: deliveryQuote ? null : car.vendor.free_delivery_min_days,
+    priceSeasons: car.vendor.price_seasons,
   });
   const days = windowChosen ? quote.days : 0;
   const total = quote.totalXaf;
@@ -108,10 +158,10 @@ export function CarDetailScreen() {
       <div>
         <PhotoCarousel photos={orderedPhotos(car)} alt={`${car.make} ${car.model}`} />
 
-        <h1 className="mt-6 font-display text-3xl font-bold">
-          {car.make} {car.model} {car.year && <span className="text-karu-mute">{car.year}</span>}
+        <h1 className="headline-in mt-6 font-display text-3xl font-bold tracking-tight text-slate-900">
+          {car.make} {car.model} {car.year && <span className="text-slate-500">{car.year}</span>}
         </h1>
-        <p className="mt-1 text-sm text-karu-mute">
+        <p className="mt-1 text-sm text-slate-500">
           {CITY_LABEL[car.city]} · {CATEGORY_LABEL[car.category]}
         </p>
 
@@ -123,41 +173,44 @@ export function CarDetailScreen() {
             // Pending vendors operate too — the badge only appears once the
             // paperwork has actually been approved.
             ...(car.vendor.status === 'verified' ? [t('car.verifiedProvider')] : []),
-          ].map((f) => (
-            <span
-              key={f}
-              className="rounded-full border border-karu-ink/15 bg-white px-3 py-1 text-xs font-semibold text-karu-brown"
-            >
-              {f}
-            </span>
-          ))}
+          ].map((f) =>
+            f === t('car.verifiedProvider') ? (
+              <span key={f} className="inline-flex items-center gap-1.5 rounded-full bg-success-tint px-3 py-1.5 text-sm font-semibold text-success">
+                <BadgeCheck className="h-4 w-4" aria-hidden="true" />
+                {f}
+              </span>
+            ) : (
+              <span key={f} className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700">
+                {f}
+              </span>
+            ),
+          )}
         </div>
 
-        {car.description && <p className="mt-5 max-w-prose text-sm leading-6">{car.description}</p>}
+        {car.description && <p className="mt-5 max-w-prose leading-relaxed text-slate-600">{car.description}</p>}
 
         {car.pickup_locations.length > 0 && (
           <div className="mt-5">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-karu-mute">
-              {t('car.pickupLocations')}
-            </h2>
-            <ul className="mt-1 text-sm">
+            <h2 className="font-display text-lg font-bold tracking-tight text-slate-900">{t('car.pickupLocations')}</h2>
+            <ul className="mt-2 flex flex-wrap gap-2">
               {car.pickup_locations.map((p) => (
-                <li key={p}>· {p}</li>
+                <li key={p} className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700">
+                  <MapPin className="h-4 w-4 text-slate-500" aria-hidden="true" />
+                  {p}
+                </li>
               ))}
             </ul>
           </div>
         )}
 
         <div className="mt-5">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-karu-mute">
-            {t('car.aboutProvider')}
-          </h2>
-          <p className="mt-1 text-sm">
-            <Link to={`/vendors/${car.vendor.id}`} className="font-semibold text-karu-gold hover:underline">
+          <h2 className="font-display text-lg font-bold tracking-tight text-slate-900">{t('car.aboutProvider')}</h2>
+          <p className="mt-1">
+            <Link to={`/vendors/${car.vendor.id}`} className="font-semibold text-brand-text hover:underline">
               {car.vendor.business_name}
             </Link>
           </p>
-          {car.vendor.bio && <p className="mt-1 max-w-prose text-sm leading-6">{car.vendor.bio}</p>}
+          {car.vendor.bio && <p className="mt-1 max-w-prose text-sm leading-relaxed text-slate-600">{car.vendor.bio}</p>}
         </div>
 
         <OtherVendorsWithThisCar car={car} />
@@ -166,17 +219,18 @@ export function CarDetailScreen() {
             needs the refund path from the payments phase before it can be
             promised — until then cancelling is always free because nothing
             has been charged. */}
-        <div className="mt-6 rounded-xl bg-karu-yellow/15 px-4 py-3 text-xs text-karu-brown">
+        <div className="mt-6 flex items-start gap-3 rounded-2xl bg-brand-tint p-4 text-sm text-slate-800">
+          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-text" aria-hidden="true" />
           {t('car.conditions')}
         </div>
       </div>
 
-      <Card className="h-fit p-5">
-        <p className="font-display text-2xl font-bold">
-          {xaf(car.daily_rate_xaf)} <span className="text-sm font-normal text-karu-mute">/ {t('common.perDay')}</span>
+      <Card className="h-fit p-5 sm:p-6 lg:sticky lg:top-24">
+        <p className="font-display text-2xl font-bold tracking-tight text-slate-900">
+          {xaf(car.daily_rate_xaf)} <span className="text-sm font-normal text-slate-500">/ {t('common.perDay')}</span>
         </p>
         {secondary(car.daily_rate_xaf) && (
-          <p className="text-sm font-semibold text-karu-gold">{secondary(car.daily_rate_xaf)}</p>
+          <p className="text-sm font-semibold text-brand-text">{secondary(car.daily_rate_xaf)}</p>
         )}
 
         {/* Providers browse read-only — showing them a booking CTA the API
@@ -184,7 +238,7 @@ export function CarDetailScreen() {
             control. Tell them why instead. Admins can book on a customer's
             behalf, so this never applies to them. */}
         {!canBook && (
-          <div className="mt-4 rounded-lg border border-karu-ink/10 bg-karu-cream px-4 py-3 text-sm text-karu-brown">
+          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800">
             {t('car.readOnlyVendor')}
           </div>
         )}
@@ -202,14 +256,15 @@ export function CarDetailScreen() {
 
         {windowChosen && (
           <div className="mt-3 text-sm">
-            {checking && <p className="text-karu-mute">{t('car.checking')}</p>}
+            {checking && <p className="text-slate-500">{t('car.checking')}</p>}
             {avail && avail.available && (
-              <p className="font-semibold text-green-700">
-                ✓ {t('car.available', { from: prettyDate(from), to: prettyDate(to) })}
+              <p className="karu-fade-in flex items-center gap-1.5 font-semibold text-success">
+                <CircleCheck aria-hidden="true" className="h-[1.1em] w-[1.1em] shrink-0" />
+                {t('car.available', { from: prettyDate(from), to: prettyDate(to) })}
               </p>
             )}
             {avail && !avail.available && (
-              <p className="font-semibold text-karu-terracotta">
+              <p className="font-semibold text-danger">
                 {t('car.notAvailable')}
               </p>
             )}
@@ -219,10 +274,10 @@ export function CarDetailScreen() {
         {windowChosen && avail?.available && (
           <>
             {driverAvailable && (
-              <div className="mt-3 rounded-xl border border-karu-ink/10 p-3">
+              <div className="mt-3 rounded-xl border border-slate-200 p-3">
                 <div className="text-sm font-semibold">{t('car.driverHeading')}</div>
                 {driverRequired ? (
-                  <p className="mt-1 text-xs text-karu-mute">
+                  <p className="mt-1 text-xs text-slate-500">
                     {t('car.driverRequired', {
                       rate: xaf(car.driver_daily_rate_xaf ?? 0),
                     })}
@@ -240,7 +295,7 @@ export function CarDetailScreen() {
                         <span className="flex-1">
                           {v ? t('car.driverYes') : t('car.driverNo')}
                         </span>
-                        <span className="text-karu-mute">
+                        <span className="text-slate-500">
                           {v ? `+ ${xaf(car.driver_daily_rate_xaf ?? 0)}/${t('car.perDay')}` : ''}
                         </span>
                       </label>
@@ -250,14 +305,15 @@ export function CarDetailScreen() {
               </div>
             )}
 
-            <div className="mt-3 rounded-xl border border-karu-ink/10 p-3">
+            <div className="mt-3 rounded-xl border border-slate-200 p-3">
               <div className="text-sm font-semibold">{t('car.deliveryHeading')}</div>
               <div className="mt-2 grid gap-2">
                 {(
                   [
                     ['pickup_point', null],
                     ['airport', car.vendor.airport_fee_xaf],
-                    ['address', car.vendor.delivery_fee_xaf],
+                    // A zoned provider delivers even with no flat fee set.
+                    ['address', car.vendor.delivery_fee_xaf ?? ((car.vendor.delivery_zones?.length ?? 0) > 0 ? -1 : null)],
                   ] as Array<[DeliveryType, number | null]>
                 )
                   // A provider who doesn't run cars out shouldn't advertise it.
@@ -271,21 +327,79 @@ export function CarDetailScreen() {
                         onChange={() => setDeliveryType(kind)}
                       />
                       <span className="flex-1">{t(`car.delivery.${kind}`)}</span>
-                      <span className="text-karu-mute">
-                        {fee ? `+ ${xaf(fee)}` : fee === 0 ? t('car.free') : ''}
+                      <span className="text-slate-500">
+                        {kind === 'address' && zoned
+                          ? t('location.byDistance')
+                          : fee ? `+ ${xaf(fee)}` : fee === 0 ? t('car.free') : ''}
                       </span>
                     </label>
                   ))}
               </div>
               {deliveryType === 'address' && (
-                <Field label={t('car.deliveryAddress')} className="mt-3">
-                  <Input
-                    value={deliveryAddress}
-                    onChange={(e) => setDeliveryAddress(e.target.value)}
-                    maxLength={300}
-                    placeholder={t('car.deliveryAddressHint')}
-                  />
-                </Field>
+                <div className="mt-3">
+                  <p className="text-xs text-slate-500">{t('location.dropPin')}</p>
+                  <div className="mt-2">
+                    <KaruMap
+                      center={
+                        deliveryPin ??
+                        (car.vendor.approx_lat != null && car.vendor.approx_lng != null
+                          ? { lat: car.vendor.approx_lat, lng: car.vendor.approx_lng }
+                          : car.city === 'yaounde'
+                            ? YAOUNDE
+                            : DOUALA)
+                      }
+                      zoom={13}
+                      height={220}
+                      picked={deliveryPin}
+                      onPick={setDeliveryPin}
+                      ariaLabel={t('location.deliveryMapAria')}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="mt-2 text-xs font-semibold text-slate-800 underline"
+                    onClick={() => void locateMe().then(setDeliveryPin).catch(() => undefined)}
+                  >
+                    {t('location.useMine')}
+                  </button>
+                  {deliveryQuote && (
+                    <p
+                      className={`mt-2 text-xs font-semibold ${
+                        deliveryQuote.out_of_range ? 'text-danger' : 'text-slate-800'
+                      }`}
+                    >
+                      {deliveryQuote.out_of_range
+                        ? t('location.outOfRange', { km: deliveryQuote.distance_km })
+                        : deliveryQuote.waived_xaf > 0
+                          ? t('location.freeLongRental', { km: deliveryQuote.distance_km })
+                          : t('location.quoteLine', {
+                              km: deliveryQuote.distance_km,
+                              fee: deliveryQuote.fee_xaf ? xaf(deliveryQuote.fee_xaf) : t('car.free'),
+                            })}
+                    </p>
+                  )}
+                  {!deliveryQuote && car.vendor.free_delivery_min_days ? (
+                    <p className="mt-2 text-xs text-slate-800">
+                      {t('location.freeFromBadge', { count: car.vendor.free_delivery_min_days })}
+                    </p>
+                  ) : null}
+                  <Field label={t('location.landmark')} className="mt-3">
+                    <Input
+                      value={landmark}
+                      onChange={(e) => setLandmark(e.target.value)}
+                      maxLength={300}
+                      placeholder={t('location.landmarkHint')}
+                    />
+                  </Field>
+                  <Field label={t('car.deliveryAddress')} className="mt-3">
+                    <Input
+                      value={deliveryAddress}
+                      onChange={(e) => setDeliveryAddress(e.target.value)}
+                      maxLength={300}
+                      placeholder={t('car.deliveryAddressHint')}
+                    />
+                  </Field>
+                </div>
               )}
               {deliveryType === 'airport' && (
                 <Field label={t('car.flightDetails')} className="mt-3">
@@ -327,7 +441,7 @@ export function CarDetailScreen() {
               <Input value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
             </Field>
 
-            <div className="mt-4 space-y-1 border-t border-karu-ink/10 pt-4 text-sm">
+            <div className="mt-4 space-y-1 border-t border-slate-200 pt-4 text-sm">
               <div className="flex justify-between">
                 <span>
                   {xaf(car.daily_rate_xaf)} × {days} day{days > 1 ? 's' : ''}
@@ -342,10 +456,29 @@ export function CarDetailScreen() {
                   <span>{xaf(quote.driverXaf)}</span>
                 </div>
               )}
+              {quote.seasonAdjustmentXaf !== 0 && (
+                <div className="flex justify-between">
+                  <span>{t('car.seasonAdjustment')}</span>
+                  <span>
+                    {quote.seasonAdjustmentXaf > 0 ? '+' : '-'}
+                    {xaf(Math.abs(quote.seasonAdjustmentXaf))}
+                  </span>
+                </div>
+              )}
               {quote.deliveryXaf > 0 && (
                 <div className="flex justify-between">
                   <span>{t(`car.delivery.${deliveryType}`)}</span>
                   <span>{xaf(quote.deliveryXaf)}</span>
+                </div>
+              )}
+              {deliveryType === 'address' && (deliveryQuote?.waived_xaf ?? quote.deliveryWaivedXaf) > 0 && (
+                // The customer-positive bit: show what they're not paying.
+                <div className="flex justify-between text-success">
+                  <span>{t(`car.delivery.address`)}</span>
+                  <span>
+                    <s className="mr-1 text-slate-500">{xaf(deliveryQuote?.waived_xaf ?? quote.deliveryWaivedXaf)}</s>
+                    {t('car.free')}
+                  </span>
                 </div>
               )}
               <div className="flex justify-between font-semibold">
@@ -353,15 +486,15 @@ export function CarDetailScreen() {
                 <span>
                   {xaf(total)}
                   {secondary(total) && (
-                    <span className="ml-1 font-normal text-karu-mute">({secondary(total)})</span>
+                    <span className="ml-1 font-normal text-slate-500">({secondary(total)})</span>
                   )}
                 </span>
               </div>
-              <div className="flex justify-between text-karu-brown">
+              <div className="flex justify-between text-slate-800">
                 <span>{t('car.depositNow')}</span>
                 <span>{xaf(quote.depositXaf)}</span>
               </div>
-              <p className="pt-1 text-xs text-karu-mute">
+              <p className="pt-1 text-xs text-slate-500">
                 {t('car.depositNote')}
               </p>
             </div>
@@ -385,7 +518,9 @@ export function CarDetailScreen() {
                 !avail?.available ||
                 book.isPending ||
                 // The driver can't find an address that wasn't given.
-                (deliveryType === 'address' && !deliveryAddress.trim())
+                (deliveryType === 'address' && !deliveryAddress.trim() && !deliveryPin) ||
+                // A zoned provider prices by the pin, and won't go beyond the last ring.
+                (deliveryType === 'address' && zoned && (!deliveryPin || Boolean(deliveryQuote?.out_of_range)))
               }
               onClick={() => {
                 if (!session) {
@@ -397,7 +532,7 @@ export function CarDetailScreen() {
             >
               {book.isPending ? t('car.sending') : session ? t('car.requestToBook') : t('car.signInToBook')}
             </Button>
-            <p className="mt-2 text-center text-xs text-karu-mute">
+            <p className="mt-2 text-center text-xs text-slate-500">
               {t('car.noCharge')}
             </p>
           </>
@@ -428,7 +563,7 @@ function OtherVendorsWithThisCar({ car }: { car: VehicleDetail }) {
 
   return (
     <div className="mt-6">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-karu-mute">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         {t('car.otherVendors')}
       </h2>
       <div className="mt-2 flex flex-col gap-4">

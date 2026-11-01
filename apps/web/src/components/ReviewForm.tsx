@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Review } from '@karu/shared';
 import { api } from '../lib/api';
-import { Button, Card, ErrorNote } from '../ui';
+import { Button, Card, ErrorNote, SuccessNote } from '../ui';
 
 /** Clickable 1–5 stars. */
 function StarPicker({ value, onChange }: { value: number; onChange: (n: number) => void }) {
@@ -65,12 +65,12 @@ export function ReviewForm({
 
   if (submit.isSuccess) {
     return (
-      <p className="text-sm font-semibold text-green-700">{t('review.thanks')}</p>
+      <p><SuccessNote>{t('review.thanks')}</SuccessNote></p>
     );
   }
 
   return (
-    <Card className="mt-3 border border-karu-ink/10 p-4">
+    <Card className="mt-3 border border-slate-200 p-4">
       <p className="text-sm font-semibold">{prompt}</p>
       <form
         className="mt-3 space-y-3"
@@ -86,7 +86,7 @@ export function ReviewForm({
           maxLength={1000}
           rows={3}
           placeholder={t('review.placeholder')}
-          className="w-full rounded-lg border border-karu-ink/15 px-3 py-2 text-sm focus:border-karu-gold focus:outline-none"
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-text focus:outline-none"
         />
         {submit.isError && <ErrorNote>{(submit.error as Error).message}</ErrorNote>}
         <Button type="submit" disabled={rating === 0 || submit.isPending}>

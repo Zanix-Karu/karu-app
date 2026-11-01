@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation } from '@tanstack/react-query';
@@ -54,7 +55,7 @@ export function PhotoStrip({
                 height: 48,
                 objectFit: 'cover',
                 borderRadius: 6,
-                border: '1px solid rgba(0,0,0,0.12)',
+                border: '1px solid var(--color-slate-200)',
                 opacity: remove.isPending && remove.variables === url ? 0.4 : 1,
               }}
             />
@@ -81,20 +82,20 @@ export function PhotoStrip({
                 textAlign: 'center',
                 padding: 0,
                 borderRadius: '50%',
-                border: '1px solid rgba(0,0,0,0.2)',
-                background: armed ? '#c0392b' : '#fff',
-                color: armed ? '#fff' : '#444',
+                border: '1px solid var(--color-slate-300)',
+                background: armed ? 'var(--color-danger)' : 'var(--color-surface)',
+                color: armed ? 'var(--color-surface)' : 'var(--color-slate-700)',
                 fontSize: 12,
                 cursor: 'pointer',
               }}
             >
-              ×
+              <X aria-hidden="true" style={{ width: 12, height: 12, margin: '0 auto' }} strokeWidth={2.5} />
             </button>
           </div>
         );
       })}
       {remove.isError && (
-        <span style={{ fontSize: 12, color: '#c0392b', alignSelf: 'center' }}>
+        <span style={{ fontSize: 12, color: 'var(--color-danger)', alignSelf: 'center' }}>
           {(remove.error as Error).message}
         </span>
       )}

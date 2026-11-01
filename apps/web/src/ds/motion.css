@@ -1,0 +1,261 @@
+/* Motion, ported from NourishwithB (src/app/globals.css). One duration scale
+   (transitions.dev token scale) and, almost always, one ease-out curve.
+   Surfaces close faster than they open; nothing moves more than ~24px;
+   nothing loops except loading indicators; one reduced-motion block at the
+   end turns it all off. */
+
+:root {
+  --duration-stagger: 40ms;
+  --duration-micro: 80ms;
+  --duration-quick: 150ms;
+  --duration-fast: 250ms;
+  --duration-medium: 350ms;
+  --duration-slow: 400ms;
+  --duration-very-slow: 500ms;
+  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.36, 0.64, 1);
+
+  /* Karu's earlier names, mapped onto the scale above. */
+  --motion-fast: var(--duration-quick);
+  --motion-base: var(--duration-fast);
+  --motion-slow: var(--duration-slow);
+  --ease-out: var(--ease-smooth-out);
+  --ease-spring: var(--ease-bounce);
+}
+
+/* Small functional animations: the confirmation tick draws in, and a label
+   pulses while something is in flight. */
+@keyframes checkDraw { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
+@keyframes labelPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+@keyframes reveal-up {
+  from { opacity: 0; transform: translateY(6px); }
+}
+/* Hero headline: rises out of a slight blur. Starts at 1% rather than 0
+   opacity so the browser still counts it as the page's main paint (LCP). */
+@keyframes headline-in {
+  from { opacity: 0.01; transform: translateY(12px); filter: blur(3px); }
+}
+@keyframes slide-from-right {
+  from { opacity: 0; transform: translateX(24px); }
+}
+@keyframes slide-from-left {
+  from { opacity: 0; transform: translateX(-24px); }
+}
+@keyframes shake-x {
+  15% { transform: translateX(-6px); }
+  35% { transform: translateX(5px); }
+  55% { transform: translateX(-3px); }
+  75% { transform: translateX(2px); }
+}
+@keyframes label-in {
+  from { opacity: 0; transform: translateY(4px); filter: blur(2px); }
+}
+@keyframes badge-pop {
+  from { opacity: 0; transform: scale(0); }
+  60% { opacity: 1; transform: scale(1.18); }
+}
+@keyframes value-pop {
+  from { opacity: 0; transform: translateY(60%); filter: blur(4px); }
+}
+@keyframes tap-pop {
+  40% { transform: scale(1.25); }
+}
+@keyframes row-flash {
+  from { background-color: var(--color-brand-tint); }
+}
+@keyframes shimmer-text {
+  from { background-position: 100% 0; }
+  to { background-position: 0 0; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+}
+@keyframes karu-spin {
+  to { transform: rotate(360deg); }
+}
+
+@layer components {
+  /* Entrance animations use `backwards`, never `both`: their end state is
+     the element's own style anyway, and a `both` fill keeps the transform /
+     filter applied forever, which turns the element into the containing
+     block for every `position: fixed` descendant (popovers, toasts end up
+     offset from where they should be). */
+
+  /* Route content fades up when it replaces the loading state (or the
+     previous page). Loading placeholders themselves don't animate. */
+  .route-reveal > :not([aria-busy='true']) {
+    animation: reveal-up var(--duration-slow) var(--ease-smooth-out) backwards;
+  }
+
+  /* Native <dialog>: fade + rise on open, quicker exit on close. Browsers
+     without @starting-style / allow-discrete simply snap. */
+  .dialog-motion {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+    transition:
+      opacity var(--duration-quick) var(--ease-smooth-out),
+      transform var(--duration-quick) var(--ease-smooth-out),
+      overlay var(--duration-quick) allow-discrete,
+      display var(--duration-quick) allow-discrete;
+  }
+  .dialog-motion[open] {
+    opacity: 1;
+    transform: none;
+    transition-duration: var(--duration-fast);
+  }
+  @starting-style {
+    .dialog-motion[open] {
+      opacity: 0;
+      transform: translateY(8px) scale(0.96);
+    }
+  }
+  .dialog-motion::backdrop {
+    background-color: rgb(28 25 23 / 0);
+    transition:
+      background-color var(--duration-quick) var(--ease-smooth-out),
+      overlay var(--duration-quick) allow-discrete,
+      display var(--duration-quick) allow-discrete;
+  }
+  .dialog-motion[open]::backdrop {
+    background-color: rgb(28 25 23 / 0.5);
+    transition-duration: var(--duration-fast);
+  }
+  @starting-style {
+    .dialog-motion[open]::backdrop {
+      background-color: rgb(28 25 23 / 0);
+    }
+  }
+
+  /* Toast: rises in with fade, slight scale and blur; exits faster. */
+  .toast-motion {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+    filter: blur(2px);
+    transition:
+      opacity var(--duration-fast) var(--ease-smooth-out),
+      transform var(--duration-fast) var(--ease-smooth-out),
+      filter var(--duration-fast) var(--ease-smooth-out);
+  }
+  .toast-motion[data-state='open'] {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+    transition-duration: var(--duration-medium);
+  }
+
+  /* Invalid fields and error summaries shake once when they appear. */
+  [aria-invalid='true'],
+  [data-invalid='true'],
+  .error-summary {
+    animation: shake-x var(--duration-slow) var(--ease-smooth-out);
+  }
+
+  /* A label that should animate in whenever it is re-rendered with a key. */
+  .label-in {
+    animation: label-in var(--duration-fast) var(--ease-smooth-out) backwards;
+  }
+
+  .badge-pop {
+    animation: badge-pop var(--duration-very-slow) var(--ease-smooth-out) backwards;
+  }
+
+  .headline-in {
+    animation: headline-in var(--duration-very-slow) var(--ease-smooth-out) backwards;
+  }
+  .headline-in-2 {
+    animation: headline-in var(--duration-very-slow) var(--ease-smooth-out) var(--duration-stagger) backwards;
+  }
+
+  /* A quick bounce on the thing just chosen (e.g. a star rating). */
+  .tap-pop {
+    animation: tap-pop var(--duration-medium) var(--ease-smooth-out);
+  }
+
+  .value-pop {
+    display: inline-block;
+    animation: value-pop var(--duration-slow) var(--ease-smooth-out) backwards;
+  }
+
+  /* Brief brand glow on a row whose status just changed. */
+  .row-flash {
+    animation: row-flash 1.2s ease-out;
+  }
+
+  /* "Checking…" style text with a moving highlight. */
+  .shimmer-text {
+    background: linear-gradient(90deg, var(--color-slate-500) 0%, var(--color-slate-500) 40%, var(--color-slate-900) 50%, var(--color-slate-500) 60%, var(--color-slate-500) 100%);
+    background-size: 250% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: shimmer-text 1.4s linear infinite;
+  }
+
+  /* ── Karu's class names, now on the same scale and curve ── */
+
+  .karu-fade-in { animation: fade-in var(--duration-fast) var(--ease-smooth-out) backwards; }
+  .karu-rise-in { animation: reveal-up var(--duration-slow) var(--ease-smooth-out) backwards; }
+  .karu-pop-in,
+  .karu-pop { animation: badge-pop var(--duration-very-slow) var(--ease-smooth-out) backwards; }
+  .karu-slide-in-right { animation: slide-from-right var(--duration-slow) var(--ease-smooth-out) backwards; }
+
+  /* Lists: children fade up one after another, capped so a long list
+     doesn't make the last row wait. */
+  .karu-stagger > * { animation: reveal-up var(--duration-slow) var(--ease-smooth-out) backwards; }
+  .karu-stagger > :nth-child(2) { animation-delay: calc(var(--duration-stagger) * 1); }
+  .karu-stagger > :nth-child(3) { animation-delay: calc(var(--duration-stagger) * 2); }
+  .karu-stagger > :nth-child(4) { animation-delay: calc(var(--duration-stagger) * 3); }
+  .karu-stagger > :nth-child(5) { animation-delay: calc(var(--duration-stagger) * 4); }
+  .karu-stagger > :nth-child(n + 6) { animation-delay: calc(var(--duration-stagger) * 5); }
+
+  /* Route changes: each screen fades up as it mounts. */
+  .karu-page { animation: reveal-up var(--duration-slow) var(--ease-smooth-out) backwards; }
+
+  /* Cards that are links lift 3px with a larger shadow, as in Nourish. */
+  .karu-card-link {
+    display: block;
+    border-radius: var(--radius-2xl);
+    transition:
+      transform var(--duration-fast) var(--ease-smooth-out),
+      box-shadow var(--duration-fast) var(--ease-smooth-out);
+  }
+  .karu-card-link:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+}
+
+/* One switch for everything above: users who ask for less motion get none. */
+@media (prefers-reduced-motion: reduce) {
+  .route-reveal > *,
+  .dialog-motion,
+  .dialog-motion::backdrop,
+  .toast-motion,
+  [aria-invalid='true'],
+  [data-invalid='true'],
+  .error-summary,
+  .label-in,
+  .badge-pop,
+  .value-pop,
+  .tap-pop,
+  .headline-in,
+  .headline-in-2,
+  .row-flash,
+  .karu-fade-in,
+  .karu-rise-in,
+  .karu-pop-in,
+  .karu-pop,
+  .karu-slide-in-right,
+  .karu-stagger > *,
+  .karu-page,
+  .karu-card-link {
+    animation: none !important;
+    transition: none !important;
+  }
+  .karu-card-link:hover { transform: none; }
+  .shimmer-text {
+    animation: none;
+    background: none;
+    color: inherit;
+  }
+  @keyframes checkDraw { from { stroke-dashoffset: 0; } to { stroke-dashoffset: 0; } }
+  @keyframes labelPulse { 0%, 100% { opacity: 1; } 50% { opacity: 1; } }
+}

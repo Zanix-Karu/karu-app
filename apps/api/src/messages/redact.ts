@@ -65,3 +65,29 @@ export function redactContactDetails(input: string): RedactionResult {
   });
   return { text, redacted };
 }
+
+/**
+ * Talk that usually comes before a deal moves off Karu (0030). Redaction
+ * removes the number; this notices the conversation around it ("WhatsApp
+ * me", "pay cash", "we can skip the app") so an admin can look. A flag only
+ * marks the message for the admin console; nothing is blocked or hidden, and
+ * plenty of flagged messages will be innocent. Accents are folded first, so
+ * "especes" and "espèces" match alike.
+ */
+const OFF_PLATFORM_PATTERNS: Array<{ flag: string; pattern: RegExp }> = [
+  {
+    flag: 'contact_elsewhere',
+    pattern:
+      /\b(whats ?app|watsap|wasap|telegram|signal app|call me|appelle[sz]?[- ]moi|appelez[- ]moi|my number|mon numero|ton numero|votre numero|text me|ecris[- ]moi)\b/i,
+  },
+  {
+    flag: 'off_platform_payment',
+    pattern:
+      /\b(cash|especes|en liquide|pay (you |me )?direct(ly)?|payer directement|paie[sz]? directement|outside (of )?karu|hors (de )?karu|sans karu|without karu|skip (the )?(app|karu)|no need for karu|pas besoin de karu)\b/i,
+  },
+];
+
+export function offPlatformFlags(input: string): string[] {
+  const folded = input.normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return OFF_PLATFORM_PATTERNS.filter(({ pattern }) => pattern.test(folded)).map(({ flag }) => flag);
+}
