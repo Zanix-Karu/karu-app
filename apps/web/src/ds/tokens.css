@@ -1,77 +1,81 @@
-/* Karu design tokens — verbatim from the approved mockups' design system. */
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Outfit:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+/* Plus Jakarta Sans, NourishwithB's one family for headings and body. */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
+/* The inline-styled design-system components (ds/index.tsx) and a few
+   screens read these older palette names. They now all point at the theme
+   tokens in index.css, so those components follow the active theme with no
+   per-theme overrides here. */
 :root {
-  --brown-900: #1c1006;
-  --brown-800: #35200a;
-  --brown-700: #442d1e;
-  --brown-600: #53310f;
-  --brown-500: #7d4a17;
-  --brown-400: #97591c;
-  --brown-300: #b07a3e;
-  --yellow: #fbd301;
-  --yellow-soft: #f6dc53;
-  --gold-600: #a2730c;
-  --gold-500: #d7b220;
-  --gold-400: #edb337;
-  --white: #ffffff;
-  --cream-100: #fffafa;
-  --cream-200: #f4efe7;
-  --sand-300: #d9d9d9;
-  --gray-500: #5b5858;
-  --gray-400: #a3a2a2;
-  --gray-300: #c9c9c9;
-  --ink: #0b0b0b;
-  --success: #2e9e3f;
-  --danger: #f60606;
+  --yellow: var(--color-brand);
+  --yellow-soft: var(--color-brand-tint);
+  --gold-600: var(--color-brand-text);
+  --gold-500: var(--color-brand);
+  --gold-400: var(--color-brand);
+  --brown-900: var(--color-slate-950);
+  --brown-800: var(--color-slate-900);
+  --brown-700: var(--color-slate-800);
+  --brown-600: var(--color-slate-700);
+  --brown-500: var(--color-slate-600);
+  --brown-400: var(--color-slate-500);
+  --brown-300: var(--color-slate-400);
+  --white: var(--color-surface);
+  --cream-100: var(--color-slate-50);
+  --cream-200: var(--color-slate-100);
+  --sand-300: var(--color-slate-200);
+  --gray-500: var(--color-slate-500);
+  --gray-400: var(--color-slate-400);
+  --gray-300: var(--color-slate-300);
+  --ink: var(--color-slate-900);
+  --success: var(--color-success);
+  --danger: var(--color-danger);
 
-  --bg-page: var(--brown-800);
-  --bg-gradient: linear-gradient(180deg, var(--brown-800) 0%, var(--brown-400) 100%);
-  --bg-canvas: var(--cream-200);
-  --surface-card: var(--white);
-  --surface-sunken: var(--brown-600);
-  --surface-panel: var(--brown-700);
-  --text-on-dark: var(--white);
-  --text-on-dark-muted: rgba(255, 255, 255, 0.72);
-  --text-primary: var(--ink);
-  --text-secondary: var(--gray-500);
-  --text-placeholder: var(--gray-400);
-  --text-link: var(--gold-600);
-  --brand: var(--yellow);
-  --brand-ink: var(--ink);
-  --action-secondary: var(--gold-600);
-  --border-light: var(--gray-300);
-  --border-on-dark: rgba(255, 255, 255, 0.9);
-  --divider: rgba(0, 0, 0, 0.12);
-  --rating: var(--gold-500);
+  --bg-page: var(--color-page);
+  --bg-gradient: var(--color-slate-50);
+  --bg-canvas: var(--color-page);
+  --surface-card: var(--color-surface);
+  --surface-sunken: var(--color-slate-100);
+  --surface-panel: var(--color-slate-50);
+  --text-on-dark: var(--color-slate-900);
+  --text-on-dark-muted: var(--color-slate-600);
+  --text-primary: var(--color-slate-900);
+  --text-secondary: var(--color-slate-500);
+  --text-placeholder: var(--color-slate-400);
+  --text-link: var(--color-brand-text);
+  --brand: var(--color-brand);
+  --brand-ink: var(--color-on-brand);
+  --action-secondary: var(--color-brand-text);
+  --border-light: var(--color-slate-200);
+  --border-on-dark: var(--color-slate-200);
+  --divider: var(--color-slate-200);
+  --rating: var(--color-brand);
 
-  --font-display: 'Cormorant Garamond', ui-serif, Georgia, 'Times New Roman', serif;
-  --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-ui: var(--font-sans);
 
-  /* Radius scale (DS-1).
-   *
-   * These names are also Tailwind v4's border-radius theme namespace, so this
-   * block silently redefines rounded-sm/md/lg/xl/2xl app-wide — which is how
-   * `rounded-2xl` came to mean 60px and made cards read toy-like. Six sizes
-   * across two systems is not a scale, it is drift.
-   *
-   * Collapsed to three plus round, and every Tailwind step is mapped onto one
-   * of them so it no longer matters which class someone reaches for:
-   *   6px   inputs, chips
-   *   10px  buttons, cards
-   *   14px  sheets, modals
-   *   999px avatars, status chips, toggles — never cards or CTAs
-   */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 14px;
-  --radius-2xl: 14px;
-  --radius-3xl: 14px;
+  /* Pill for buttons, chips and toggles; cards use rounded-2xl. */
   --radius-pill: 999px;
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
-  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.1);
-  --shadow-md: 0 4px 7px 3px rgba(0, 0, 0, 0.25);
-  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.06);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.08);
+
+  /* The --k-* names the older Tailwind classes resolved through. */
+  --k-yellow: var(--color-brand);
+  --k-ink: var(--color-slate-900);
+  --k-gold: var(--color-brand-text);
+  --k-amber: var(--color-brand);
+  --k-cream: var(--color-page);
+  --k-terracotta: var(--color-danger);
+  --k-brown: var(--color-slate-800);
+  --k-mute: var(--color-slate-500);
+  --k-surface: var(--color-surface);
+  --k-chrome: var(--color-surface);
+  --k-on-chrome: var(--color-slate-700);
+  --k-on-brand: var(--color-on-brand);
+}
+
+[data-mode='dark'] {
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.5);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.6);
 }

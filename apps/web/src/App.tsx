@@ -1,57 +1,24 @@
-import { Suspense, lazy, useState, type ReactNode } from 'react';
+import { Suspense, lazy, useEffect, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MotionConfig } from 'motion/react';
 import { usePageMeta } from './lib/page-meta';
-import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useNavigate, useLocation } from 'react-router-dom';
-import { AuthProvider, RequireView, useAuth, useView } from './lib/auth';
-import { HOME, NAV } from './lib/roles';
+import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { AuthProvider, RequireView, useView } from './lib/auth';
+import { HOME } from './lib/roles';
 import { useTranslation } from 'react-i18next';
-import { ThemePicker } from './components/ThemePicker';
-import { LanguageSwitcher } from './components/LanguageSwitcher';
-import { CurrencySwitcher } from './components/CurrencySwitcher';
 import { AssistantPanel } from './components/AssistantPanel';
 import { CurrencyProvider } from './lib/currency';
 import { SearchScreen } from './screens/SearchScreen';
 import { CarDetailScreen } from './screens/CarDetailScreen';
 import { VendorDirectoryScreen, VendorProfileScreen } from './screens/VendorDirectoryScreen';
-import { Button } from './ui';
 import { ToastProvider } from './components/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import {
-  CalendarCheck,
-  CalendarDays,
-  Car,
-  CarFront,
-  Inbox,
-  LayoutDashboard,
-  LogIn,
-  LogOut,
-  MessageSquareText,
-  MessagesSquare,
-  Search,
-  ShieldCheck,
-  Store,
-  FileText,
-  Megaphone,
-  UserRound,
-  type LucideIcon,
-} from 'lucide-react';
-
-/** Nav icons, keyed by route. Kept here so lib/roles.ts stays React-free. */
-const NAV_ICONS: Record<string, LucideIcon> = {
-  '/search': Search,
-  '/vendors': Store,
-  '/list-your-car': CarFront,
-  '/bookings': CalendarDays,
-  '/feedback': Megaphone,
-  '/vendor': LayoutDashboard,
-  '/vendor/bookings': Inbox,
-  '/vendor/cars': Car,
-  '/vendor/documents': FileText,
-  '/admin': ShieldCheck,
-  '/admin/bookings': CalendarCheck,
-  '/admin/chats': MessagesSquare,
-};
-
+import { SiteFooter, SiteHeader } from './components/shell/SiteHeader';
+import { PortalShell } from './components/shell/PortalShell';
+import { AdminShell } from './components/shell/AdminShell';
+import { PreviewBar, useAppearance } from './components/ThemeStudio';
+import { setAppearance } from './lib/theme';
+import { CarFront, Search } from 'lucide-react';
 
 /*
  * Route-level code splitting (PERF-1). The app shipped as one ~719KB chunk
@@ -99,120 +66,22 @@ function NotFoundScreen() {
   usePageMeta({ title: t('seo.notFound.title'), noindex: true });
   return (
     <div className="mx-auto max-w-lg py-16 text-center">
-      <span className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-karu-yellow/20">
-        <CarFront aria-hidden="true" className="h-7 w-7 text-karu-brown" />
+      <span className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand-tint">
+        <CarFront aria-hidden="true" className="h-7 w-7 text-brand-text" />
       </span>
-      <p className="font-display text-5xl font-bold text-karu-brown">404</p>
-      <h1 className="mt-3 font-display text-2xl font-bold">{t('notFound.title')}</h1>
-      <p className="mt-2 text-sm text-karu-mute">
+      <p className="headline-in font-display text-5xl font-bold tracking-tight text-slate-900">404</p>
+      <h1 className="headline-in-2 mt-3 font-display text-2xl font-bold tracking-tight text-slate-900">{t('notFound.title')}</h1>
+      <p className="mt-2 text-sm text-slate-600">
         {t('notFound.sub')}
       </p>
       <Link
         to="/search"
-        className="karu-btn mt-6 inline-flex items-center gap-2 rounded-full bg-karu-yellow px-5 py-2.5 text-sm font-semibold text-karu-on-brand"
+        className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-full bg-brand px-6 text-sm font-semibold text-on-brand shadow-sm transition-colors hover:bg-brand-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-text focus-visible:ring-offset-2"
       >
         <Search aria-hidden="true" className="h-4 w-4" />
         {t('nav.findCar')}
       </Link>
     </div>
-  );
-}
-
-function Header() {
-  const { t } = useTranslation();
-  const { session, profile, signOut } = useAuth();
-  const view = useView();
-  const navigate = useNavigate();
-  // No logo asset exists yet (Feature 3 prep) — the image is tried first and
-  // falls back to the text wordmark on 404 rather than showing a broken icon.
-  const [logoFailed, setLogoFailed] = useState(false);
-
-  // px-3 on mobile so the row fits a 375px viewport without overflowing.
-  const nav = ({ isActive }: { isActive: boolean }) =>
-    `inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-semibold transition sm:px-4 ${
-      isActive ? 'bg-karu-yellow text-karu-on-brand' : 'text-karu-on-chrome/80 hover:text-karu-yellow'
-    }`;
-
-  return (
-    <header className="sticky top-0 z-20 bg-karu-chrome">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-3 gap-y-2 px-4 py-3 sm:justify-between sm:gap-4">
-        <Link to={HOME[view]} className="shrink-0">
-          {logoFailed ? (
-            <span
-              className="text-[20px] sm:text-[26px]"
-              style={{
-                fontFamily: 'var(--font-display)',
-                fontWeight: 700,
-                letterSpacing: '0.3em',
-                color: 'var(--gold-400)',
-              }}
-            >
-              KARU
-            </span>
-          ) : (
-            <img
-              src="/logo/logo-wordmark.svg"
-              alt="Karu"
-              className="h-6 sm:h-8"
-              onError={() => setLogoFailed(true)}
-            />
-          )}
-        </Link>
-        {/* Each view sees only its own items — see lib/roles.ts */}
-        <nav className="karu-nav-strip flex flex-nowrap items-center justify-center gap-1 overflow-x-auto">
-          {NAV[view].map((item) => {
-            const Icon = NAV_ICONS[item.to] ?? MessageSquareText;
-            return (
-              <NavLink key={item.to} to={item.to} end={item.to === '/vendor' || item.to === '/admin'} className={nav}>
-                <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
-                {t(item.label)}
-              </NavLink>
-            );
-          })}
-        </nav>
-        <div className="flex flex-nowrap items-center justify-center gap-2">
-          <LanguageSwitcher />
-          <CurrencySwitcher />
-          <ThemePicker compact />
-          {session ? (
-            <>
-              <NavLink to="/profile" className={nav}>
-                <UserRound aria-hidden="true" className="h-4 w-4 shrink-0" />
-                {profile?.full_name?.split(' ')[0] ?? t('common.profile')}
-              </NavLink>
-              <Button
-                variant="ghost"
-                className="whitespace-nowrap px-3 text-karu-on-chrome/70 hover:bg-white/10 sm:px-5"
-                onClick={async () => {
-                  await signOut();
-                  navigate('/search');
-                }}
-              >
-                <LogOut aria-hidden="true" className="h-4 w-4" />
-                {t('common.signOut')}
-              </Button>
-            </>
-          ) : (
-            <Button onClick={() => navigate('/auth')}>
-              <LogIn aria-hidden="true" className="h-4 w-4" />
-              {t('common.signIn')}
-            </Button>
-          )}
-        </div>
-      </div>
-    </header>
-  );
-}
-
-function Footer() {
-  const { t } = useTranslation();
-  return (
-    <footer className="mx-auto max-w-6xl px-4 pb-8 text-center text-xs text-karu-mute">
-      <p>{t('common.tagline')}</p>
-      <p className="mt-1 text-[11px] text-karu-mute/70" title={t('common.buildVersion')}>
-        v{__APP_VERSION__}
-      </p>
-    </footer>
   );
 }
 
@@ -230,7 +99,7 @@ const SKIP_TO_CONTENT = 'Skip to content / Aller au contenu';
 function PageTransition({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   return (
-    <div key={pathname} className="karu-page">
+    <div key={pathname}>
       {children}
     </div>
   );
@@ -242,9 +111,46 @@ function RouteErrorBoundary({ children }: { children: ReactNode }) {
   return <ErrorBoundary resetKey={pathname}>{children}</ErrorBoundary>;
 }
 
+/** Paths everyone sees in the public site layout, whoever they are. */
+const PUBLIC = ['/search', '/vendors', '/cars', '/list-your-car', '/privacy', '/terms', '/auth'];
+const isPublic = (p: string) => p === '/' || PUBLIC.some((x) => p === x || p.startsWith(`${x}/`));
+
+/**
+ * Three layouts, as in NourishwithB: the public site (header + footer), the
+ * signed-in portal for customers and providers (header + tab bar), and the
+ * admin console (sidebar). Unknown paths get the public layout.
+ */
+function Shell({ children }: { children: ReactNode }) {
+  const view = useView();
+  const { pathname } = useLocation();
+  const known = /^\/(admin|vendor|bookings|profile|feedback)(\/|$)/.test(pathname);
+  if (!isPublic(pathname) && known && view === 'admin') return <AdminShell>{children}</AdminShell>;
+  if (!isPublic(pathname) && known && (view === 'vendor' || view === 'customer')) return <PortalShell>{children}</PortalShell>;
+  return (
+    <>
+      <SiteHeader />
+      <main id="main" tabIndex={-1} className="route-reveal mx-auto min-h-[60vh] max-w-6xl px-4 py-8 sm:px-6 lg:py-10">
+        {children}
+      </main>
+      <SiteFooter />
+    </>
+  );
+}
+
+/** The admin's site-wide palettes. Applied from the device cache before the
+ *  first paint (main.tsx), then refreshed from the API here. */
+function AppearanceLoader() {
+  const { data } = useAppearance();
+  useEffect(() => {
+    if (data) setAppearance(data);
+  }, [data]);
+  return null;
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <MotionConfig reducedMotion="user">
       <AuthProvider>
         <CurrencyProvider>
         <ToastProvider>
@@ -257,8 +163,8 @@ export default function App() {
           <a href="#main" className="karu-skip-link">
             {SKIP_TO_CONTENT}
           </a>
-          <Header />
-          <main id="main" tabIndex={-1} className="mx-auto max-w-6xl px-4 py-8">
+          <AppearanceLoader />
+          <Shell>
             <RouteErrorBoundary>
             <Suspense fallback={<RouteFallback />}>
             <PageTransition>
@@ -352,14 +258,15 @@ export default function App() {
             </PageTransition>
             </Suspense>
             </RouteErrorBoundary>
-          </main>
-          <Footer />
+          </Shell>
+          <PreviewBar />
           {/* FEAT-2: rule-based help, on every page. */}
           <AssistantPanel />
         </BrowserRouter>
         </ToastProvider>
         </CurrencyProvider>
       </AuthProvider>
+      </MotionConfig>
     </QueryClientProvider>
   );
 }

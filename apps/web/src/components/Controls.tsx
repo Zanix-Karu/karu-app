@@ -32,7 +32,7 @@ export function Tooltip({
         role="tooltip"
         className={[
           'pointer-events-none invisible absolute bottom-full left-1/2 z-50 mb-2 w-max max-w-56 -translate-x-1/2 translate-y-1 scale-[0.97]',
-          'rounded-lg bg-karu-chrome px-2.5 py-1.5 text-center text-xs font-medium leading-snug text-karu-on-chrome opacity-0 shadow-lg',
+          'rounded-lg bg-slate-900 px-2.5 py-1.5 text-center text-xs font-medium leading-snug text-surface opacity-0 shadow-lg',
           'origin-bottom transition-[opacity,translate,scale,visibility] duration-150 ease-out',
           'group-hover/tooltip:visible group-hover/tooltip:translate-y-0 group-hover/tooltip:scale-100 group-hover/tooltip:opacity-100 group-hover/tooltip:delay-300',
           'group-focus-within/tooltip:visible group-focus-within/tooltip:translate-y-0 group-focus-within/tooltip:scale-100 group-focus-within/tooltip:opacity-100',
@@ -57,7 +57,7 @@ export const Switch = forwardRef<HTMLInputElement, BoxProps>(({ className = '', 
       type="checkbox"
       role="switch"
       ref={ref}
-      className={`karu-focus peer absolute inset-0 h-full w-full cursor-pointer appearance-none rounded-full bg-karu-ink/20 transition-colors duration-200 checked:bg-karu-yellow disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      className={`karu-focus peer absolute inset-0 h-full w-full cursor-pointer appearance-none rounded-full bg-slate-900/20 transition-colors duration-200 checked:bg-brand disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
       {...props}
     />
     <span
@@ -78,13 +78,13 @@ export const Checkbox = forwardRef<HTMLInputElement, BoxProps & { wrapperClassNa
     <input
       type="checkbox"
       ref={ref}
-      className={`karu-focus peer h-5 w-5 shrink-0 cursor-pointer appearance-none rounded-[5px] border-[1.5px] border-karu-ink/40 bg-karu-surface transition-[background-color,border-color,scale] duration-150 active:scale-90 checked:border-karu-yellow checked:bg-karu-yellow disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      className={`karu-focus peer h-5 w-5 shrink-0 cursor-pointer appearance-none rounded-[5px] border-[1.5px] border-slate-900/40 bg-surface transition-[background-color,border-color,scale] duration-150 active:scale-90 checked:border-brand checked:bg-brand disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
       {...props}
     />
     <svg
       viewBox="0 0 16 16"
       aria-hidden="true"
-      className="pointer-events-none h-3.5 w-3.5 fill-none stroke-karu-on-brand [stroke-dasharray:24] [stroke-dashoffset:24] [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:3] transition-[stroke-dashoffset] delay-[80ms] duration-200 peer-checked:[stroke-dashoffset:0]"
+      className="pointer-events-none h-3.5 w-3.5 fill-none stroke-on-brand [stroke-dasharray:24] [stroke-dashoffset:24] [stroke-linecap:round] [stroke-linejoin:round] [stroke-width:3] transition-[stroke-dashoffset] delay-[80ms] duration-200 peer-checked:[stroke-dashoffset:0]"
     >
       <path d="M3 8.5l3.2 3L13 4.5" />
     </svg>

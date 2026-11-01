@@ -234,7 +234,7 @@ export function CodeEntry({
         </Button>
       </form>
 
-      {scanError && <p className="mt-2 text-sm text-karu-terracotta">{scanError}</p>}
+      {scanError && <p className="mt-2 text-sm text-danger">{scanError}</p>}
 
       {scanning && (
         <QrScanner
@@ -305,7 +305,7 @@ function QrScanner({
   return (
     <div className="karu-scanner mt-3 karu-fade-in">
       {error ? (
-        <p className="text-sm text-karu-terracotta">{error}</p>
+        <p className="text-sm text-danger">{error}</p>
       ) : (
         <video ref={video} muted playsInline className="karu-scanner__video" />
       )}

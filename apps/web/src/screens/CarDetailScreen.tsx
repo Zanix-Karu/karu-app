@@ -143,9 +143,9 @@ export function CarDetailScreen() {
         <PhotoCarousel photos={orderedPhotos(car)} alt={`${car.make} ${car.model}`} />
 
         <h1 className="mt-6 font-display text-3xl font-bold">
-          {car.make} {car.model} {car.year && <span className="text-karu-mute">{car.year}</span>}
+          {car.make} {car.model} {car.year && <span className="text-slate-500">{car.year}</span>}
         </h1>
-        <p className="mt-1 text-sm text-karu-mute">
+        <p className="mt-1 text-sm text-slate-500">
           {CITY_LABEL[car.city]} · {CATEGORY_LABEL[car.category]}
         </p>
 
@@ -160,7 +160,7 @@ export function CarDetailScreen() {
           ].map((f) => (
             <span
               key={f}
-              className="rounded-full border border-karu-ink/15 bg-karu-surface px-3 py-1 text-xs font-semibold text-karu-brown"
+              className="rounded-full border border-slate-900/15 bg-surface px-3 py-1 text-xs font-semibold text-slate-800"
             >
               {f}
             </span>
@@ -171,7 +171,7 @@ export function CarDetailScreen() {
 
         {car.pickup_locations.length > 0 && (
           <div className="mt-5">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-karu-mute">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               {t('car.pickupLocations')}
             </h2>
             <ul className="mt-1 text-sm">
@@ -183,11 +183,11 @@ export function CarDetailScreen() {
         )}
 
         <div className="mt-5">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-karu-mute">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             {t('car.aboutProvider')}
           </h2>
           <p className="mt-1 text-sm">
-            <Link to={`/vendors/${car.vendor.id}`} className="font-semibold text-karu-gold hover:underline">
+            <Link to={`/vendors/${car.vendor.id}`} className="font-semibold text-brand-text hover:underline">
               {car.vendor.business_name}
             </Link>
           </p>
@@ -200,17 +200,17 @@ export function CarDetailScreen() {
             needs the refund path from the payments phase before it can be
             promised — until then cancelling is always free because nothing
             has been charged. */}
-        <div className="mt-6 rounded-xl bg-karu-yellow/15 px-4 py-3 text-xs text-karu-brown">
+        <div className="mt-6 rounded-xl bg-brand/15 px-4 py-3 text-xs text-slate-800">
           {t('car.conditions')}
         </div>
       </div>
 
       <Card className="h-fit p-5">
-        <p className="font-display text-2xl font-bold">
-          {xaf(car.daily_rate_xaf)} <span className="text-sm font-normal text-karu-mute">/ {t('common.perDay')}</span>
+        <p className="font-display text-2xl font-bold tracking-tight text-slate-900">
+          {xaf(car.daily_rate_xaf)} <span className="text-sm font-normal text-slate-500">/ {t('common.perDay')}</span>
         </p>
         {secondary(car.daily_rate_xaf) && (
-          <p className="text-sm font-semibold text-karu-gold">{secondary(car.daily_rate_xaf)}</p>
+          <p className="text-sm font-semibold text-brand-text">{secondary(car.daily_rate_xaf)}</p>
         )}
 
         {/* Providers browse read-only — showing them a booking CTA the API
@@ -218,7 +218,7 @@ export function CarDetailScreen() {
             control. Tell them why instead. Admins can book on a customer's
             behalf, so this never applies to them. */}
         {!canBook && (
-          <div className="mt-4 rounded-lg border border-karu-ink/10 bg-karu-cream px-4 py-3 text-sm text-karu-brown">
+          <div className="mt-4 rounded-lg border border-slate-900/10 bg-slate-50 px-4 py-3 text-sm text-slate-800">
             {t('car.readOnlyVendor')}
           </div>
         )}
@@ -236,15 +236,15 @@ export function CarDetailScreen() {
 
         {windowChosen && (
           <div className="mt-3 text-sm">
-            {checking && <p className="text-karu-mute">{t('car.checking')}</p>}
+            {checking && <p className="text-slate-500">{t('car.checking')}</p>}
             {avail && avail.available && (
-              <p className="karu-fade-in flex items-center gap-1.5 font-semibold text-green-700">
+              <p className="karu-fade-in flex items-center gap-1.5 font-semibold text-success">
                 <CircleCheck aria-hidden="true" className="h-[1.1em] w-[1.1em] shrink-0" />
                 {t('car.available', { from: prettyDate(from), to: prettyDate(to) })}
               </p>
             )}
             {avail && !avail.available && (
-              <p className="font-semibold text-karu-terracotta">
+              <p className="font-semibold text-danger">
                 {t('car.notAvailable')}
               </p>
             )}
@@ -254,10 +254,10 @@ export function CarDetailScreen() {
         {windowChosen && avail?.available && (
           <>
             {driverAvailable && (
-              <div className="mt-3 rounded-xl border border-karu-ink/10 p-3">
+              <div className="mt-3 rounded-xl border border-slate-900/10 p-3">
                 <div className="text-sm font-semibold">{t('car.driverHeading')}</div>
                 {driverRequired ? (
-                  <p className="mt-1 text-xs text-karu-mute">
+                  <p className="mt-1 text-xs text-slate-500">
                     {t('car.driverRequired', {
                       rate: xaf(car.driver_daily_rate_xaf ?? 0),
                     })}
@@ -275,7 +275,7 @@ export function CarDetailScreen() {
                         <span className="flex-1">
                           {v ? t('car.driverYes') : t('car.driverNo')}
                         </span>
-                        <span className="text-karu-mute">
+                        <span className="text-slate-500">
                           {v ? `+ ${xaf(car.driver_daily_rate_xaf ?? 0)}/${t('car.perDay')}` : ''}
                         </span>
                       </label>
@@ -285,7 +285,7 @@ export function CarDetailScreen() {
               </div>
             )}
 
-            <div className="mt-3 rounded-xl border border-karu-ink/10 p-3">
+            <div className="mt-3 rounded-xl border border-slate-900/10 p-3">
               <div className="text-sm font-semibold">{t('car.deliveryHeading')}</div>
               <div className="mt-2 grid gap-2">
                 {(
@@ -307,7 +307,7 @@ export function CarDetailScreen() {
                         onChange={() => setDeliveryType(kind)}
                       />
                       <span className="flex-1">{t(`car.delivery.${kind}`)}</span>
-                      <span className="text-karu-mute">
+                      <span className="text-slate-500">
                         {kind === 'address' && zoned
                           ? t('location.byDistance')
                           : fee ? `+ ${xaf(fee)}` : fee === 0 ? t('car.free') : ''}
@@ -317,7 +317,7 @@ export function CarDetailScreen() {
               </div>
               {deliveryType === 'address' && (
                 <div className="mt-3">
-                  <p className="text-xs text-karu-mute">{t('location.dropPin')}</p>
+                  <p className="text-xs text-slate-500">{t('location.dropPin')}</p>
                   <div className="mt-2">
                     <KaruMap
                       center={
@@ -337,7 +337,7 @@ export function CarDetailScreen() {
                   </div>
                   <button
                     type="button"
-                    className="mt-2 text-xs font-semibold text-karu-brown underline"
+                    className="mt-2 text-xs font-semibold text-slate-800 underline"
                     onClick={() => void locateMe().then(setDeliveryPin).catch(() => undefined)}
                   >
                     {t('location.useMine')}
@@ -345,7 +345,7 @@ export function CarDetailScreen() {
                   {deliveryQuote && (
                     <p
                       className={`mt-2 text-xs font-semibold ${
-                        deliveryQuote.out_of_range ? 'text-karu-terracotta' : 'text-karu-brown'
+                        deliveryQuote.out_of_range ? 'text-danger' : 'text-slate-800'
                       }`}
                     >
                       {deliveryQuote.out_of_range
@@ -359,7 +359,7 @@ export function CarDetailScreen() {
                     </p>
                   )}
                   {!deliveryQuote && car.vendor.free_delivery_min_days ? (
-                    <p className="mt-2 text-xs text-karu-brown">
+                    <p className="mt-2 text-xs text-slate-800">
                       {t('location.freeFromBadge', { count: car.vendor.free_delivery_min_days })}
                     </p>
                   ) : null}
@@ -421,7 +421,7 @@ export function CarDetailScreen() {
               <Input value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
             </Field>
 
-            <div className="mt-4 space-y-1 border-t border-karu-ink/10 pt-4 text-sm">
+            <div className="mt-4 space-y-1 border-t border-slate-900/10 pt-4 text-sm">
               <div className="flex justify-between">
                 <span>
                   {xaf(car.daily_rate_xaf)} × {days} day{days > 1 ? 's' : ''}
@@ -444,10 +444,10 @@ export function CarDetailScreen() {
               )}
               {deliveryType === 'address' && (deliveryQuote?.waived_xaf ?? quote.deliveryWaivedXaf) > 0 && (
                 // The customer-positive bit: show what they're not paying.
-                <div className="flex justify-between text-green-700">
+                <div className="flex justify-between text-success">
                   <span>{t(`car.delivery.address`)}</span>
                   <span>
-                    <s className="mr-1 text-karu-mute">{xaf(deliveryQuote?.waived_xaf ?? quote.deliveryWaivedXaf)}</s>
+                    <s className="mr-1 text-slate-500">{xaf(deliveryQuote?.waived_xaf ?? quote.deliveryWaivedXaf)}</s>
                     {t('car.free')}
                   </span>
                 </div>
@@ -457,15 +457,15 @@ export function CarDetailScreen() {
                 <span>
                   {xaf(total)}
                   {secondary(total) && (
-                    <span className="ml-1 font-normal text-karu-mute">({secondary(total)})</span>
+                    <span className="ml-1 font-normal text-slate-500">({secondary(total)})</span>
                   )}
                 </span>
               </div>
-              <div className="flex justify-between text-karu-brown">
+              <div className="flex justify-between text-slate-800">
                 <span>{t('car.depositNow')}</span>
                 <span>{xaf(quote.depositXaf)}</span>
               </div>
-              <p className="pt-1 text-xs text-karu-mute">
+              <p className="pt-1 text-xs text-slate-500">
                 {t('car.depositNote')}
               </p>
             </div>
@@ -503,7 +503,7 @@ export function CarDetailScreen() {
             >
               {book.isPending ? t('car.sending') : session ? t('car.requestToBook') : t('car.signInToBook')}
             </Button>
-            <p className="mt-2 text-center text-xs text-karu-mute">
+            <p className="mt-2 text-center text-xs text-slate-500">
               {t('car.noCharge')}
             </p>
           </>
@@ -534,7 +534,7 @@ function OtherVendorsWithThisCar({ car }: { car: VehicleDetail }) {
 
   return (
     <div className="mt-6">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-karu-mute">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         {t('car.otherVendors')}
       </h2>
       <div className="mt-2 flex flex-col gap-4">

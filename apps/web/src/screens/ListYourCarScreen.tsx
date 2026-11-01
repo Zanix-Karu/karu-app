@@ -9,6 +9,7 @@ import { useAuth, useView } from '../lib/auth';
 import { Button, Card, Field, Input, Select } from '../ds';
 import { ErrorNote } from '../ui';
 import { Checkbox } from '../components/Controls';
+import { FadeIn } from '../components/motion/FadeIn';
 
 /**
  * The supply-side landing page. Supply is the marketplace's real bottleneck,
@@ -29,29 +30,16 @@ export function ListYourCarScreen() {
 
   return (
     <div>
-      <div
-        style={{
-          background: 'var(--bg-gradient)',
-          borderRadius: 'var(--radius-lg)',
-          padding: '48px 44px',
-          color: 'var(--white)',
-        }}
-      >
-        <h1 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 46, maxWidth: 720 }}>
+      <section className="pt-2 sm:pt-6">
+        <span className="headline-in inline-flex items-center gap-2 rounded-full bg-brand-tint px-3.5 py-1.5 text-sm font-semibold text-slate-900">
+          <span className="h-2 w-2 rounded-full bg-brand" aria-hidden="true" />
+          {t('nav.listYourCar')}
+        </span>
+        <h1 className="headline-in mt-5 max-w-3xl font-display text-4xl font-bold leading-[1.08] tracking-tight text-slate-900 sm:text-[3.25rem]">
           {t('listYourCar.heroTitle')}
         </h1>
-        <p
-          style={{
-            margin: '10px 0 0',
-            fontFamily: 'var(--font-ui)',
-            fontSize: 17,
-            color: 'var(--text-on-dark-muted)',
-            maxWidth: 620,
-          }}
-        >
-          {t('listYourCar.heroSub')}
-        </p>
-        <div style={{ marginTop: 26, display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+        <p className="headline-in-2 mt-5 max-w-xl text-lg leading-relaxed text-slate-600">{t('listYourCar.heroSub')}</p>
+        <div className="headline-in-2 mt-8 flex flex-wrap items-center gap-3">
           {view === 'guest' && (
             <Button size="lg" onClick={() => navigate('/auth', { state: { from: '/vendor', mode: 'signup', account: 'vendor' } })}>
               {t('listYourCar.createAccount')}
@@ -68,65 +56,45 @@ export function ListYourCarScreen() {
             </Button>
           )}
         </div>
-      </div>
+      </section>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 18, marginTop: 28 }}>
+      <FadeIn className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {reasons.map((r) => (
-          <Card key={r.title}>
-            <h2 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 19 }}>{r.title}</h2>
-            <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 8, lineHeight: 1.55 }}>
-              {r.body}
-            </p>
+          <Card key={r.title} className="transition-[transform,box-shadow] duration-250 ease-[var(--ease-smooth-out)] hover:-translate-y-[3px] hover:shadow-lg">
+            <h2 className="font-display text-lg font-bold tracking-tight text-slate-900">{r.title}</h2>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600">{r.body}</p>
           </Card>
         ))}
-      </div>
+      </FadeIn>
 
-      <h2 style={{ fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 26, margin: '36px 0 16px' }}>
-        {t('listYourCar.howItWorks')}
-      </h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 18 }}>
-        {steps.map((s, i) => (
-          <Card key={s.title}>
-            <span
-              style={{
-                display: 'inline-flex',
-                width: 34,
-                height: 34,
-                borderRadius: '50%',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'var(--yellow)',
-                color: 'var(--ink)',
-                fontFamily: 'var(--font-sans)',
-                fontWeight: 800,
-              }}
-            >
-              {i + 1}
-            </span>
-            <h3 style={{ margin: '12px 0 0', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 18 }}>
-              {s.title}
-            </h3>
-            <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 6, lineHeight: 1.55 }}>
-              {s.body}
-            </p>
-          </Card>
-        ))}
-      </div>
+      <FadeIn className="mt-16">
+        <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-brand-text">
+          <span className="h-px w-6 bg-accent" aria-hidden="true" />
+          {t('listYourCar.howItWorks')}
+        </p>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {steps.map((step, i) => (
+            <Card key={step.title}>
+              <span className="font-display text-3xl font-bold tracking-tight text-accent">{String(i + 1).padStart(2, '0')}</span>
+              <h3 className="mt-3 font-display text-lg font-bold tracking-tight text-slate-900">{step.title}</h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{step.body}</p>
+            </Card>
+          ))}
+        </div>
+      </FadeIn>
 
       {view === 'customer' && <ConvertToVendor />}
 
       {view === 'guest' && (
-        <Card style={{ marginTop: 28, textAlign: 'center' }}>
-          <h2 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
-            {t('listYourCar.readyTitle')}
-          </h2>
-          <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 6 }}>
-            {t('listYourCar.readySub')}
-          </p>
-          <Button style={{ marginTop: 14 }} onClick={() => navigate('/auth', { state: { from: '/vendor', mode: 'signup', account: 'vendor' } })}>
+        <FadeIn className="mt-16 flex flex-col gap-4 rounded-2xl bg-brand-tint p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
+          <div>
+            <h2 className="font-display text-xl font-bold tracking-tight text-slate-900">{t('listYourCar.readyTitle')}</h2>
+            <p className="mt-1 text-sm text-slate-600">{t('listYourCar.readySub')}</p>
+          </div>
+          <Button className="self-start sm:self-auto" onClick={() => navigate('/auth', { state: { from: '/vendor', mode: 'signup', account: 'vendor' } })}>
             {t('listYourCar.createAccount')}
           </Button>
-        </Card>
+        </FadeIn>
       )}
     </div>
   );

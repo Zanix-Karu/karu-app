@@ -1,21 +1,30 @@
-import { Check } from 'lucide-react';
 /**
- * Karu design system — faithful TSX port of the approved mockups'
- * KaruDesignSystem components (inline styles + CSS custom properties from
- * tokens.css). Visuals are kept 1:1 with the mockups; only React idioms and
- * typing were modernised.
+ * Karu design system, restyled on NourishwithB's components
+ * (src/components/ui in that repo): pill buttons with an arrow on the
+ * primary, rounded-2xl cards with a hairline border, stone neutrals, status
+ * badges with a leading dot, 44px touch targets and brand focus rings.
+ *
+ * The props are the ones the screens already use, so callers didn't change;
+ * dark-panel tones from the old mockups now render as quiet light surfaces,
+ * since the Nourish look has no dark panels.
  */
+import { motion } from 'motion/react';
+import { ArrowRight, Check, Star } from 'lucide-react';
 import type {
   ButtonHTMLAttributes,
   CSSProperties,
   InputHTMLAttributes,
   ReactNode,
+  SelectHTMLAttributes,
 } from 'react';
+import { useId } from 'react';
+import { cn } from '../lib/cn';
+import { EASE_SMOOTH_OUT } from '../lib/motion';
 
 // --- Brand -------------------------------------------------------------------
 
 export function Wordmark({
-  color = 'var(--gold-400)',
+  color = 'var(--color-slate-900)',
   size = 28,
   style = {},
 }: {
@@ -25,51 +34,55 @@ export function Wordmark({
 }) {
   return (
     <span
-      style={{
-        fontFamily: 'var(--font-display)',
-        fontWeight: 700,
-        fontSize: size,
-        letterSpacing: '0.3em',
-        color,
-        ...style,
-      }}
+      className="font-display font-extrabold"
+      style={{ fontSize: size, letterSpacing: '0.18em', color, ...style }}
     >
       KARU
     </span>
   );
 }
 
-// --- Button --------------------------------------------------------------------
+// --- Button ------------------------------------------------------------------
 
 type ButtonVariant = 'primary' | 'gold' | 'secondary' | 'outline' | 'ghost' | 'danger';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
-const BUTTON_SIZES: Record<ButtonSize, CSSProperties> = {
-  sm: { padding: '8px 16px', fontSize: 15, height: 40 },
-  md: { padding: '12px 24px', fontSize: 18, height: 52 },
-  lg: { padding: '16px 32px', fontSize: 20, height: 64 },
+const FOCUS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-text focus-visible:ring-offset-2 focus-visible:ring-offset-page';
+
+export const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
+  primary: 'bg-brand text-on-brand shadow-sm hover:bg-brand-dark',
+  gold: 'bg-brand text-on-brand shadow-sm hover:bg-brand-dark',
+  secondary: 'border border-slate-300 bg-surface text-slate-700 hover:border-slate-400 hover:bg-slate-50',
+  outline: 'border border-slate-300 bg-surface text-slate-700 hover:border-slate-400 hover:bg-slate-50',
+  ghost: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+  danger: 'bg-danger text-surface shadow-sm hover:opacity-90',
 };
 
-const BUTTON_VARIANTS: Record<ButtonVariant, CSSProperties> = {
-  primary: { background: 'var(--yellow)', color: 'var(--brand-ink)', border: 'none' },
-  gold: { background: 'var(--gold-600)', color: 'var(--white)', border: 'none' },
-  secondary: { background: 'var(--white)', color: 'var(--ink)', border: 'none' },
-  outline: { background: 'transparent', color: 'var(--ink)', border: '1.5px solid var(--ink)' },
-  ghost: {
-    background: 'rgba(255,255,255,0.12)',
-    color: 'var(--white)',
-    border: '1px solid rgba(255,255,255,0.4)',
-  },
-  danger: { background: 'var(--danger)', color: 'var(--white)', border: 'none' },
+export const BUTTON_SIZES: Record<ButtonSize, string> = {
+  sm: 'min-h-11 px-4 py-2 text-sm',
+  md: 'min-h-11 px-6 py-3 text-sm',
+  lg: 'min-h-12 px-8 py-3.5 text-base',
 };
+
+/** Shared by both Button components and link-styled buttons. */
+export const buttonClass = (variant: ButtonVariant = 'primary', size: ButtonSize = 'md', full = false) =>
+  cn(
+    'karu-btn inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-colors duration-150',
+    'disabled:cursor-not-allowed disabled:opacity-60',
+    FOCUS,
+    BUTTON_VARIANTS[variant],
+    BUTTON_SIZES[size],
+    full && 'w-full',
+  );
 
 export function Button({
   variant = 'primary',
   size = 'md',
-  shape = 'rounded',
+  shape: _shape,
   full = false,
   loading = false,
-  style = {},
+  arrow,
+  style,
   disabled,
   className = '',
   children,
@@ -77,163 +90,139 @@ export function Button({
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
   size?: ButtonSize;
+  /** Kept for old callers; every button is a pill now. */
   shape?: 'rounded' | 'pill';
   full?: boolean;
-  /**
-   * Shows a spinner and blocks further clicks. Callers were hand-rolling this
-   * seventeen times across seven files, each swapping the label for a
-   * different word ("Working…", "One moment…", "Saving…"). Keeping the label
-   * and adding a spinner reads better anyway: nothing jumps, and the button
-   * still says what it does.
-   */
+  /** Shows a spinner and blocks clicks, keeping the label in place. */
   loading?: boolean;
+  /** The trailing arrow Nourish puts on primary buttons. On by default for primary. */
+  arrow?: boolean;
 }) {
-  const isDisabled = disabled || loading;
+  const showArrow = (arrow ?? variant === 'primary') && !loading;
   return (
     <button
-      disabled={isDisabled}
+      disabled={disabled || loading}
       aria-busy={loading || undefined}
-      // Hover, active and the focus ring live in CSS (karu-btn). They used to
-      // be inline mouse handlers, which cannot express :focus-visible at all —
-      // so keyboard users had no focus indicator on any DS button.
-      className={`karu-btn ${className}`.trim()}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 10,
-        width: full ? '100%' : undefined,
-        borderRadius: shape === 'pill' ? 'var(--radius-pill)' : 'var(--radius-md)',
-        fontFamily: 'var(--font-ui)',
-        fontWeight: 600,
-        cursor: isDisabled ? 'not-allowed' : 'pointer',
-        opacity: isDisabled ? 0.45 : 1,
-        ...BUTTON_SIZES[size],
-        ...BUTTON_VARIANTS[variant],
-        ...style,
-      }}
+      className={cn(buttonClass(variant, size, full), className)}
+      style={style}
       {...rest}
     >
-      {loading && <Spinner />}
+      {loading && <Spinner className="label-in" />}
       {children}
+      {showArrow && <ArrowRight aria-hidden="true" className="h-4 w-4 shrink-0" />}
     </button>
   );
 }
 
-/** Inline spinner for the button's loading state. */
-function Spinner() {
+/** The app's single loading indicator: a ring in the current text colour. */
+export function Spinner({ className = '' }: { className?: string }) {
   return (
     <span
       aria-hidden="true"
-      className="karu-btn-spinner"
-      style={{
-        width: '1em',
-        height: '1em',
-        borderRadius: '50%',
-        border: '2px solid currentColor',
-        borderTopColor: 'transparent',
-        display: 'inline-block',
-        flexShrink: 0,
-      }}
+      className={cn(
+        'karu-btn-spinner inline-block h-4 w-4 shrink-0 rounded-full border-2 border-current border-t-transparent',
+        className,
+      )}
     />
   );
 }
 
-// --- Surfaces ------------------------------------------------------------------
+// --- Surfaces ----------------------------------------------------------------
 
 export function Card({
   children,
   tone = 'light',
-  pad = 24,
-  radius = 'var(--radius-md)',
+  pad,
+  radius,
+  className = '',
   style = {},
 }: {
   children: ReactNode;
   tone?: 'light' | 'panel' | 'canvas';
   pad?: number | string;
   radius?: string;
+  className?: string;
   style?: CSSProperties;
 }) {
-  const tones: Record<string, CSSProperties> = {
-    light: { background: 'var(--white)', color: 'var(--ink)', boxShadow: 'var(--shadow-card)' },
-    panel: {
-      background: 'rgba(255,255,255,0.06)',
-      color: 'var(--white)',
-      boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.14)',
-    },
-    canvas: { background: 'var(--cream-200)', color: 'var(--ink)', boxShadow: 'none' },
-  };
   return (
-    <div style={{ borderRadius: radius, padding: pad, boxSizing: 'border-box', ...tones[tone], ...style }}>
+    <div
+      className={cn(
+        'rounded-2xl',
+        pad == null && 'p-6',
+        tone === 'light' && 'border border-slate-200 bg-surface text-slate-700 shadow-sm',
+        tone === 'panel' && 'border border-slate-200 bg-slate-50 text-slate-700',
+        tone === 'canvas' && 'bg-slate-50 text-slate-700',
+        className,
+      )}
+      style={{ ...(pad != null ? { padding: pad } : {}), ...(radius ? { borderRadius: radius } : {}), ...style }}
+    >
       {children}
     </div>
   );
 }
 
-// --- Data display ---------------------------------------------------------------
+// --- Data display ------------------------------------------------------------
 
+type BadgeVariant = 'upcoming' | 'success' | 'neutral' | 'solid' | 'danger' | 'warning';
+
+const BADGE: Record<BadgeVariant, [string, string]> = {
+  upcoming: ['bg-brand-tint text-slate-900', 'bg-brand'],
+  success: ['bg-success-tint text-slate-800', 'bg-success'],
+  warning: ['bg-warn-tint text-warn', 'bg-warn'],
+  neutral: ['bg-slate-100 text-slate-600', 'bg-slate-400'],
+  solid: ['bg-brand text-on-brand', 'bg-on-brand'],
+  danger: ['bg-danger-tint text-danger', 'bg-danger'],
+};
+
+/** Status pill with a leading dot, as in Nourish. */
 export function Badge({
   children,
   variant = 'upcoming',
+  dot = true,
+  className = '',
   style = {},
 }: {
   children: ReactNode;
-  variant?: 'upcoming' | 'success' | 'neutral' | 'solid' | 'danger';
+  variant?: BadgeVariant;
+  dot?: boolean;
+  className?: string;
   style?: CSSProperties;
 }) {
-  const variants: Record<string, CSSProperties> = {
-    upcoming: { background: 'rgba(251,211,1,0.22)', color: 'var(--gold-600)' },
-    success: { background: 'rgba(46,158,63,0.14)', color: 'var(--success)' },
-    neutral: { background: 'var(--cream-200)', color: 'var(--gray-500)' },
-    solid: { background: 'var(--yellow)', color: 'var(--ink)' },
-    danger: { background: 'rgba(246,6,6,0.12)', color: 'var(--danger)' },
-  };
+  const [box, dotColour] = BADGE[variant];
   return (
     <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 6,
-        padding: '5px 12px',
-        borderRadius: 'var(--radius-sm)',
-        fontFamily: 'var(--font-ui)',
-        fontWeight: 600,
-        fontSize: 13,
-        lineHeight: 1,
-        ...variants[variant],
-        ...style,
-      }}
+      className={cn(
+        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold',
+        box,
+        className,
+      )}
+      style={style}
     >
+      {dot && <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', dotColour)} aria-hidden="true" />}
       {children}
     </span>
   );
 }
 
+/** A soft chip: Nourish's `rounded-full bg-slate-100` label. */
 export function Tag({
   children,
-  tone = 'dark',
+  tone: _tone,
+  className = '',
   style = {},
 }: {
   children: ReactNode;
   tone?: 'dark' | 'light';
+  className?: string;
   style?: CSSProperties;
 }) {
-  const dark = tone === 'dark';
   return (
     <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        padding: '10px 20px',
-        borderRadius: 'var(--radius-sm)',
-        fontFamily: 'var(--font-ui)',
-        fontWeight: 600,
-        fontSize: 18,
-        lineHeight: 1,
-        background: dark ? 'rgba(255,255,255,0.16)' : 'var(--cream-200)',
-        color: dark ? 'var(--white)' : 'var(--ink)',
-        ...style,
-      }}
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700',
+        className,
+      )}
+      style={style}
     >
       {children}
     </span>
@@ -243,47 +232,35 @@ export function Tag({
 export function FeatureChip({
   icon,
   children,
-  tone = 'light',
+  tone: _tone,
+  className = '',
   style = {},
 }: {
   icon?: ReactNode;
   children: ReactNode;
   tone?: 'light' | 'dark';
+  className?: string;
   style?: CSSProperties;
 }) {
-  const dark = tone === 'dark';
   return (
     <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 10,
-        padding: '12px 18px',
-        borderRadius: 'var(--radius-sm)',
-        fontFamily: 'var(--font-ui)',
-        fontWeight: 600,
-        fontSize: 16,
-        background: dark ? 'transparent' : 'var(--white)',
-        color: dark ? 'var(--white)' : 'var(--ink)',
-        boxShadow: dark ? 'none' : 'inset 0 0 0 1px var(--border-light)',
-        ...style,
-      }}
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700',
+        className,
+      )}
+      style={style}
     >
-      {icon && <span style={{ display: 'flex' }}>{icon}</span>}
+      {icon && <span className="flex text-brand-text">{icon}</span>}
       {children}
     </span>
   );
 }
 
-const STAR = (
-  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-);
-
 export function Rating({
   value,
   count,
   size = 16,
-  color = 'var(--ink)',
+  color,
   style = {},
 }: {
   value: number | string;
@@ -293,107 +270,101 @@ export function Rating({
   style?: CSSProperties;
 }) {
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, ...style }}>
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="var(--rating)" stroke="var(--rating)" strokeWidth="1" strokeLinejoin="round">
-        {STAR}
-      </svg>
-      <span style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: size * 0.9, color }}>
+    <span className="inline-flex items-center gap-1.5" style={style}>
+      <Star aria-hidden="true" className="fill-brand text-brand" style={{ width: size, height: size }} />
+      <span className="font-semibold text-slate-900" style={{ fontSize: size * 0.875, ...(color ? { color } : {}) }}>
         {value}
-        {count != null && <span style={{ fontWeight: 500 }}> ({count})</span>}
+        {count != null && <span className="font-medium text-slate-500"> ({count})</span>}
       </span>
     </span>
   );
 }
 
-// --- Forms -----------------------------------------------------------------------
+// --- Forms -------------------------------------------------------------------
 
 export function Field({
   label,
   children,
-  onDark = false,
+  onDark: _onDark,
+  className = '',
   style = {},
 }: {
   label: string;
   children: ReactNode;
   onDark?: boolean;
+  className?: string;
   style?: CSSProperties;
 }) {
   return (
-    <label style={{ display: 'block', ...style }}>
-      <span
-        style={{
-          display: 'block',
-          marginBottom: 6,
-          fontFamily: 'var(--font-ui)',
-          fontWeight: 600,
-          fontSize: 14,
-          color: onDark ? 'var(--text-on-dark-muted)' : 'var(--gray-500)',
-        }}
-      >
-        {label}
-      </span>
+    <label className={cn('block', className)} style={style}>
+      <span className="mb-1.5 block text-sm font-semibold text-slate-900">{label}</span>
       {children}
     </label>
   );
 }
 
-const inputStyle: CSSProperties = {
-  width: '100%',
-  boxSizing: 'border-box',
-  padding: '13px 16px',
-  borderRadius: 'var(--radius-md)',
-  border: '1px solid var(--border-light)',
-  background: 'var(--white)',
-  color: 'var(--ink)',
-  fontFamily: 'var(--font-ui)',
-  fontWeight: 500,
-  fontSize: 16,
-  outline: 'none',
-};
+export const inputClass = cn(
+  'flex min-h-11 w-full rounded-md border border-slate-300 bg-surface px-3.5 py-2.5 text-base text-slate-900 placeholder:text-slate-400 transition-colors',
+  'focus-visible:border-brand-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40',
+  'disabled:cursor-not-allowed disabled:opacity-50',
+  'aria-[invalid=true]:border-danger aria-[invalid=true]:ring-danger/20',
+);
 
-export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} style={{ ...inputStyle, ...props.style }} />;
+export function Input({ className = '', ...props }: InputHTMLAttributes<HTMLInputElement>) {
+  return <input {...props} className={cn(inputClass, className)} />;
 }
 
-export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select {...props} style={{ ...inputStyle, ...props.style }} />;
+export function Select({ className = '', ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+  return <select {...props} className={cn(inputClass, className)} />;
 }
 
-// --- Navigation --------------------------------------------------------------------
+// --- Navigation --------------------------------------------------------------
 
+/**
+ * Tabs with one shared underline that glides to the chosen tab, as in
+ * Nourish's portal tab bar. `layoutId` is per instance so two tab bars on
+ * one page don't steal each other's underline.
+ */
 export function Tabs({
   items,
   active,
   onChange,
+  className = '',
   style = {},
 }: {
   items: Array<{ key: string; label: string }>;
   active: string;
   onChange: (key: string) => void;
+  className?: string;
   style?: CSSProperties;
 }) {
+  const id = useId();
   return (
-    <div style={{ display: 'flex', gap: 8, ...style }}>
+    <div role="tablist" className={cn('-mb-px flex gap-1 overflow-x-auto border-b border-slate-200', className)} style={style}>
       {items.map((t) => {
         const is = t.key === active;
         return (
           <button
             key={t.key}
+            type="button"
+            role="tab"
+            aria-selected={is}
             onClick={() => onChange(t.key)}
-            style={{
-              padding: '10px 22px',
-              borderRadius: 'var(--radius-pill)',
-              border: 'none',
-              cursor: 'pointer',
-              fontFamily: 'var(--font-ui)',
-              fontWeight: 600,
-              fontSize: 15,
-              background: is ? 'var(--ink)' : 'transparent',
-              color: is ? 'var(--white)' : 'var(--gray-500)',
-              transition: 'all 150ms ease',
-            }}
+            className={cn(
+              'relative inline-flex shrink-0 items-center gap-2 px-3 py-3 text-sm font-semibold transition-colors duration-150',
+              FOCUS,
+              is ? 'text-slate-900' : 'text-slate-500 hover:text-slate-900',
+            )}
           >
             {t.label}
+            {is && (
+              <motion.span
+                layoutId={`tabs-underline-${id}`}
+                transition={{ duration: 0.25, ease: EASE_SMOOTH_OUT }}
+                className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-brand"
+                aria-hidden="true"
+              />
+            )}
           </button>
         );
       })}
@@ -404,92 +375,91 @@ export function Tabs({
 export function StepNav({
   steps,
   current,
+  className = '',
   style = {},
 }: {
   steps: string[];
   current: number;
+  className?: string;
   style?: CSSProperties;
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 14, ...style }}>
+    <ol className={cn('flex flex-wrap items-center gap-3', className)} style={style}>
       {steps.map((label, i) => {
         const done = i < current;
         const active = i === current;
         return (
-          <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 14 }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <li key={label} className="inline-flex items-center gap-3" aria-current={active ? 'step' : undefined}>
+            <span className="inline-flex items-center gap-2">
               <span
-                style={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: '50%',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontFamily: 'var(--font-ui)',
-                  fontWeight: 700,
-                  fontSize: 14,
-                  background: active || done ? 'var(--yellow)' : 'var(--cream-200)',
-                  color: active || done ? 'var(--ink)' : 'var(--gray-400)',
-                }}
+                className={cn(
+                  'inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition-colors duration-250',
+                  active || done ? 'bg-brand text-on-brand' : 'bg-slate-100 text-slate-500',
+                )}
               >
-                {done ? <Check aria-hidden="true" className="karu-pop" style={{ width: 16, height: 16 }} strokeWidth={3} /> : i + 1}
+                {done ? <Check aria-hidden="true" className="badge-pop h-4 w-4" strokeWidth={3} /> : i + 1}
               </span>
-              <span
-                style={{
-                  fontFamily: 'var(--font-ui)',
-                  fontWeight: 600,
-                  fontSize: 14,
-                  color: active ? 'var(--ink)' : 'var(--gray-400)',
-                }}
-              >
-                {label}
-              </span>
+              <span className={cn('text-sm font-semibold', active ? 'text-slate-900' : 'text-slate-500')}>{label}</span>
             </span>
-            {i < steps.length - 1 && (
-              <span style={{ width: 34, height: 1, background: 'var(--border-light)' }} />
-            )}
-          </span>
+            {i < steps.length - 1 && <span className="h-px w-8 bg-slate-200" aria-hidden="true" />}
+          </li>
         );
       })}
-    </div>
+    </ol>
   );
 }
 
+/**
+ * Section nav, as in Nourish's admin sidebar: the active item sits on a
+ * brand tint that glides between items.
+ */
 export function SidebarNav({
   items,
   active,
   onSelect,
+  className = '',
   style = {},
 }: {
-  items: Array<{ key: string; label: string }>;
+  items: Array<{ key: string; label: string; icon?: ReactNode; hint?: string }>;
   active: string;
   onSelect: (key: string) => void;
+  className?: string;
   style?: CSSProperties;
 }) {
+  const id = useId();
   return (
-    <nav style={{ display: 'flex', flexDirection: 'column', gap: 4, ...style }}>
+    <nav className={cn('flex flex-col gap-0.5', className)} style={style}>
       {items.map((it) => {
         const is = it.key === active;
         return (
           <button
             key={it.key}
+            type="button"
             onClick={() => onSelect(it.key)}
-            style={{
-              textAlign: 'left',
-              padding: '12px 18px',
-              borderRadius: 'var(--radius-md)',
-              border: 'none',
-              cursor: 'pointer',
-              fontFamily: 'var(--font-ui)',
-              fontWeight: 600,
-              fontSize: 15,
-              background: is ? 'var(--yellow)' : 'transparent',
-              color: is ? 'var(--ink)' : 'var(--text-on-dark-muted)',
-              transition: 'all 150ms ease',
-            }}
+            aria-current={is ? 'page' : undefined}
+            className={cn(
+              'group relative isolate flex items-start gap-3 rounded-lg px-3 py-2 text-left transition-colors duration-150',
+              FOCUS,
+              is ? '' : 'hover:bg-slate-100',
+            )}
           >
-            {it.label}
+            {is && (
+              <motion.span
+                layoutId={`sidebar-active-${id}`}
+                transition={{ duration: 0.25, ease: EASE_SMOOTH_OUT }}
+                className="absolute inset-0 -z-10 rounded-lg bg-brand-tint"
+                aria-hidden="true"
+              />
+            )}
+            {it.icon && (
+              <span className={cn('mt-0.5 flex shrink-0', is ? 'text-brand-text' : 'text-slate-400 group-hover:text-slate-600')}>
+                {it.icon}
+              </span>
+            )}
+            <span className="min-w-0 flex-1">
+              <span className={cn('block text-sm font-semibold', is ? 'text-slate-900' : 'text-slate-800')}>{it.label}</span>
+              {it.hint && <span className="block truncate text-xs text-slate-500">{it.hint}</span>}
+            </span>
           </button>
         );
       })}
@@ -502,40 +472,37 @@ export function StatCard({
   value,
   hint,
   accent = false,
+  icon,
+  className = '',
   style = {},
 }: {
   label: string;
   value: ReactNode;
   hint?: ReactNode;
   accent?: boolean;
+  icon?: ReactNode;
+  className?: string;
   style?: CSSProperties;
 }) {
   return (
-    <Card style={style}>
-      <div style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 14, color: 'var(--gray-500)' }}>
-        {label}
+    <Card className={className} style={style}>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm font-semibold text-slate-500">{label}</span>
+        {icon && (
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-tint text-brand-text">
+            {icon}
+          </span>
+        )}
       </div>
-      <div
-        style={{
-          marginTop: 8,
-          fontFamily: 'var(--font-sans)',
-          fontWeight: 800,
-          fontSize: 34,
-          color: accent ? 'var(--gold-600)' : 'var(--ink)',
-        }}
-      >
+      <div className={cn('value-pop mt-2 font-display text-3xl font-bold tracking-tight', accent ? 'text-brand-text' : 'text-slate-900')}>
         {value}
       </div>
-      {hint && (
-        <div style={{ marginTop: 6, fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-400)' }}>
-          {hint}
-        </div>
-      )}
+      {hint && <div className="mt-1 text-sm text-slate-500">{hint}</div>}
     </Card>
   );
 }
 
-// --- Marketplace ---------------------------------------------------------------------
+// --- Marketplace -------------------------------------------------------------
 
 export function CarCard({
   image,
@@ -555,6 +522,7 @@ export function CarCard({
   viewLabel = 'View details',
   onView,
   headingLevel = 'h3',
+  className = '',
   style = {},
 }: {
   image?: string;
@@ -575,71 +543,45 @@ export function CarCard({
   perDayLabel?: string;
   viewLabel?: string;
   onView?: () => void;
-  /** Heading tag for the car name so a results list is navigable by structure
-   *  (A11Y-3). Defaults to h3; the search results pass h2. */
+  /** Heading tag for the car name so a results list is navigable by
+   *  structure (A11Y-3). Defaults to h3; the search results pass h2. */
   headingLevel?: 'h2' | 'h3';
+  className?: string;
   style?: CSSProperties;
 }) {
   const NameTag = headingLevel;
   return (
     <div
-      className="karu-car-card"
-      style={{
-        background: 'var(--white)',
-        borderRadius: 'var(--radius-md)',
-        boxShadow: 'var(--shadow-card)',
-        padding: 24,
-        position: 'relative',
-        ...style,
-      }}
+      className={cn(
+        'karu-car-card group relative rounded-2xl border border-slate-200 bg-surface p-4 shadow-sm transition-[transform,box-shadow] duration-250 ease-[var(--ease-smooth-out)] hover:-translate-y-[3px] hover:shadow-lg sm:p-5',
+        className,
+      )}
+      style={style}
     >
-      {image ? (
-        // DS-6: `contain` letterboxed each photo to its own shape, so a
-        // portrait source (the Corolla is 1200x1600) rendered a different
-        // height from its landscape neighbours and the cards stopped lining
-        // up. A fixed box plus `cover` crops instead, so every card matches.
-        <div
-          style={{
-            width: '100%',
-            height: 150,
-            overflow: 'hidden',
-            borderRadius: 'var(--radius-sm)',
-            background: 'var(--sand-300)',
-          }}
-        >
+      {/* DS-6: a fixed box plus `cover` crops every photo to the same shape,
+          so portrait and landscape sources line up in the grid. */}
+      <div className="h-40 w-full overflow-hidden rounded-xl bg-slate-100">
+        {image ? (
           <img
             src={image}
             alt={name}
             loading="lazy"
             decoding="async"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
+            className="h-full w-full object-cover object-center transition-transform duration-500 ease-[var(--ease-smooth-out)] group-hover:scale-[1.03]"
           />
-        </div>
-      ) : (
-        <div
-          style={{
-            height: 150,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: 'var(--radius-sm)',
-            background: 'var(--bg-gradient)',
-          }}
-        >
-          <Wordmark size={22} />
-        </div>
-      )}
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div>
-          <NameTag style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 30, color: 'var(--ink)', margin: 0 }}>
-            {name}
-          </NameTag>
-          <div style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 16, color: 'var(--gray-500)', marginTop: 2 }}>
-            {category}
+        ) : (
+          <div className="flex h-full items-center justify-center bg-brand-tint">
+            <Wordmark size={20} />
           </div>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <div>
+          <NameTag className="m-0 font-display text-xl font-bold tracking-tight text-slate-900">{name}</NameTag>
+          <div className="mt-0.5 text-sm font-medium text-slate-500">{category}</div>
         </div>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <div className="flex flex-wrap gap-2">
           <FeatureChip>{seats}</FeatureChip>
           <FeatureChip>{transmission}</FeatureChip>
           {extra && <FeatureChip>{extra}</FeatureChip>}
@@ -647,36 +589,45 @@ export function CarCard({
       </div>
 
       <div className="karu-car-card-actions">
-        {provider && (
-          <span style={{ fontFamily: 'var(--font-ui)', fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>
-            {provider}
-          </span>
-        )}
+        {provider && <span className="text-sm font-semibold text-slate-900">{provider}</span>}
         {rating != null && <Rating value={rating} count={reviews} size={16} />}
-        <div style={{ textAlign: 'right', marginTop: 4 }}>
-          <span style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 26, color: 'var(--ink)' }}>
+        <div className="mt-1 text-right">
+          <span className="font-display text-2xl font-bold tracking-tight text-slate-900">
             {currency} {price.toLocaleString('en-US')}
           </span>
-          {secondaryPrice && (
-            <div style={{ fontFamily: 'var(--font-ui)', fontWeight: 700, fontSize: 15, color: 'var(--gold-600)' }}>
-              {secondaryPrice}
-            </div>
-          )}
-          {subPrice && (
-            /* A11Y-3: gray-400 (#a3a2a2) on white was ~2.56:1 — below the 4.5:1
-               floor for this 13px text. gray-500 clears it. */
-            <div style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 13, color: 'var(--gray-500)' }}>
-              {subPrice}
-            </div>
-          )}
-          <div style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 13, color: 'var(--gray-500)', marginTop: 2 }}>
-            {perDayLabel}
-          </div>
+          {secondaryPrice && <div className="text-sm font-semibold text-brand-text">{secondaryPrice}</div>}
+          {subPrice && <div className="text-xs font-semibold text-slate-500">{subPrice}</div>}
+          <div className="mt-0.5 text-xs font-semibold text-slate-500">{perDayLabel}</div>
         </div>
-        <Button variant="primary" size="sm" onClick={onView} style={{ marginTop: 4 }}>
+        <Button variant="primary" size="sm" onClick={onView} className="mt-1">
           {viewLabel}
         </Button>
       </div>
     </div>
+  );
+}
+
+// --- Segmented control ---------------------------------------------------------
+
+/** Container + button classes for a small set of mutually exclusive views
+ *  (sign in / create account, active / archived). The chosen one sits on a
+ *  white pill that glides between options. */
+export const segmentWrap = 'inline-flex rounded-full border border-slate-200 bg-slate-100 p-1';
+export const segmentButton = (active: boolean) =>
+  cn(
+    'relative isolate inline-flex min-h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold transition-colors duration-150',
+    FOCUS,
+    active ? 'text-slate-900' : 'text-slate-500 hover:text-slate-900',
+  );
+
+/** Put inside the active segment; `group` must be unique per control. */
+export function SegmentPill({ group }: { group: string }) {
+  return (
+    <motion.span
+      layoutId={`segment-${group}`}
+      transition={{ duration: 0.25, ease: EASE_SMOOTH_OUT }}
+      className="absolute inset-0 -z-10 rounded-full bg-surface shadow-sm"
+      aria-hidden="true"
+    />
   );
 }

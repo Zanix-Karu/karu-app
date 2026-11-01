@@ -59,20 +59,20 @@ export function ResetPasswordScreen() {
   if (done) {
     return (
       <div className="mx-auto max-w-md text-center">
-        <h1 className="font-display text-3xl font-bold">{t('auth.passwordUpdated')}</h1>
-        <p className="mt-2 text-sm text-karu-mute">{t('auth.signingYouIn')}</p>
+        <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{t('auth.passwordUpdated')}</h1>
+        <p className="mt-2 text-sm text-slate-500">{t('auth.signingYouIn')}</p>
       </div>
     );
   }
 
   return (
     <div className="mx-auto max-w-md">
-      <h1 className="font-display text-3xl font-bold">{t('auth.chooseNewPassword')}</h1>
+      <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{t('auth.chooseNewPassword')}</h1>
 
       {!ready ? (
         <Card className="mt-6 p-6">
           <Spinner label={t('auth.checkingResetLink')} />
-          <p className="text-center text-xs text-karu-mute">{t('auth.resetLinkExpiredHint')}</p>
+          <p className="text-center text-xs text-slate-500">{t('auth.resetLinkExpiredHint')}</p>
         </Card>
       ) : (
         <Card className="mt-6 p-6">

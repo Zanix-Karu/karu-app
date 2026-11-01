@@ -80,11 +80,12 @@
 .karu-ticket {
   position: relative;
   overflow: hidden;
-  border-radius: var(--radius-lg);
-  background: var(--bg-gradient);
-  color: var(--text-on-dark);
-  box-shadow: var(--shadow-lg);
-  animation: karu-rise-in var(--motion-slow) var(--ease-out) both;
+  border-radius: var(--radius-2xl);
+  border: 1px solid var(--color-slate-200);
+  background: var(--color-surface);
+  color: var(--color-slate-900);
+  box-shadow: var(--shadow-sm);
+  animation: reveal-up var(--duration-slow) var(--ease-smooth-out) backwards;
 }
 
 /* Punched notches either side of the tear line, like a paper ticket. */
@@ -96,7 +97,8 @@
   width: 22px;
   height: 22px;
   border-radius: var(--radius-pill);
-  background: var(--bg-canvas);
+  background: var(--color-slate-50);
+  border: 1px solid var(--color-slate-200);
 }
 .karu-ticket::before { left: -11px; }
 .karu-ticket::after { right: -11px; }
@@ -107,7 +109,7 @@
   align-items: baseline;
   gap: 12px;
   padding: 18px 22px 16px;
-  border-bottom: 2px dashed rgba(255, 255, 255, 0.28);
+  border-bottom: 2px dashed var(--color-slate-200);
 }
 .karu-ticket__eyebrow {
   margin: 0;
@@ -116,7 +118,7 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--brand);
+  color: var(--color-brand-text);
 }
 .karu-ticket__ref {
   margin: 0;
@@ -150,7 +152,7 @@
   font-size: 40px;
   font-variant-numeric: tabular-nums;
   box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.08);
-  animation: karu-pop-in var(--motion-base) var(--ease-spring) both;
+  animation: badge-pop var(--duration-very-slow) var(--ease-smooth-out) backwards;
 }
 .karu-ticket__digit:nth-child(2) { animation-delay: 40ms; }
 .karu-ticket__digit:nth-child(3) { animation-delay: 80ms; }
@@ -169,7 +171,7 @@
   margin-top: 14px;
   padding: 6px 14px;
   border-radius: var(--radius-pill);
-  border: 1px solid rgba(255, 255, 255, 0.45);
+  border: 1px solid var(--color-slate-300);
   background: transparent;
   color: var(--text-on-dark);
   font-family: var(--font-ui);
@@ -178,7 +180,7 @@
   cursor: pointer;
   transition: background-color var(--motion-fast) var(--ease-out);
 }
-.karu-ticket__qr-toggle:hover { background: rgba(255, 255, 255, 0.12); }
+.karu-ticket__qr-toggle:hover { background: var(--color-slate-100); }
 .karu-ticket__qr-toggle:focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 2px;

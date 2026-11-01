@@ -37,9 +37,9 @@ const EXIT_MS = 200;
 
 const ICONS = { default: Info, success: CircleCheck, error: CircleAlert } as const;
 const ICON_COLOUR = {
-  default: 'text-karu-gold',
+  default: 'text-brand-text',
   success: 'text-[var(--success)]',
-  error: 'text-karu-terracotta',
+  error: 'text-danger',
 } as const;
 
 function reducedMotion() {
@@ -96,7 +96,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               key={item.id}
               role={item.variant === 'error' ? 'alert' : 'status'}
               data-state={item.state}
-              className="karu-toast pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-xl border border-karu-ink/10 bg-karu-surface py-3 pr-2 pl-4 text-sm text-karu-ink shadow-lg"
+              className="toast-motion pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-xl border border-slate-900/10 bg-surface py-3 pr-2 pl-4 text-sm text-slate-900 shadow-lg"
             >
               <Icon aria-hidden="true" className={`h-5 w-5 shrink-0 ${ICON_COLOUR[item.variant]}`} />
               <p className="min-w-0 flex-1">{item.message}</p>
@@ -104,7 +104,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 type="button"
                 onClick={() => dismiss(item.id)}
                 aria-label={t('common.dismiss')}
-                className="karu-icon-btn shrink-0 text-karu-mute hover:text-karu-ink"
+                className="karu-icon-btn shrink-0 text-slate-500 hover:text-slate-900"
               >
                 <X aria-hidden="true" className="h-4 w-4" />
               </button>

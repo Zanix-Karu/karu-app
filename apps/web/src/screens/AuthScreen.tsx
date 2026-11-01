@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 import { api } from '../lib/api';
 import { Button, Card, ErrorNote, Field, Input, PhoneInput, Select } from '../ui';
 import { Checkbox } from '../components/Controls';
+import { SegmentPill, segmentButton, segmentWrap } from '../ds';
 
 type Mode = 'login' | 'signup' | 'reset';
 /** The mockup's account-type switch: rent a car, or list one. */
@@ -220,10 +221,10 @@ export function AuthScreen() {
         setNotice(null);
         setConfirmEmail('');
       }}
-      className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
-        mode === m ? 'bg-karu-ink text-karu-cream' : 'text-karu-brown hover:bg-karu-ink/5'
-      }`}
+      aria-pressed={mode === m}
+      className={segmentButton(mode === m)}
     >
+      {mode === m && <SegmentPill group="auth-mode" />}
       {label}
     </button>
   );
@@ -235,14 +236,15 @@ export function AuthScreen() {
         setAccount(a);
         setError(null);
       }}
-      className={`flex-1 rounded-xl border-2 p-3 text-left transition ${
+      aria-pressed={account === a}
+      className={`flex-1 rounded-xl border p-3 text-left transition-[border-color,background-color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-text ${
         account === a
-          ? 'border-karu-gold bg-karu-yellow/10'
-          : 'border-karu-ink/10 hover:border-karu-ink/25'
+          ? 'border-brand-text bg-brand-tint shadow-sm'
+          : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
       }`}
     >
-      <span className="block text-sm font-bold">{label}</span>
-      <span className="mt-0.5 block text-xs text-karu-mute">{sub}</span>
+      <span className="block text-sm font-bold text-slate-900">{label}</span>
+      <span className="mt-0.5 block text-xs text-slate-500">{sub}</span>
     </button>
   );
 
@@ -250,14 +252,16 @@ export function AuthScreen() {
     <div className="grid gap-8 lg:grid-cols-[1fr_420px] lg:items-start">
       {/* Why bother — the pitch changes with the account type. */}
       <div className="order-2 lg:order-1">
-        <h1 className="font-display text-4xl font-bold leading-tight">{pitch.title}</h1>
-        <p className="mt-2 text-karu-mute">{pitch.sub}</p>
+        <h1 key={pitch.title} className="headline-in font-display text-4xl font-bold leading-[1.08] tracking-tight text-slate-900 sm:text-[2.75rem]">
+          {pitch.title}
+        </h1>
+        <p key={pitch.sub} className="headline-in-2 mt-4 text-lg leading-relaxed text-slate-600">{pitch.sub}</p>
         <ul className="mt-6 space-y-3">
           {pitch.points.map((p) => (
-            <li key={p} className="flex gap-3 text-sm">
+            <li key={p} className="flex gap-3 text-sm text-slate-700">
               <span
                 aria-hidden="true"
-                className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-karu-yellow text-karu-on-brand"
+                className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand text-on-brand"
               >
                 <Check className="h-3 w-3" strokeWidth={3} />
               </span>
@@ -266,9 +270,9 @@ export function AuthScreen() {
           ))}
         </ul>
         {account === 'vendor' && (
-          <div className="mt-6 rounded-xl bg-karu-cream p-4 text-sm">
-            <p className="font-semibold">{t('auth.afterSignup')}</p>
-            <ol className="mt-2 list-decimal space-y-1 pl-4 text-karu-mute">
+          <div className="label-in mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm">
+            <p className="font-semibold text-slate-900">{t('auth.afterSignup')}</p>
+            <ol className="mt-2 list-decimal space-y-1 pl-4 text-slate-600">
               {(t('auth.afterSignupSteps', { returnObjects: true }) as unknown as string[]).map((step) => (
                 <li key={step}>{step}</li>
               ))}
@@ -277,8 +281,8 @@ export function AuthScreen() {
         )}
       </div>
 
-      <Card className="order-1 p-6 lg:order-2">
-        <div className="mb-5 flex gap-2">
+      <Card className="order-1 p-6 sm:p-8 lg:order-2">
+        <div className={`mb-5 flex-wrap ${segmentWrap}`}>
           {tab('login', t('common.signIn'))}
           {tab('signup', t('auth.createAccount'))}
           {tab('reset', t('auth.resetPassword'))}
@@ -286,7 +290,7 @@ export function AuthScreen() {
 
         {mode === 'signup' && (
           <div className="mb-5">
-            <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-karu-mute">
+            <span className="mb-2 block text-sm font-semibold text-slate-900">
               {t('auth.accountType')}
             </span>
             <div className="flex gap-2">
@@ -321,7 +325,7 @@ export function AuthScreen() {
                   </Field>
                   <Field label={t('auth.whatsapp')}>
                     <PhoneInput value={whatsapp} onChange={setWhatsapp} placeholder="6 XX XX XX XX" />
-                    <span className="mt-1 block text-xs text-karu-mute">{t('auth.whatsappHint')}</span>
+                    <span className="mt-1 block text-xs text-slate-500">{t('auth.whatsappHint')}</span>
                   </Field>
                   <Field label={t('auth.businessAddress')}>
                     <Input
@@ -332,7 +336,7 @@ export function AuthScreen() {
                   </Field>
                   <Field label={t('auth.rccm')}>
                     <Input value={rccm} onChange={(e) => setRccm(e.target.value)} />
-                    <span className="mt-1 block text-xs text-karu-mute">{t('auth.rccmHint')}</span>
+                    <span className="mt-1 block text-xs text-slate-500">{t('auth.rccmHint')}</span>
                   </Field>
                 </>
               )}
@@ -364,7 +368,7 @@ export function AuthScreen() {
           </Field>
 
           {suggestion && (
-            <p className="-mt-2 text-sm text-karu-brown">
+            <p className="-mt-2 text-sm text-slate-800">
               {t('auth.didYouMean')}{' '}
               <button
                 type="button"
@@ -404,7 +408,7 @@ export function AuthScreen() {
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               />
               {mode === 'signup' && (
-                <span className="mt-1 block text-xs text-karu-mute">{t('auth.passwordHint')}</span>
+                <span className="mt-1 block text-xs text-slate-500">{t('auth.passwordHint')}</span>
               )}
             </Field>
           )}
@@ -417,7 +421,7 @@ export function AuthScreen() {
                 required
                 wrapperClassName="-my-3 -ml-3 -mr-1"
               />
-              <span className="text-karu-mute">
+              <span className="text-slate-500">
                 {t('auth.vendorDeclaration')}
               </span>
             </label>
@@ -431,7 +435,7 @@ export function AuthScreen() {
                 required
                 wrapperClassName="-my-3 -ml-3 -mr-1"
               />
-              <span className="text-karu-mute">
+              <span className="text-slate-500">
                 <Trans
                   i18nKey="auth.agree"
                   components={{
@@ -445,7 +449,7 @@ export function AuthScreen() {
 
           {error && <ErrorNote>{error}</ErrorNote>}
           {notice && (
-            <div className="rounded-lg border border-karu-gold/40 bg-karu-yellow/15 px-4 py-3 text-sm text-karu-brown">
+            <div className="rounded-lg border border-brand-text/40 bg-brand/15 px-4 py-3 text-sm text-slate-800">
               {notice}
             </div>
           )}
@@ -466,7 +470,7 @@ export function AuthScreen() {
                   : t('auth.sendResetLink')}
           </Button>
 
-          <p className="text-center text-xs text-karu-mute">
+          <p className="text-center text-xs text-slate-500">
             {mode === 'login' ? (
               <>
                 {t('auth.noAccount')}{' '}

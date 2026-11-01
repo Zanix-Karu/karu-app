@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
  * Modal dialog, ported from the starter pack. A native <dialog>, so focus is
  * trapped and restored by the browser and Escape closes it; a click on the
  * backdrop closes it too. It fades and rises in, and leaves faster than it
- * arrived (ds/motion.css, .karu-dialog).
+ * arrived (ds/motion.css, .dialog-motion, from NourishwithB).
  */
 export function Dialog({
   open,
@@ -49,18 +49,18 @@ export function Dialog({
       onClick={(e) => {
         if (e.target === ref.current) onClose();
       }}
-      className={`karu-dialog m-auto w-[calc(100%-2rem)] max-w-lg rounded-2xl border border-karu-ink/10 bg-karu-surface p-6 text-karu-ink shadow-lg sm:p-7 ${className}`}
+      className={`dialog-motion m-auto w-[calc(100%-2rem)] max-w-lg rounded-2xl border border-slate-200 bg-surface p-6 text-slate-700 shadow-xl sm:p-8 ${className}`}
     >
       <div className="flex items-start gap-4">
         <div className="min-w-0 flex-1">
-          <h2 className="font-display text-2xl font-bold leading-tight">{title}</h2>
-          {description && <p className="mt-2 text-sm text-karu-mute">{description}</p>}
+          <h2 className="font-display text-xl font-bold tracking-tight text-slate-900">{title}</h2>
+          {description && <p className="mt-2 text-sm text-slate-500">{description}</p>}
         </div>
         <button
           type="button"
           onClick={onClose}
           aria-label={t('common.close')}
-          className="karu-icon-btn -mt-1 -mr-2 shrink-0 text-karu-mute hover:text-karu-ink"
+          className="karu-icon-btn -mt-1 -mr-2 shrink-0 text-slate-500 hover:text-slate-900"
         >
           <X aria-hidden="true" className="h-5 w-5" />
         </button>

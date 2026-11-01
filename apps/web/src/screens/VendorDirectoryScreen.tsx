@@ -1,4 +1,4 @@
-import { BadgeCheck, Car, SearchX, Store } from 'lucide-react';
+import { BadgeCheck, MapPin, Car, SearchX, Store } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ReviewBody } from '../components/ReviewBody';
@@ -72,7 +72,7 @@ export function VendorDirectoryScreen() {
   if (isLoading && !data) {
     return (
       <div>
-        <h1 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 40 }}>
+        <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
           Verified providers
         </h1>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 18, marginTop: 24 }}>
@@ -86,7 +86,7 @@ export function VendorDirectoryScreen() {
 
   return (
     <div>
-      <h1 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 40 }}>
+      <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
         {t('providers.title')}
       </h1>
       <p style={{ fontFamily: 'var(--font-ui)', fontSize: 15, color: 'var(--gray-500)', marginTop: 6 }}>
@@ -179,49 +179,38 @@ export function VendorProfileScreen() {
   return (
     <div>
       {vendor && (
-        <div
-          style={{
-            background: 'var(--bg-gradient)',
-            borderRadius: 'var(--radius-lg)',
-            padding: '36px 44px',
-            color: 'var(--white)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: 14,
-          }}
-        >
-          <div>
-            <h1 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 38 }}>
-              {vendor.business_name}
-            </h1>
-            <p style={{ margin: '6px 0 0', fontFamily: 'var(--font-ui)', color: 'var(--text-on-dark-muted)' }}>
-              {/*
-                No phone here: this header renders to logged-out visitors, and
-                the provider signup page promises that a vendor's number stays
-                private with contact routed through Karu. The API no longer
-                sends it either (vendors.service listPublic).
-              */}
-              {CITY_LABEL[vendor.city]}
-            </p>
-            <div style={{ marginTop: 10 }}>
-              {vendor.rating?.average != null ? (
-                <Rating value={vendor.rating.average} count={vendor.rating.count} color="var(--white)" size={18} />
-              ) : (
-                <span style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--text-on-dark-muted)' }}>
-                  {t('providers.noReviews')}
-                </span>
-              )}
+        <header className="flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-surface p-6 shadow-sm sm:p-8">
+          <div className="flex items-start gap-4">
+            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-brand-tint text-brand-text">
+              <Store className="h-7 w-7" aria-hidden="true" />
+            </span>
+            <div>
+              <h1 className="headline-in font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+                {vendor.business_name}
+              </h1>
+              {/* No phone here: this header renders to logged-out visitors, and
+                  the provider signup page promises that a vendor's number stays
+                  private with contact routed through Karu. */}
+              <p className="mt-1 inline-flex items-center gap-1.5 text-slate-600">
+                <MapPin className="h-4 w-4" aria-hidden="true" />
+                {CITY_LABEL[vendor.city]}
+              </p>
+              <div className="mt-2">
+                {vendor.rating?.average != null ? (
+                  <Rating value={vendor.rating.average} count={vendor.rating.count} size={18} />
+                ) : (
+                  <span className="text-sm text-slate-500">{t('providers.noReviews')}</span>
+                )}
+              </div>
             </div>
           </div>
           {vendor.status === 'verified' && (
-            <Badge variant="solid">
-              <BadgeCheck aria-hidden="true" style={{ width: 15, height: 15 }} />
+            <Badge variant="success" className="badge-pop">
+              <BadgeCheck aria-hidden="true" className="h-3.5 w-3.5" />
               {t('providers.verifiedProvider')}
             </Badge>
           )}
-        </div>
+        </header>
       )}
 
       {vendor.bio && (

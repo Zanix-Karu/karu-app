@@ -45,8 +45,8 @@ export function PhotoCarousel({ photos, alt }: { photos: string[]; alt: string }
 
   if (count === 0) {
     return (
-      <div className="flex h-80 w-full items-center justify-center rounded-2xl bg-gradient-to-br from-karu-brown to-karu-ink">
-        <span className="font-display text-2xl font-bold tracking-widest text-karu-yellow/80">
+      <div className="flex h-80 w-full items-center justify-center rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900">
+        <span className="font-display text-2xl font-bold tracking-widest text-brand/80">
           KARU
         </span>
       </div>
@@ -73,7 +73,7 @@ export function PhotoCarousel({ photos, alt }: { photos: string[]; alt: string }
           // 40px so a vertical scroll that drifts sideways does not page.
           if (Math.abs(dx) > 40) go(dx < 0 ? index + 1 : index - 1);
         }}
-        className="relative h-80 w-full overflow-hidden rounded-2xl bg-karu-brown/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-karu-yellow"
+        className="relative h-80 w-full overflow-hidden rounded-2xl bg-slate-800/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
       >
         {photos.map((p, i) => (
           <img
@@ -97,7 +97,7 @@ export function PhotoCarousel({ photos, alt }: { photos: string[]; alt: string }
               type="button"
               onClick={() => go(index - 1)}
               aria-label={t('gallery.previous')}
-              className="absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-karu-ink/60 text-2xl leading-none text-karu-cream backdrop-blur-sm hover:bg-karu-ink/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-karu-yellow"
+              className="absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-slate-900/60 text-2xl leading-none text-surface backdrop-blur-sm hover:bg-slate-900/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             >
               ‹
             </button>
@@ -105,17 +105,17 @@ export function PhotoCarousel({ photos, alt }: { photos: string[]; alt: string }
               type="button"
               onClick={() => go(index + 1)}
               aria-label={t('gallery.next')}
-              className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-karu-ink/60 text-2xl leading-none text-karu-cream backdrop-blur-sm hover:bg-karu-ink/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-karu-yellow"
+              className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-slate-900/60 text-2xl leading-none text-surface backdrop-blur-sm hover:bg-slate-900/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             >
               ›
             </button>
 
-            <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-karu-ink/60 px-3 py-1.5 backdrop-blur-sm">
+            <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-slate-900/60 px-3 py-1.5 backdrop-blur-sm">
               {photos.map((p, i) => (
                 <span
                   key={p}
                   className={`h-1.5 rounded-full transition-all ${
-                    i === index ? 'w-4 bg-karu-yellow' : 'w-1.5 bg-karu-cream/50'
+                    i === index ? 'w-4 bg-brand' : 'w-1.5 bg-slate-50/50'
                   }`}
                 />
               ))}
@@ -123,7 +123,7 @@ export function PhotoCarousel({ photos, alt }: { photos: string[]; alt: string }
 
             <p
               aria-live="polite"
-              className="absolute right-3 top-3 rounded-full bg-karu-ink/60 px-2.5 py-1 text-xs font-semibold text-karu-cream backdrop-blur-sm"
+              className="absolute right-3 top-3 rounded-full bg-slate-900/60 px-2.5 py-1 text-xs font-semibold text-surface backdrop-blur-sm"
             >
               {t('gallery.position', { current: index + 1, total: count })}
             </p>
@@ -140,8 +140,8 @@ export function PhotoCarousel({ photos, alt }: { photos: string[]; alt: string }
               onClick={() => go(i)}
               aria-label={t('gallery.showPhoto', { n: i + 1 })}
               aria-current={i === index}
-              className={`shrink-0 overflow-hidden rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-karu-yellow ${
-                i === index ? 'ring-2 ring-karu-yellow' : 'opacity-70 hover:opacity-100'
+              className={`shrink-0 overflow-hidden rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
+                i === index ? 'ring-2 ring-brand' : 'opacity-70 hover:opacity-100'
               }`}
             >
               <img src={p} alt="" loading="lazy" decoding="async" className="h-20 w-28 object-cover" />

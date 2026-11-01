@@ -1,0 +1,167 @@
+/* ── Icon motion ──────────────────────────────────────────────────────
+   Every lucide icon renders as <svg class="lucide lucide-<name>">, so these
+   rules animate the existing icons across the site, portal and admin
+   without touching each component.
+
+   1. Hover / keyboard focus: an icon reacts when the link, button or
+      `.group` it sits in is hovered or focused. Each icon gets a motion that
+      matches what it means (arrows nudge their way, bins wiggle, eyes blink).
+      Icons without a specific rule get a small lift.
+   2. On appear: success ticks draw themselves in, alert icons shake once,
+      a ringing bell rings once.
+
+   Only `transform` is animated. Tailwind's translate/rotate/scale utilities
+   use the separate CSS properties, so they still combine correctly (an
+   accordion chevron that is already `rotate-180` keeps its rotation).
+   Spinners (`animate-spin`) are left alone. Nothing here runs for people
+   who ask for reduced motion. ── */
+
+@keyframes icon-wiggle {
+  20% { transform: rotate(-12deg); }
+  40% { transform: rotate(10deg); }
+  60% { transform: rotate(-6deg); }
+  80% { transform: rotate(3deg); }
+}
+@keyframes icon-ring {
+  10%, 50% { transform: rotate(-14deg); }
+  30%, 70% { transform: rotate(14deg); }
+  85% { transform: rotate(-4deg); }
+}
+@keyframes icon-shake {
+  20% { transform: translateX(-2px); }
+  40% { transform: translateX(2px); }
+  60% { transform: translateX(-1px); }
+  80% { transform: translateX(1px); }
+}
+@keyframes icon-bounce-down {
+  40% { transform: translateY(3px); }
+  70% { transform: translateY(-1px); }
+}
+@keyframes icon-bounce-up {
+  40% { transform: translateY(-3px); }
+  70% { transform: translateY(1px); }
+}
+@keyframes icon-blink {
+  40%, 60% { transform: scaleY(0.15); }
+}
+@keyframes icon-pin-drop {
+  35% { transform: translateY(-4px); }
+  70% { transform: translateY(1px); }
+}
+@keyframes icon-draw {
+  from { stroke-dashoffset: 64; }
+}
+
+@layer components {
+  @media (prefers-reduced-motion: no-preference) {
+    svg.lucide:not(.animate-spin) {
+      transform-origin: center;
+      transition: transform var(--duration-fast) var(--ease-bounce);
+    }
+
+    /* 1. Hover / focus. `:where` keeps the trigger at zero specificity so
+       the per-icon rules below always beat the generic lift. */
+    /* Default for any icon without its own rule. */
+    :where(a, button, summary, label, [role="button"], [role="tab"], [role="menuitem"], [role="option"], .group):is(:hover, :focus-visible) :where(svg.lucide:not(.animate-spin)) {
+      transform: translateY(-2px) scale(1.06);
+    }
+
+    /* Direction: move the way the icon points. */
+    :where(a, button, summary, label, [role="button"], [role="tab"], [role="menuitem"], [role="option"], .group):is(:hover, :focus-visible) svg:is(.lucide-arrow-right, .lucide-chevron-right, .lucide-log-out, .lucide-video) {
+      transform: translateX(3px);
+    }
+    :where(a, button, summary, label, [role="button"], [role="tab"], [role="menuitem"], [role="option"], .group):is(:hover, :focus-visible) svg:is(.lucide-arrow-left, .lucide-chevron-left) {
+      transform: translateX(-3px);
+    }
+    :where(a, button, summary, label, [role="button"], [role="tab"], [role="menuitem"], [role="option"], .group):is(:hover, :focus-visible) svg:is(.lucide-chevron-down, .lucide-arrow-down) {
+      transform: translateY(2px);
+    }
+    :where(a, button, summary, label, [role="button"], [role="tab"], [role="menuitem"], [role="option"], .group):is(:hover, :focus-visible) svg:is(.lucide-chevron-up, .lucide-arrow-up) {
+      transform: translateY(-2px);
+    }
+    :where(a, button, summary, label, [role="button"], [role="tab"], [role="menuitem"], [role="option"], .group):is(:hover, :focus-visible) svg:is(.lucide-external-link, .lucide-send, .lucide-share2) {
+      transform: translate(2px, -2px);
+    }
+
+    /* Turn. */
+    :where(a, button, summary, label, [role="button"], [role="tab"], [role="menuitem"], [role="option"], .group):is(:hover, :focus-visible) svg:is(.lucide-plus, .lucide-x) {
+      transform: rotate(90deg);
+    }
+    :where(a, button, summary, label, [role="button"], [role="tab"], [role="menuitem"], [role="option"], .group):is(:hover, :focus-visible) svg:is(.lucide-settings, .lucide-life-buoy) {
+      transform: rotate(90deg);
+      transition-duration: var(--duration-very-slow);
+    }
+    :where(a, button, summary, label, [role="button"], [role="tab"], [role="menuitem"], [role="option"], .group):is(:hover, :focus-visible) svg.lucide-hourglass {
+      transform: rotate(180deg);
+      transition-duration: var(--duration-very-slow);
+    }
+    :where(a, button, summary, label, [role="button"], [role="tab"], [role="menuitem"], [role="option"], .group):is(:hover, :focus-visible) svg.lucide-search {
+      transform: rotate(-12deg) scale(1.1);
+    }
+
+    /* Pop: confirmations, money, people, rewards. */
+    :where(a, button, summary, label, [role="button"], [role="tab"], [role="menuitem"], [role="option"], .group):is(:hover, :focus-visible) svg:is(
+        .lucide-check, .lucide-check-check, .lucide-circle-check, .lucide-circle-check-big,
+        .lucide-clipboard-check, .lucide-shield-check, .lucide-star, .lucide-sparkles,
+        .lucide-award, .lucide-copy, .lucide-credit-card, .lucide-pound-sterling,
+        .lucide-receipt, .lucide-landmark, .lucide-user, .lucide-user-round, .lucide-users,
+        .lucide-user-plus, .lucide-graduation-cap, .lucide-calendar-check, .lucide-calendar-plus
+      ) {
+      transform: scale(1.18);
+    }
+
+    /* One-shot keyframe motions. */
+    :where(a, button, summary, label, [role="button"], [role="tab"], [role="menuitem"], [role="option"], .group):is(:hover, :focus-visible) svg:is(
+        .lucide-trash2, .lucide-pencil, .lucide-phone, .lucide-phone-call, .lucide-paperclip,
+        .lucide-sticky-note, .lucide-lock, .lucide-utensils, .lucide-stethoscope,
+        .lucide-message-circle, .lucide-message-square-quote, .lucide-mail-question,
+        .lucide-calendar-x, .lucide-calendar-off, .lucide-user-x, .lucide-ban
+      ) {
+      animation: icon-wiggle var(--duration-very-slow) var(--ease-smooth-out);
+    }
+    :where(a, button, summary, label, [role="button"], [role="tab"], [role="menuitem"], [role="option"], .group):is(:hover, :focus-visible) svg.lucide-bell-ring {
+      transform-origin: 50% 10%;
+      animation: icon-ring var(--duration-very-slow) var(--ease-smooth-out);
+    }
+    :where(a, button, summary, label, [role="button"], [role="tab"], [role="menuitem"], [role="option"], .group):is(:hover, :focus-visible) svg:is(.lucide-download, .lucide-archive, .lucide-printer, .lucide-inbox) {
+      animation: icon-bounce-down var(--duration-very-slow) var(--ease-smooth-out);
+    }
+    :where(a, button, summary, label, [role="button"], [role="tab"], [role="menuitem"], [role="option"], .group):is(:hover, :focus-visible) svg:is(.lucide-upload, .lucide-archive-restore) {
+      animation: icon-bounce-up var(--duration-very-slow) var(--ease-smooth-out);
+    }
+    :where(a, button, summary, label, [role="button"], [role="tab"], [role="menuitem"], [role="option"], .group):is(:hover, :focus-visible) svg:is(.lucide-eye, .lucide-eye-off) {
+      animation: icon-blink var(--duration-medium) var(--ease-smooth-out);
+    }
+    :where(a, button, summary, label, [role="button"], [role="tab"], [role="menuitem"], [role="option"], .group):is(:hover, :focus-visible) svg.lucide-map-pin {
+      animation: icon-pin-drop var(--duration-very-slow) var(--ease-smooth-out);
+    }
+    :where(a, button, summary, label, [role="button"], [role="tab"], [role="menuitem"], [role="option"], .group):is(:hover, :focus-visible) svg:is(.lucide-circle-alert, .lucide-triangle-alert, .lucide-circle-x, .lucide-info) {
+      animation: icon-shake var(--duration-slow) var(--ease-smooth-out);
+    }
+
+    /* Touch screens keep :hover after a tap; don't leave icons nudged. */
+    @media (hover: none) {
+      :where(a, button, summary, label, [role="button"], [role="tab"], [role="menuitem"], [role="option"], .group):hover:not(:focus-visible)
+        :where(svg.lucide:not(.animate-spin)) {
+        transform: none !important;
+        animation: none !important;
+      }
+    }
+
+    /* 2. On appear. */
+    svg:is(.lucide-circle-check, .lucide-circle-check-big) > * {
+      stroke-dasharray: 64;
+      animation: icon-draw var(--duration-very-slow) var(--ease-smooth-out) backwards;
+    }
+    svg:is(.lucide-circle-check, .lucide-circle-check-big) > :last-child {
+      animation-delay: var(--duration-quick);
+    }
+    [role="alert"] svg:is(.lucide-circle-alert, .lucide-triangle-alert, .lucide-circle-x, .lucide-info) {
+      animation: icon-shake var(--duration-slow) var(--ease-smooth-out) var(--duration-quick);
+    }
+    svg.lucide-bell-ring {
+      transform-origin: 50% 10%;
+      animation: icon-ring var(--duration-very-slow) var(--ease-smooth-out) var(--duration-medium);
+    }
+  }
+}

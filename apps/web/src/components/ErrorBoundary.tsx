@@ -39,15 +39,15 @@ function Fallback({ onRetry }: { onRetry: () => void }) {
   const { t } = useTranslation();
   return (
     <div role="alert" className="karu-rise-in mx-auto flex max-w-md flex-col items-center px-6 py-20 text-center">
-      <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-karu-terracotta/10">
-        <TriangleAlert aria-hidden="true" className="h-6 w-6 text-karu-terracotta" />
+      <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-danger/10">
+        <TriangleAlert aria-hidden="true" className="h-6 w-6 text-danger" />
       </span>
-      <h1 className="font-display text-3xl font-bold">{t('errorBoundary.title')}</h1>
-      <p className="mt-2 text-sm text-karu-mute">{t('errorBoundary.body')}</p>
+      <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{t('errorBoundary.title')}</h1>
+      <p className="mt-2 text-sm text-slate-500">{t('errorBoundary.body')}</p>
       <button
         type="button"
         onClick={onRetry}
-        className="karu-btn mt-6 inline-flex items-center gap-2 rounded-full bg-karu-yellow px-5 py-2.5 text-sm font-semibold text-karu-on-brand"
+        className="karu-btn mt-6 inline-flex items-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-on-brand"
       >
         <RotateCcw aria-hidden="true" className="h-4 w-4" />
         {t('errorBoundary.retry')}
