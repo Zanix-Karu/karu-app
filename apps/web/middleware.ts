@@ -1,4 +1,4 @@
-import { gate } from './gate/gate';
+import { gate } from './gate/gate.js';
 
 /**
  * Vercel Routing Middleware. Vercel runs it before every request to this
