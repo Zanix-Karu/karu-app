@@ -133,6 +133,16 @@ export class UpdateVendorDto {
   delivery_zones?: DeliveryZoneDto[];
   /** Free address delivery from this many days; null switches it off. */
   @IsOptional() @EmptyToNull() @IsInt() @Min(1) @Max(60) free_delivery_min_days?: number | null;
+  /** 0037: yearly seasonal price changes; [] removes them all. Checked in the service. */
+  @IsOptional() @IsArray() @ArrayMaxSize(8) @ValidateNested({ each: true }) @Type(() => PriceSeasonDto)
+  price_seasons?: PriceSeasonDto[];
+}
+
+export class PriceSeasonDto {
+  @IsString() @MaxLength(40) label!: string;
+  @IsString() from!: string;
+  @IsString() to!: string;
+  @Type(() => Number) @IsInt() @Min(-50) @Max(100) percent!: number;
 }
 
 export class DeliveryZoneDto {

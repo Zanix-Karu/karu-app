@@ -1,3 +1,4 @@
+import { Check } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import qrcode from 'qrcode-generator';
@@ -51,7 +52,7 @@ export function TripProgress({ status }: { status: BookingStatus }) {
         return (
           <li key={s.key} data-state={state} aria-current={state === 'current' ? 'step' : undefined}>
             <span className="karu-trip-progress__dot" aria-hidden>
-              {state === 'done' ? '✓' : i + 1}
+              {state === 'done' ? <Check className="karu-pop" style={{ width: 14, height: 14 }} strokeWidth={3} /> : i + 1}
             </span>
             <span className="karu-trip-progress__label">{t(`handover.step.${s.key}`)}</span>
           </li>
@@ -79,7 +80,7 @@ export function HandoverTicket({
     const qr = qrcode(0, 'M');
     qr.addData(handoverQrPayload(reference, code));
     qr.make();
-    return qr.createSvgTag({ cellSize: 6, margin: 2, scalable: true });
+    return qr.createSvgTag({ cellSize: 6, margin: 4, scalable: true });
   }, [reference, code]);
 
   return (
@@ -233,7 +234,7 @@ export function CodeEntry({
         </Button>
       </form>
 
-      {scanError && <p className="mt-2 text-sm text-karu-terracotta">{scanError}</p>}
+      {scanError && <p className="mt-2 text-sm text-danger">{scanError}</p>}
 
       {scanning && (
         <QrScanner
@@ -304,7 +305,7 @@ function QrScanner({
   return (
     <div className="karu-scanner mt-3 karu-fade-in">
       {error ? (
-        <p className="text-sm text-karu-terracotta">{error}</p>
+        <p className="text-sm text-danger">{error}</p>
       ) : (
         <video ref={video} muted playsInline className="karu-scanner__video" />
       )}

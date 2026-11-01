@@ -3,35 +3,103 @@
 @import './ds/themes.css';
 @import './ds/layout.css';
 @import './ds/motion.css';
+@import './ds/icon-motion.css';
 @import './ds/handover.css';
 @import './ds/map.css';
 
-/* Karu design tokens — lifted from the approved mockups' design system:
-   gold/yellow CTAs on warm ink, cream surfaces, Georgia serif display type. */
-/* IDEAS #11: every colour reads a theme variable (ds/themes.css), so a
-   theme is one block of overrides on <html data-theme>. The defaults below
-   are the Karu brand, unchanged. */
-@theme {
-  --color-karu-yellow: var(--k-yellow);
-  --color-karu-ink: var(--k-ink);
-  --color-karu-gold: var(--k-gold);
-  --color-karu-amber: var(--k-amber);
-  --color-karu-cream: var(--k-cream);
-  --color-karu-terracotta: var(--k-terracotta);
-  --color-karu-brown: var(--k-brown);
-  --color-karu-mute: var(--k-mute);
-  /* Cards, inputs and chat bubbles: white in light themes, not in dark. */
-  --color-karu-surface: var(--k-surface);
-  /* The header bar and the text on it, kept apart from page text so a dark
-     theme doesn't flip the header to cream. */
-  --color-karu-chrome: var(--k-chrome);
-  --color-karu-on-chrome: var(--k-on-chrome);
-  /* Text on the yellow brand colour: always dark, in every theme. */
-  --color-karu-on-brand: var(--k-on-brand);
+/* Design tokens, ported from NourishwithB's globals.css ("Fresh" layout):
+   white cards on warm stone neutrals, one brand colour, Plus Jakarta Sans,
+   soft rounded corners. Karu yellow takes the place of Nourish's plum.
 
-  --font-display: Georgia, 'Times New Roman', serif;
+   The values here are the default (Karu light) theme. lib/theme.ts writes
+   the active theme's values onto <html> at runtime, so every utility below
+   (bg-brand, text-slate-600, …) follows whichever palette the admin chose. */
+@theme {
+  /* Surfaces */
+  --color-page: #ffffff;
+  --color-surface: #ffffff;
+
+  /* Brand: Karu yellow. Text on it is dark; `brand-text` is the readable
+     version for links, eyebrows and icons on light surfaces. */
+  --color-brand: #fbd301;
+  --color-brand-dark: #e6c200;
+  --color-brand-tint: #fef9d7;
+  --color-brand-text: #8a6100;
+  --color-on-brand: #1c1917;
+
+  --color-accent: #b45309;
+  --color-accent-tint: #fdf3e7;
+
+  /* Status */
+  --color-success: #3f7d20;
+  --color-success-tint: #edf3e8;
+  --color-warn: #92400e;
+  --color-warn-tint: #fef3c7;
+  --color-danger: #b91c1c;
+  --color-danger-tint: #fbe8e8;
+  /* Nourish names, kept so ported markup reads the same. */
+  --color-leaf: var(--color-success);
+  --color-spice: var(--color-danger);
+
+  /* Warm stone neutrals; slate-* class names stay in the markup. */
+  --color-slate-50: #fafaf9;
+  --color-slate-100: #f5f5f4;
+  --color-slate-200: #e7e5e4;
+  --color-slate-300: #d6d3d1;
+  --color-slate-400: #a8a29e;
+  --color-slate-500: #78716c;
+  --color-slate-600: #57534e;
+  --color-slate-700: #44403c;
+  --color-slate-800: #292524;
+  --color-slate-900: #1c1917;
+  --color-slate-950: #0c0a09;
+
+  /* Older Karu class names (bg-karu-yellow, text-karu-mute, …) still used
+     across the screens, pointed at the tokens above. */
+  --color-karu-yellow: var(--color-brand);
+  --color-karu-ink: var(--color-slate-900);
+  --color-karu-gold: var(--color-brand-text);
+  --color-karu-amber: var(--color-brand);
+  --color-karu-cream: var(--color-page);
+  --color-karu-terracotta: var(--color-danger);
+  --color-karu-brown: var(--color-slate-800);
+  --color-karu-mute: var(--color-slate-500);
+  --color-karu-surface: var(--color-surface);
+  --color-karu-chrome: var(--color-surface);
+  --color-karu-on-chrome: var(--color-slate-700);
+  --color-karu-on-brand: var(--color-on-brand);
+
+  /* Type: one modern sans for headings and body. */
+  --font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+
+  /* Shape: softer, rounder corners. */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+  --tracking-tight: -0.02em;
 }
 
-body {
-  @apply bg-karu-cream text-karu-ink antialiased;
+@layer base {
+  body {
+    background-color: var(--color-page);
+    color: var(--color-slate-700);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Anchored sections clear the sticky header on jump/deep-link. */
+  section[id],
+  div[id] {
+    scroll-margin-top: 5rem;
+  }
+}
+
+/* Native smooth scroll for anchor jumps, off under reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }

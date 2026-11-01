@@ -227,6 +227,7 @@ export class BookingsService {
       deliveryZones: zones,
       deliveryDistanceKm,
       freeDeliveryMinDays: vendor.free_delivery_min_days,
+      priceSeasons: vendor.price_seasons,
     });
     if (quote.deliveryOutOfRange) {
       throw new BadRequestException('That address is outside the area this provider delivers to');

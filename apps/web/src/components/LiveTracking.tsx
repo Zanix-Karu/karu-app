@@ -125,17 +125,17 @@ export function LiveTracking({ booking, view }: { booking: Booking; view: string
         <div className="mt-2">
           {!data?.active ? (
             <>
-              <p className="text-sm text-karu-mute">{t('tracking.providerIntro')}</p>
+              <p className="text-sm text-slate-500">{t('tracking.providerIntro')}</p>
               <Button className="mt-3" loading={start.isPending} onClick={() => start.mutate()}>
                 {t('tracking.start')}
               </Button>
             </>
           ) : (
             <>
-              <p className={`text-sm font-semibold ${sharing ? 'text-green-700' : 'text-karu-brown'}`}>
+              <p className={`text-sm font-semibold ${sharing ? 'text-success' : 'text-slate-800'}`}>
                 {sharing ? t('tracking.sharing') : t('tracking.paused')}
               </p>
-              <p className="mt-1 text-xs text-karu-mute">{t('tracking.keepOpen')}</p>
+              <p className="mt-1 text-xs text-slate-500">{t('tracking.keepOpen')}</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {!sharing && <Button onClick={() => void beginWatching()}>{t('tracking.resume')}</Button>}
                 <Button variant="outline" loading={stop.isPending} onClick={() => stop.mutate()}>
@@ -152,7 +152,7 @@ export function LiveTracking({ booking, view }: { booking: Booking; view: string
         </div>
       )}
 
-      {!isProvider && !data?.active && <p className="mt-2 text-sm text-karu-mute">{t('tracking.notYet')}</p>}
+      {!isProvider && !data?.active && <p className="mt-2 text-sm text-slate-500">{t('tracking.notYet')}</p>}
 
       {data?.active && (
         <div className="mt-3 karu-fade-in">
@@ -164,7 +164,7 @@ export function LiveTracking({ booking, view }: { booking: Booking; view: string
             </p>
           )}
           {data.stale && data.position && (
-            <p className="mt-1 text-xs text-karu-mute">{t('tracking.stale')}</p>
+            <p className="mt-1 text-xs text-slate-500">{t('tracking.stale')}</p>
           )}
           {(data.position || data.destination) && (
             <div className="mt-3">

@@ -1,3 +1,4 @@
+import { Megaphone, X } from 'lucide-react';
 import { useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
@@ -27,8 +28,8 @@ const MAX_IMAGES = 5;
 const APP_VERSION = __APP_VERSION__;
 
 const textareaClass =
-  'w-full rounded-md border border-karu-ink/15 bg-karu-surface px-3 py-2 text-sm text-karu-ink ' +
-  'placeholder:text-karu-mute focus:border-karu-gold focus:outline-none focus:ring-2 focus:ring-karu-gold/30';
+  'w-full rounded-md border border-slate-200 bg-surface px-3 py-2 text-sm text-slate-900 ' +
+  'placeholder:text-slate-500 focus:border-brand-text focus:outline-none focus:ring-2 focus:ring-brand-text/30';
 
 export function FeedbackScreen() {
   const { t } = useTranslation();
@@ -104,13 +105,13 @@ export function FeedbackScreen() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <h1 className="font-display text-3xl font-bold">{t('feedback.title')}</h1>
-      <p className="mt-1 text-sm text-karu-mute">{t('feedback.subtitle')}</p>
+    <div className="max-w-3xl">
+      <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{t('feedback.title')}</h1>
+      <p className="mt-1 text-sm text-slate-500">{t('feedback.subtitle')}</p>
 
       <Card className="mt-6">
         {sent && (
-          <div className="mb-4 rounded-md border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+          <div className="mb-4 rounded-md border border-green-200 bg-success-tint px-4 py-3 text-sm text-success">
             {t('feedback.thanks')}
           </div>
         )}
@@ -150,9 +151,9 @@ export function FeedbackScreen() {
                         type="button"
                         onClick={() => removeFile(i)}
                         aria-label={t('feedback.removeImage')}
-                        className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-karu-ink text-xs text-karu-cream"
+                        className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs text-surface"
                       >
-                        ×
+                        <X aria-hidden="true" className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   ))}
@@ -175,7 +176,7 @@ export function FeedbackScreen() {
                   >
                     {t('feedback.addImage')}
                   </Button>
-                  <span className="ml-2 text-xs text-karu-mute">
+                  <span className="ml-2 text-xs text-slate-500">
                     {t('feedback.imageHint', { count: MAX_IMAGES })}
                   </span>
                 </div>
@@ -193,23 +194,23 @@ export function FeedbackScreen() {
         </form>
       </Card>
 
-      <h2 className="mt-10 font-display text-xl font-bold">{t('feedback.yourReports')}</h2>
+      <h2 className="mb-4 mt-10 font-display text-xl font-bold tracking-tight text-slate-900">{t('feedback.yourReports')}</h2>
       {mine.isLoading ? (
         <Spinner label={t('common.loading')} />
       ) : !mine.data || mine.data.length === 0 ? (
-        <EmptyState title={t('feedback.emptyTitle')} hint={t('feedback.emptyHint')} />
+        <EmptyState Icon={Megaphone} title={t('feedback.emptyTitle')} hint={t('feedback.emptyHint')} />
       ) : (
         <div className="mt-4 grid gap-3">
           {mine.data.map((f) => (
             <Card key={f.id}>
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-karu-mute">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">
                     {t(`feedback.categories.${f.category}`)} · {prettyDate(f.created_at)}
                   </p>
-                  <p className="mt-1 text-sm text-karu-ink">{f.message}</p>
+                  <p className="mt-1 text-sm text-slate-900">{f.message}</p>
                 </div>
-                <span className="whitespace-nowrap rounded-full bg-karu-ink/5 px-3 py-1 text-xs font-semibold text-karu-brown">
+                <span className="whitespace-nowrap rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-800">
                   {t(`feedback.statuses.${f.status}`)}
                 </span>
               </div>

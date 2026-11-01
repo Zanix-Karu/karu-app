@@ -26,10 +26,10 @@ const SLOTS: Array<{ type: CustomerDocumentType; capture?: 'user' | 'environment
 ];
 
 const TONE: Record<CustomerVerificationStatus, string> = {
-  unverified: 'bg-karu-ink/5 text-karu-ink',
-  pending: 'bg-karu-yellow/25 text-karu-brown',
-  verified: 'bg-green-50 text-green-800',
-  rejected: 'bg-karu-terracotta/10 text-karu-terracotta',
+  unverified: 'bg-slate-100 text-slate-900',
+  pending: 'bg-brand-tint text-slate-800',
+  verified: 'bg-success-tint text-success',
+  rejected: 'bg-danger/10 text-danger',
 };
 
 /**
@@ -106,9 +106,9 @@ export function VerifyIdentity() {
             {t(`verify.status.${data.status}`)}
           </span>
         </div>
-        <p className="mt-1 text-sm text-karu-mute">{t(`verify.intro.${data.status}`)}</p>
+        <p className="mt-1 text-sm text-slate-500">{t(`verify.intro.${data.status}`)}</p>
         {data.status === 'rejected' && data.note && (
-          <p className="mt-2 rounded-lg bg-karu-terracotta/10 px-3 py-2 text-sm text-karu-terracotta">
+          <p className="mt-2 rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
             {data.note}
           </p>
         )}
@@ -123,11 +123,11 @@ export function VerifyIdentity() {
                   <li key={type}>
                     <label
                       className={`flex h-full cursor-pointer flex-col justify-between rounded-lg border px-3 py-2 text-sm transition-colors ${
-                        done ? 'border-green-600/40 bg-green-50' : 'border-dashed border-karu-ink/25 hover:bg-karu-ink/5'
+                        done ? 'border-success/40 bg-success-tint' : 'border-dashed border-slate-300 hover:bg-slate-100'
                       } ${locked ? 'pointer-events-none opacity-60' : ''}`}
                     >
                       <span className="font-semibold">{t(`verify.doc.${type}`)}</span>
-                      <span className={`mt-1 text-xs ${done ? 'text-green-700' : 'text-karu-mute'}`}>
+                      <span className={`mt-1 text-xs ${done ? 'text-success' : 'text-slate-500'}`}>
                         {busy ? t('common.oneMoment') : done ? t('verify.onFile') : t('verify.add')}
                       </span>
                       <input
@@ -147,7 +147,7 @@ export function VerifyIdentity() {
                 );
               })}
             </ul>
-            <p className="mt-2 text-xs text-karu-mute">{t('verify.idHint')}</p>
+            <p className="mt-2 text-xs text-slate-500">{t('verify.idHint')}</p>
 
             {!locked && (
               <form
@@ -166,7 +166,7 @@ export function VerifyIdentity() {
                   </Field>
                 </div>
                 {docsMissing.length > 0 && (
-                  <p className="text-xs text-karu-mute">
+                  <p className="text-xs text-slate-500">
                     {t('verify.stillNeeded', {
                       list: docsMissing.map((m) => t(`verify.doc.${m}`)).join(', '),
                     })}
@@ -185,7 +185,7 @@ export function VerifyIdentity() {
             <ErrorNote>{((upload.error ?? submit.error) as Error).message}</ErrorNote>
           </div>
         )}
-        <p className="mt-4 text-xs text-karu-mute">{t('verify.privacy')}</p>
+        <p className="mt-4 text-xs text-slate-500">{t('verify.privacy')}</p>
       </Card>
     </div>
   );

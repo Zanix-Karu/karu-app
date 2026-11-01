@@ -94,17 +94,17 @@ export function BookingChat({
   return (
     <Card style={{ marginTop: 16 }}>
       <h2 className="font-display text-lg font-bold">{t('chat.title')}</h2>
-      <p className="mt-1 text-sm text-karu-mute">
+      <p className="mt-1 text-sm text-slate-500">
         {view === 'admin' ? t('chat.introAdmin') : t('chat.intro')}
       </p>
 
       <div
         ref={scrollRef}
-        className="mt-3 max-h-80 space-y-3 overflow-y-auto rounded-lg bg-karu-ink/5 p-3"
+        className="mt-3 max-h-80 space-y-3 overflow-y-auto rounded-lg bg-slate-100 p-3"
       >
-        {isLoading && <p className="text-sm text-karu-mute">{t('chat.loading')}</p>}
+        {isLoading && <p className="text-sm text-slate-500">{t('chat.loading')}</p>}
         {!isLoading && (messages?.length ?? 0) === 0 && (
-          <p className="text-sm text-karu-mute">{t('chat.empty')}</p>
+          <p className="text-sm text-slate-500">{t('chat.empty')}</p>
         )}
         {messages?.map((m) => {
           const mine = m.sender_id === myId;
@@ -114,18 +114,18 @@ export function BookingChat({
               <div
                 className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${
                   mine
-                    ? 'bg-karu-ink text-karu-cream'
+                    ? 'bg-slate-900 text-surface'
                     : support
-                      ? 'border border-karu-gold/60 bg-karu-yellow/20'
-                      : 'bg-karu-surface shadow-sm'
+                      ? 'border border-brand-text/60 bg-brand-tint'
+                      : 'bg-surface shadow-sm'
                 }`}
               >
-                <p className={`text-[11px] font-semibold ${mine ? 'text-karu-cream/70' : 'text-karu-mute'}`}>
+                <p className={`text-[11px] font-semibold ${mine ? 'text-surface/70' : 'text-slate-500'}`}>
                   {mine ? t('chat.you') : t(`admin.chats.sender.${m.sender_role}`)} · {timeOf(m.created_at)}
                 </p>
                 <MessageText bookingId={bookingId} message={m} mine={mine} />
                 {m.redacted && (
-                  <p className={`mt-1 text-[11px] italic ${mine ? 'text-karu-cream/70' : 'text-karu-mute'}`}>
+                  <p className={`mt-1 text-[11px] italic ${mine ? 'text-surface/70' : 'text-slate-500'}`}>
                     {t('chat.redactedMessage')}
                   </p>
                 )}
@@ -149,7 +149,7 @@ export function BookingChat({
           rows={2}
           maxLength={2000}
           placeholder={t('chat.placeholder')}
-          className="w-full rounded-lg border border-karu-ink/15 px-3 py-2 text-sm focus:border-karu-gold focus:outline-none"
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-text focus:outline-none"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
@@ -163,7 +163,7 @@ export function BookingChat({
         </Button>
       </form>
       {lastSentRedacted && (
-        <p className="mt-2 text-xs font-semibold text-karu-terracotta">{t('chat.redactedNotice')}</p>
+        <p className="mt-2 text-xs font-semibold text-danger">{t('chat.redactedNotice')}</p>
       )}
       {send.isError && (
         <div className="mt-2">
@@ -172,12 +172,12 @@ export function BookingChat({
       )}
 
       {view !== 'admin' && (
-        <div className="mt-3 border-t border-karu-ink/10 pt-3">
+        <div className="mt-3 border-t border-slate-200 pt-3">
           {assistanceOpen || askForHelp.isSuccess ? (
-            <p className="text-xs font-semibold text-karu-gold">{t('chat.assistanceOpen')}</p>
+            <p className="text-xs font-semibold text-brand-text">{t('chat.assistanceOpen')}</p>
           ) : (
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs text-karu-mute">{t('chat.stuckPrompt')}</p>
+              <p className="text-xs text-slate-500">{t('chat.stuckPrompt')}</p>
               <Button
                 variant="ghost"
                 type="button"
@@ -251,7 +251,7 @@ function MessageText({
         <button
           type="button"
           onClick={() => setShowTranslation((v) => !v)}
-          className="mt-1 text-[11px] font-semibold text-karu-mute hover:text-karu-ink"
+          className="mt-1 text-[11px] font-semibold text-slate-500 hover:text-slate-900"
         >
           {showTranslation && translation.isFetching
             ? t('common.oneMoment')
@@ -261,10 +261,10 @@ function MessageText({
         </button>
       )}
       {showing && (
-        <p className="text-[10px] italic text-karu-mute">{t('chat.translatedBy')}</p>
+        <p className="text-[10px] italic text-slate-500">{t('chat.translatedBy')}</p>
       )}
       {showTranslation && translation.isError && (
-        <p className="text-[11px] text-karu-terracotta">{t('chat.translationFailed')}</p>
+        <p className="text-[11px] text-danger">{t('chat.translationFailed')}</p>
       )}
     </>
   );

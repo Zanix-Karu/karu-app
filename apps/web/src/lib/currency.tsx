@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useState, type ReactNode } from 'react';
 import { convertFromXaf, type DisplayCurrency } from '@karu/shared';
 import i18n from '../i18n';
+import { detectCurrency } from './currencyGuess';
 
 /**
  * Secondary-currency display for the diaspora.
@@ -30,17 +31,29 @@ const CurrencyContext = createContext<CurrencyState | null>(null);
 
 const GBP_RATE = Number(import.meta.env.VITE_XAF_PER_GBP) || undefined;
 
+/** A saved choice always wins, XAF included; with none, guess from the visitor's locale. */
 function readStored(): DisplayCurrency {
-  const v = localStorage.getItem(STORAGE_KEY);
-  return v === 'EUR' || v === 'GBP' ? v : 'XAF';
+  try {
+    const v = localStorage.getItem(STORAGE_KEY);
+    if (v === 'EUR' || v === 'GBP' || v === 'XAF') return v;
+  } catch {
+    /* storage blocked: fall through to the guess */
+  }
+  return detectCurrency();
 }
 
 export function CurrencyProvider({ children }: { children: ReactNode }) {
   const [currency, setCurrencyState] = useState<DisplayCurrency>(readStored);
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, currency);
-  }, [currency]);
+  // Saved only on an explicit pick, so a guess stays a guess.
+  const setCurrency = (c: DisplayCurrency) => {
+    setCurrencyState(c);
+    try {
+      localStorage.setItem(STORAGE_KEY, c);
+    } catch {
+      /* storage blocked: the choice lasts for this visit */
+    }
+  };
 
   const locale = () => (i18n.resolvedLanguage === 'fr' ? 'fr-FR' : 'en-GB');
 
@@ -70,7 +83,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
 
   return (
     <CurrencyContext.Provider
-      value={{ currency, setCurrency: setCurrencyState, price, secondary }}
+      value={{ currency, setCurrency, price, secondary }}
     >
       {children}
     </CurrencyContext.Provider>

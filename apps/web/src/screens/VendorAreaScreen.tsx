@@ -1,7 +1,9 @@
+import { BadgeCheck, CalendarDays, Car, Check, Circle, CircleCheck, Inbox, Plus, Star, Store, Upload, X } from 'lucide-react';
 import { useState, type CSSProperties, type FormEvent } from 'react';
 import { ReviewBody } from '../components/ReviewBody';
 import { useTranslation } from 'react-i18next';
 import { VendorLocationSettings } from '../components/VendorLocationSettings';
+import { VendorSeasonSettings } from '../components/VendorSeasonSettings';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -21,13 +23,13 @@ import {
 import { api } from '../lib/api';
 import { useView } from '../lib/auth';
 import { CATEGORY_LABEL, CITY_LABEL, prettyDate, xaf } from '../lib/format';
-import { Badge, Button, Card, Field, Input, Rating, Select, SidebarNav, StatCard, StepNav } from '../ds';
+import { Badge, Button, Card, Field, Input, Rating, SegmentPill, Select, StatCard, StepNav, Tabs, segmentButton, segmentWrap } from '../ds';
 import { EarningsChart } from '../components/EarningsChart';
 import { ConfirmButton } from '../components/ConfirmButton';
 import { PhotoStrip } from '../components/PhotoStrip';
 import { PhotoSlots, extraPhotos } from '../components/PhotoSlots';
 import { Skeleton, SkeletonCard, SkeletonStats } from '../components/Skeleton';
-import { EmptyState, ErrorNote, Spinner, StatusBadge } from '../ui';
+import { EmptyState, ErrorNote, Spinner, StatusBadge, SuccessNote } from '../ui';
 
 interface VendorStats {
   earningsXaf: number;
@@ -64,7 +66,24 @@ export function VendorAreaScreen() {
   const view = useView();
   const section = sectionFromPath(location.pathname);
   const isAdmin = view === 'admin';
-  const [asVendorId, setAsVendorId] = useState<string>('');
+  // Kept for this browser session: each section is its own route, so the
+  // screen remounts when an admin switches tab and would forget the provider.
+  const [asVendorId, setAsVendorIdState] = useState<string>(() => {
+    try {
+      return sessionStorage.getItem('karu-admin-as-vendor') ?? '';
+    } catch {
+      return '';
+    }
+  });
+  const setAsVendorId = (id: string) => {
+    setAsVendorIdState(id);
+    try {
+      if (id) sessionStorage.setItem('karu-admin-as-vendor', id);
+      else sessionStorage.removeItem('karu-admin-as-vendor');
+    } catch {
+      // Storage blocked: it just won't be remembered.
+    }
+  };
 
   // A vendor has their own record. An admin has none, so they pick whose area
   // to inspect — a superadmin can see every provider's dashboard.
@@ -93,7 +112,7 @@ export function VendorAreaScreen() {
     if (!missingRecord) return <ErrorNote>{(error as Error).message}</ErrorNote>;
     return (
       <Card style={{ maxWidth: 560 }}>
-        <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 26 }}>
+        <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
           {t('vendor.noRecordTitle')}
         </h1>
         <p
@@ -102,7 +121,7 @@ export function VendorAreaScreen() {
             fontSize: 14,
             lineHeight: 1.6,
             color: 'var(--gray-500)',
-            marginTop: 10,
+            marginTop: 12,
           }}
         >
           {t('vendor.noRecordBody')}
@@ -117,13 +136,13 @@ export function VendorAreaScreen() {
   if (isAdmin && !active) {
     return (
       <div>
-        <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 32 }}>
+        <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
           {t('vendor.providerArea')}
         </h1>
-        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 6 }}>
+        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 4 }}>
           {t('vendor.adminPick')}
         </p>
-        <Card style={{ marginTop: 18, maxWidth: 420 }}>
+        <Card style={{ marginTop: 16, maxWidth: 420 }}>
           <Field label={t('vendor.provider')}>
             <Select value={asVendorId} onChange={(e) => setAsVendorId(e.target.value)}>
               <option value="">{t('vendor.chooseProvider')}</option>
@@ -141,42 +160,44 @@ export function VendorAreaScreen() {
   if (!active) return null;
 
   return (
-    <div className="karu-vendor-layout">
-      <div
-        className="karu-vendor-rail"
-        style={{
-          background: 'var(--bg-gradient)',
-          borderRadius: 'var(--radius-lg)',
-          padding: 20,
-          position: 'sticky',
-          top: 90,
-        }}
-      >
-        <div style={{ padding: '4px 18px 16px' }}>
-          <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 18, color: 'var(--white)' }}>
-            {active.business_name}
+    <div className="space-y-6">
+      {/* A provider's sections are the portal tab bar (PortalShell) and each
+          section has its own heading. An admin inspecting a provider gets this
+          header: whose area it is, a way to switch, and the sections. */}
+      {isAdmin && (
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-tint text-brand-text">
+            <Store className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div>
+            <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{active.business_name}</h1>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Badge variant={active.status === 'verified' ? 'success' : 'warning'} dot={active.status !== 'verified'}>
+                {active.status === 'verified' && <BadgeCheck aria-hidden="true" className="h-3.5 w-3.5" />}
+                {active.status === 'verified'
+                  ? t('vendor.verifiedBadge')
+                  : t('vendor.verificationStatus', { status: t(`vendor.status.${active.status}`) })}
+              </Badge>
+              <button
+                type="button"
+                onClick={() => setAsVendorId('')}
+                className="text-sm font-semibold text-brand-text hover:underline"
+              >
+                {t('vendor.switchProvider')}
+              </button>
+            </div>
           </div>
-          <Badge variant={active.status === 'verified' ? 'success' : 'upcoming'} style={{ marginTop: 8 }}>
-            {active.status === 'verified'
-              ? t('vendor.verifiedBadge')
-              : t('vendor.verificationStatus', { status: t(`vendor.status.${active.status}`) })}
-          </Badge>
-          {isAdmin && (
-            <button
-              onClick={() => setAsVendorId('')}
-              style={{ display: 'block', marginTop: 10, background: 'none', border: 'none', padding: 0,
-                cursor: 'pointer', fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--yellow)', textDecoration: 'underline' }}
-            >
-              {t('vendor.switchProvider')}
-            </button>
-          )}
         </div>
-        <SidebarNav
-          items={NAV.map((n) => ({ ...n, label: t(n.label) }))}
+      </header>
+      )}
+      {isAdmin && (
+        <Tabs
+          items={NAV.map((n) => ({ key: n.key, label: t(n.label) }))}
           active={section}
-          onSelect={(k) => navigate(NAV.find((n) => n.key === k)!.path)}
+          onChange={(k) => navigate(NAV.find((n) => n.key === k)!.path)}
         />
-      </div>
+      )}
 
       <div>
         {active.status !== 'verified' && !isAdmin && <Onboarding vendor={active} onGo={navigate} />}
@@ -252,14 +273,14 @@ function Onboarding({ vendor, onGo }: { vendor: Vendor; onGo: (to: string) => vo
       <h2 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 22 }}>
         {rejected ? t('vendor.onboarding.titleAttention') : t('vendor.onboarding.titleOk')}
       </h2>
-      <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 6 }}>
+      <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 4 }}>
         {rejected
           ? t('vendor.onboarding.subAttention', { status: t(`vendor.status.${vendor.status}`) })
           : t('vendor.onboarding.subOk')}
       </p>
       {/* REQ-9: the vendor sees why, not just that something changed. */}
       {vendor.status === 'suspended' && vendor.suspension_reason && (
-        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--danger)', marginTop: 6, fontWeight: 600 }}>
+        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--danger)', marginTop: 4, fontWeight: 600 }}>
           {t('vendor.onboarding.suspensionReason', { reason: vendor.suspension_reason })}
         </p>
       )}
@@ -284,11 +305,11 @@ function Onboarding({ vendor, onGo }: { vendor: Vendor; onGo: (to: string) => vo
                 color: st.done ? 'var(--white)' : 'var(--gray-500)',
               }}
             >
-              {st.done ? '✓' : i + 1}
+              {st.done ? <Check aria-hidden="true" className="karu-pop" style={{ width: 15, height: 15 }} strokeWidth={3} /> : i + 1}
             </span>
             <div style={{ flex: 1 }}>
               <div style={{ fontFamily: 'var(--font-ui)', fontWeight: 700, fontSize: 15 }}>{st.title}</div>
-              <div style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-500)', marginTop: 2 }}>
+              <div style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-500)', marginTop: 4 }}>
                 {st.body}
               </div>
             </div>
@@ -332,11 +353,11 @@ function DeliverySettings({ vendor }: { vendor: Vendor }) {
 
   return (
     <>
-      <h2 style={{ margin: '32px 0 14px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
+      <h2 style={{ margin: '32px 0 16px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
         {t('vendor.delivery.title')}
       </h2>
       <Card>
-        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', margin: '0 0 14px' }}>
+        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', margin: '0 0 16px' }}>
           {t('vendor.delivery.sub')}
         </p>
         <div className="karu-form-grid">
@@ -359,14 +380,12 @@ function DeliverySettings({ vendor }: { vendor: Vendor }) {
             />
           </Field>
         </div>
-        <Button size="sm" style={{ marginTop: 14 }} disabled={save.isPending} onClick={() => save.mutate()}>
+        <Button size="sm" style={{ marginTop: 16 }} disabled={save.isPending} onClick={() => save.mutate()}>
           {save.isPending ? t('vendor.saving') : t('vendor.delivery.save')}
         </Button>
-        {save.isError && <div style={{ marginTop: 10 }}><ErrorNote>{(save.error as Error).message}</ErrorNote></div>}
+        {save.isError && <div style={{ marginTop: 12 }}><ErrorNote>{(save.error as Error).message}</ErrorNote></div>}
         {save.isSuccess && (
-          <span style={{ marginLeft: 12, fontFamily: 'var(--font-ui)', fontSize: 14, fontWeight: 600, color: 'var(--success)' }}>
-            {t('vendor.saved')}
-          </span>
+          <SuccessNote className="ml-3">{t('vendor.saved')}</SuccessNote>
         )}
       </Card>
     </>
@@ -401,16 +420,16 @@ function BusinessProfileSettings({ vendor }: { vendor: Vendor }) {
 
   return (
     <>
-      <h2 style={{ margin: '32px 0 14px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
+      <h2 style={{ margin: '32px 0 16px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
         {t('vendor.profile.title')}
       </h2>
       <Card>
-        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', margin: '0 0 14px' }}>
+        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', margin: '0 0 16px' }}>
           {t('vendor.profile.sub')}
         </p>
         <Field label={t('vendor.profile.label')}>
           <textarea
-            className="w-full rounded-md border border-karu-ink/15 bg-karu-surface px-3 py-2 text-sm text-karu-ink placeholder:text-karu-mute focus:border-karu-gold focus:outline-none focus:ring-2 focus:ring-karu-gold/30"
+            className="w-full rounded-md border border-slate-200 bg-surface px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:border-brand-text focus:outline-none focus:ring-2 focus:ring-brand-text/30"
             rows={4}
             maxLength={1000}
             value={bio}
@@ -420,7 +439,7 @@ function BusinessProfileSettings({ vendor }: { vendor: Vendor }) {
         </Field>
         <p
           style={{
-            marginTop: 6,
+            marginTop: 4,
             fontFamily: 'var(--font-ui)',
             fontSize: 12,
             fontWeight: 600,
@@ -429,14 +448,12 @@ function BusinessProfileSettings({ vendor }: { vendor: Vendor }) {
         >
           {t('vendor.profile.wordCount', { count })}
         </p>
-        <Button size="sm" style={{ marginTop: 14 }} disabled={!valid || save.isPending} onClick={() => save.mutate()}>
+        <Button size="sm" style={{ marginTop: 16 }} disabled={!valid || save.isPending} onClick={() => save.mutate()}>
           {save.isPending ? t('vendor.saving') : t('vendor.profile.save')}
         </Button>
-        {save.isError && <div style={{ marginTop: 10 }}><ErrorNote>{(save.error as Error).message}</ErrorNote></div>}
+        {save.isError && <div style={{ marginTop: 12 }}><ErrorNote>{(save.error as Error).message}</ErrorNote></div>}
         {save.isSuccess && (
-          <span style={{ marginLeft: 12, fontFamily: 'var(--font-ui)', fontSize: 14, fontWeight: 600, color: 'var(--success)' }}>
-            {t('vendor.saved')}
-          </span>
+          <SuccessNote className="ml-3">{t('vendor.saved')}</SuccessNote>
         )}
       </Card>
     </>
@@ -515,10 +532,10 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
   return (
     <div>
       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-        <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 32 }}>
+        <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
           {greeting}, {vendor.business_name}
         </h1>
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 12 }}>
           <Link to={`/vendors/${vendor.id}`}>
             <Button size="sm" variant="outline">{t('vendor.viewPublicProfile')}</Button>
           </Link>
@@ -557,7 +574,7 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
             <p style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 15 }}>
               {t('vendor.attention.title')}
             </p>
-            <ul style={{ margin: '10px 0 0', paddingLeft: 18, fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)' }}>
+            <ul style={{ margin: '12px 0 0', paddingLeft: 20, fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)' }}>
               {pending.length > 0 && (
                 <li>
                   <Link to="/vendor/bookings">
@@ -631,7 +648,7 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16, marginTop: 20 }}>
         <Card>
-          <h2 style={{ margin: '0 0 6px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 20 }}>
+          <h2 style={{ margin: '0 0 4px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 20 }}>
             {t('vendor.earningsOverview')}
           </h2>
           <EarningsChart series={stats.earningsSeries} />
@@ -652,7 +669,7 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
               style={{
                 display: 'flex',
                 justifyContent: 'space-between',
-                padding: '9px 0',
+                padding: '8px 0',
                 borderBottom: '1px solid var(--divider)',
                 fontFamily: 'var(--font-ui)',
                 fontSize: 15,
@@ -665,11 +682,11 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
         </Card>
       </div>
 
-      <h2 style={{ margin: '32px 0 14px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
+      <h2 style={{ margin: '32px 0 16px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
         {t('vendor.upcomingTrips')}
       </h2>
       {upcoming.length === 0 && (
-        <EmptyState title={t('vendor.upcomingNone')} hint={t('vendor.upcomingNoneHint')} />
+        <EmptyState Icon={CalendarDays} title={t('vendor.upcomingNone')} hint={t('vendor.upcomingNoneHint')} />
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {upcoming.map((b) => (
@@ -690,15 +707,16 @@ function Dashboard({ vendor, asAdmin = false }: { vendor: Vendor; asAdmin?: bool
 
       {!asAdmin && <DeliverySettings vendor={vendor} />}
       {!asAdmin && <VendorLocationSettings vendor={vendor} />}
+      {!asAdmin && <VendorSeasonSettings vendor={vendor} />}
       {!asAdmin && <BusinessProfileSettings vendor={vendor} />}
 
-      <h2 style={{ margin: '32px 0 14px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
+      <h2 style={{ margin: '32px 0 16px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
         {t('vendor.recentReviews')}
       </h2>
       {(!reviews || reviews.length === 0) && (
-        <EmptyState title={t('vendor.noReviews')} hint={t('vendor.noReviewsHint')} />
+        <EmptyState Icon={Star} title={t('vendor.noReviews')} hint={t('vendor.noReviewsHint')} />
       )}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
         {reviews?.slice(0, 6).map((r) => (
           <Card key={r.id}>
             <Rating value={r.rating} />
@@ -741,7 +759,7 @@ const VENDOR_OPEN_ACTION: Partial<Record<BookingStatus, string>> = {
 const vendorOpenStyle: React.CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
-  padding: '8px 14px',
+  padding: '8px 16px',
   borderRadius: 'var(--radius-md)',
   background: 'var(--brand)',
   color: 'var(--brand-ink)',
@@ -787,32 +805,18 @@ function VendorBookings({ asVendorId }: { asVendorId?: string }) {
 
   return (
     <div>
-      <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 32 }}>
+      <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
         {t('vendor.bookings.title')}
       </h1>
-      <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 6 }}>
+      <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 4 }}>
         {t('vendor.bookings.sub')}
       </p>
 
       {data && data.length > 0 && (
-        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+        <div className={`mt-4 ${segmentWrap}`}>
           {(['active', 'archived'] as const).map((k) => (
-            <button
-              key={k}
-              type="button"
-              onClick={() => setTab(k)}
-              style={{
-                borderRadius: 999,
-                padding: '7px 16px',
-                fontFamily: 'var(--font-ui)',
-                fontWeight: 600,
-                fontSize: 14,
-                border: 'none',
-                cursor: 'pointer',
-                background: tab === k ? 'var(--ink)' : 'transparent',
-                color: tab === k ? 'var(--text-on-dark)' : 'var(--gray-500)',
-              }}
-            >
+            <button key={k} type="button" aria-pressed={tab === k} onClick={() => setTab(k)} className={segmentButton(tab === k)}>
+              {tab === k && <SegmentPill group="vendor-bookings" />}
               {k === 'active'
                 ? t('vendor.bookings.tabActive')
                 : `${t('vendor.bookings.tabArchived')} (${archivedCount})`}
@@ -822,10 +826,10 @@ function VendorBookings({ asVendorId }: { asVendorId?: string }) {
       )}
 
       {data?.length === 0 && (
-        <EmptyState title={t('vendor.bookings.none')} hint={t('vendor.bookings.noneHint')} />
+        <EmptyState Icon={Inbox} title={t('vendor.bookings.none')} hint={t('vendor.bookings.noneHint')} />
       )}
       {data && data.length > 0 && shown.length === 0 && (
-        <EmptyState
+        <EmptyState Icon={Inbox}
           title={tab === 'archived' ? t('vendor.bookings.noneArchived') : t('vendor.bookings.none')}
           hint={tab === 'archived' ? t('vendor.bookings.noneArchivedHint') : t('vendor.bookings.noneHint')}
         />
@@ -833,15 +837,15 @@ function VendorBookings({ asVendorId }: { asVendorId?: string }) {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 20 }}>
         {shown.map((b) => (
-          <Card key={b.id} style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 14 }}>
+          <Card key={b.id} style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
             <div>
               <div style={{ fontFamily: 'var(--font-ui)', fontSize: 12, color: 'var(--gray-400)' }}>
                 {b.reference}
               </div>
-              <div style={{ fontFamily: 'var(--font-ui)', fontWeight: 700, marginTop: 2 }}>
+              <div style={{ fontFamily: 'var(--font-ui)', fontWeight: 700, marginTop: 4 }}>
                 {prettyDate(b.start_date)} → {prettyDate(b.end_date)}
               </div>
-              <div style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-500)', marginTop: 2 }}>
+              <div style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-500)', marginTop: 4 }}>
                 {xaf(b.total_xaf)}
                 {b.pickup_location ? ` · ${b.pickup_location}` : ''}
               </div>
@@ -852,12 +856,12 @@ function VendorBookings({ asVendorId }: { asVendorId?: string }) {
               )}
               <Link
                 to={`/bookings/${b.id}`}
-                style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 13, color: 'var(--gold-600)', textDecoration: 'underline', display: 'inline-block', marginTop: 6 }}
+                style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 13, color: 'var(--gold-600)', textDecoration: 'underline', display: 'inline-block', marginTop: 4 }}
               >
                 {t('common.viewDetails')}
               </Link>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <StatusBadge status={b.status} />
               {VENDOR_OPEN_ACTION[b.status] && (
                 <Link to={`/bookings/${b.id}`} className="karu-btn" style={vendorOpenStyle}>
@@ -919,13 +923,14 @@ function Cars({ vendorVerified, asVendorId }: { vendorVerified: boolean; asVendo
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 32 }}>
+        <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
           {asVendorId ? t('vendor.cars.titleAdmin') : t('vendor.cars.title')}
         </h1>
         {/* Adding posts to /vehicles as the caller, so it would land on the
             admin's own (non-existent) vendor record — hidden while viewing. */}
         {!asVendorId && (
-          <Button size="sm" onClick={() => setAdding((v) => !v)}>
+          <Button size="sm" arrow={false} variant={adding ? 'outline' : 'primary'} onClick={() => setAdding((v) => !v)}>
+            {adding ? <X className="h-4 w-4" aria-hidden="true" /> : <Plus className="h-4 w-4" aria-hidden="true" />}
             {adding ? t('vendor.cars.close') : t('vendor.cars.add')}
           </Button>
         )}
@@ -939,10 +944,10 @@ function Cars({ vendorVerified, asVendorId }: { vendorVerified: boolean; asVendo
       {adding && <AddCarWizard onDone={() => { setAdding(false); void qc.invalidateQueries({ queryKey: ['my-cars'] }); }} />}
 
       {isLoading && <Spinner />}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 20 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 20 }}>
         {cars?.map((c) => <CarRow key={c.id} car={c} />)}
         {cars?.length === 0 && !adding && (
-          <EmptyState title={t('vendor.cars.none')} hint={t('vendor.cars.noneHint')} />
+          <EmptyState Icon={Car} title={t('vendor.cars.none')} hint={t('vendor.cars.noneHint')} />
         )}
       </div>
     </div>
@@ -980,36 +985,27 @@ function CarRow({ car }: { car: Vehicle }) {
     <Card>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          {primaryPhoto(car) && <img src={primaryPhoto(car)} alt="" style={{ width: 90, height: 60, objectFit: 'contain' }} />}
+          {primaryPhoto(car) && <img src={primaryPhoto(car)} alt="" className="h-16 w-24 shrink-0 rounded-lg bg-slate-100 object-cover" />}
           <div>
             <span style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 20 }}>
               {car.make} {car.model} {car.year ?? ''}
             </span>
-            <div style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-500)', marginTop: 2 }}>
+            <div style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-500)', marginTop: 4 }}>
               {CITY_LABEL[car.city]} · {CATEGORY_LABEL[car.category]} · {xaf(car.daily_rate_xaf)}/{t('vendor.cars.dayShort')} ·{' '}
-              <Badge variant={car.status === 'active' ? 'success' : 'neutral'} style={{ fontSize: 11, padding: '3px 8px' }}>
+              <Badge variant={car.status === 'active' ? 'success' : 'neutral'} style={{ fontSize: 11, padding: '4px 8px' }}>
                 {t(`vendor.cars.status.${car.status}`)}
               </Badge>
             </div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <label
-            style={{
-              cursor: 'pointer',
-              fontFamily: 'var(--font-ui)',
-              fontWeight: 600,
-              fontSize: 14,
-              padding: '9px 16px',
-              borderRadius: 'var(--radius-md)',
-              border: '1.5px solid var(--ink)',
-            }}
-          >
+        <div className="flex flex-wrap gap-2">
+          <label className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-slate-300 bg-surface px-4 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-50 focus-within:ring-2 focus-within:ring-brand-text">
+            <Upload className="h-4 w-4" aria-hidden="true" />
             {uploadPhoto.isPending ? t('vendor.cars.uploading') : t('vendor.cars.photo')}
             <input
               type="file"
               accept="image/*"
-              style={{ display: 'none' }}
+              className="sr-only"
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) uploadPhoto.mutate(f);
@@ -1036,7 +1032,7 @@ function CarRow({ car }: { car: Vehicle }) {
         </div>
       </div>
       {retire.isSuccess && (
-        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--success)', marginTop: 10 }}>
+        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--success)', marginTop: 12 }}>
           {retire.data?.deactivated
             ? t('vendor.cars.retiredKept', { count: retire.data.bookings })
             : t('vendor.cars.retiredRemoved')}
@@ -1053,7 +1049,7 @@ function CarRow({ car }: { car: Vehicle }) {
         onChanged={() => qc.invalidateQueries({ queryKey: ['my-cars'] })}
       />
       {editing && <EditCar car={car} onDone={() => setEditing(false)} />}
-      {uploadPhoto.isError && <div style={{ marginTop: 10 }}><ErrorNote>{(uploadPhoto.error as Error).message}</ErrorNote></div>}
+      {uploadPhoto.isError && <div style={{ marginTop: 12 }}><ErrorNote>{(uploadPhoto.error as Error).message}</ErrorNote></div>}
       {open && <Blocks vehicleId={car.id} />}
     </Card>
   );
@@ -1087,14 +1083,14 @@ function Blocks({ vehicleId }: { vehicleId: string }) {
 
   return (
     <div style={{ marginTop: 16, borderTop: '1px solid var(--divider)', paddingTop: 16 }}>
-      <div style={{ fontFamily: 'var(--font-ui)', fontWeight: 700, fontSize: 14, marginBottom: 10 }}>
+      <div style={{ fontFamily: 'var(--font-ui)', fontWeight: 700, fontSize: 14, marginBottom: 12 }}>
         {t('vendor.blocks.title')}
       </div>
       {blocks?.length === 0 && (
         <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-400)' }}>{t('vendor.blocks.none')}</p>
       )}
       {blocks?.map((b) => (
-        <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', fontFamily: 'var(--font-ui)', fontSize: 14 }}>
+        <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', fontFamily: 'var(--font-ui)', fontSize: 14 }}>
           <span>
             {prettyDate(b.start_date)} → {prettyDate(b.end_date)}
             {b.reason ? <span style={{ color: 'var(--gray-500)' }}> · {b.reason}</span> : null}
@@ -1105,7 +1101,7 @@ function Blocks({ vehicleId }: { vehicleId: string }) {
         </div>
       ))}
       <form
-        style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 10, marginTop: 10 }}
+        style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 12, marginTop: 12 }}
         onSubmit={(e: FormEvent) => {
           e.preventDefault();
           add.mutate();
@@ -1205,7 +1201,7 @@ function EditCar({ car, onDone }: { car: Vehicle; onDone: () => void }) {
         <Field label={t('vendor.form.description')} style={{ gridColumn: '1 / -1' }}>
           <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
         </Field>
-        <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 10 }}>
+        <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 12 }}>
           <Button size="sm" type="submit" disabled={save.isPending}>
             {save.isPending ? t('vendor.saving') : t('vendor.form.save')}
           </Button>
@@ -1214,7 +1210,7 @@ function EditCar({ car, onDone }: { car: Vehicle; onDone: () => void }) {
           </Button>
         </div>
       </form>
-      {save.isError && <div style={{ marginTop: 10 }}><ErrorNote>{(save.error as Error).message}</ErrorNote></div>}
+      {save.isError && <div style={{ marginTop: 12 }}><ErrorNote>{(save.error as Error).message}</ErrorNote></div>}
     </div>
   );
 }
@@ -1285,7 +1281,7 @@ function AddCarWizard({ onDone }: { onDone: () => void }) {
 
   return (
     <Card style={{ marginTop: 20 }}>
-      <StepNav steps={steps} current={step} style={{ marginBottom: 22 }} />
+      <StepNav steps={steps} current={step} style={{ marginBottom: 24 }} />
 
       {step === 0 && (
         <div className="karu-form-grid">
@@ -1397,7 +1393,7 @@ function AddCarWizard({ onDone }: { onDone: () => void }) {
 
       {create.isError && <div style={{ marginTop: 12 }}><ErrorNote>{(create.error as Error).message}</ErrorNote></div>}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 22 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 24 }}>
         <Button variant="outline" size="sm" onClick={() => (step === 0 ? onDone() : setStep(step - 1))}>
           {step === 0 ? t('vendor.wizard.cancel') : t('vendor.wizard.back')}
         </Button>
@@ -1431,7 +1427,7 @@ const sectionTitle: CSSProperties = {
   fontFamily: 'var(--font-sans)',
   fontWeight: 700,
   fontSize: 20,
-  margin: '28px 0 4px',
+  margin: '32px 0 4px',
 };
 
 function Documents({ asVendor }: { asVendor?: Vendor }) {
@@ -1506,8 +1502,8 @@ function Documents({ asVendor }: { asVendor?: Vendor }) {
 
   return (
     <div>
-      <h1 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: 32 }}>{t('vendor.docs.title')}</h1>
-      <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 6 }}>
+      <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{t('vendor.docs.title')}</h1>
+      <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 4 }}>
         {asVendor ? (
           <>
             {t('vendor.docs.subAdmin', { name: asVendor.business_name })}
@@ -1545,15 +1541,15 @@ function Documents({ asVendor }: { asVendor?: Vendor }) {
         {t('vendor.docs.perVehicleHint')}
       </p>
       {cars?.length === 0 && (
-        <EmptyState title={t('vendor.cars.none')} hint={t('vendor.docs.noCarsHint')} />
+        <EmptyState Icon={Car} title={t('vendor.cars.none')} hint={t('vendor.docs.noCarsHint')} />
       )}
-      <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
+      <div style={{ display: 'grid', gap: 16, maxWidth: 640 }}>
         {cars?.map((car) => (
           <Card key={car.id}>
             <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 17 }}>
               {car.make} {car.model} {car.year ?? ''}
               {car.registration_number && (
-                <span style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 13, color: 'var(--gray-500)', marginLeft: 10 }}>
+                <span style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 13, color: 'var(--gray-500)', marginLeft: 12 }}>
                   {car.registration_number}
                 </span>
               )}
@@ -1596,8 +1592,8 @@ function Documents({ asVendor }: { asVendor?: Vendor }) {
 
       {upload.isError && <div style={{ marginTop: 12 }}><ErrorNote>{(upload.error as Error).message}</ErrorNote></div>}
       {upload.isSuccess && (
-        <p style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 14, color: 'var(--success)', marginTop: 12 }}>
-          {t('vendor.docs.received')}
+        <p style={{ marginTop: 12 }}>
+          <SuccessNote>{t('vendor.docs.received')}</SuccessNote>
         </p>
       )}
     </div>
@@ -1632,8 +1628,8 @@ function VerificationChecklist({
   const businessVerified = approved('rccm');
 
   const tick = (done: boolean) => (
-    <span aria-hidden="true" style={{ fontWeight: 700, color: done ? 'var(--success)' : 'var(--gray-400)' }}>
-      {done ? '✓' : '☐'}
+    <span aria-hidden="true" style={{ display: 'inline-flex', color: done ? 'var(--success)' : 'var(--gray-400)' }}>
+      {done ? <CircleCheck style={{ width: 18, height: 18 }} /> : <Circle style={{ width: 18, height: 18 }} />}
     </span>
   );
   const row: CSSProperties = {
@@ -1642,7 +1638,7 @@ function VerificationChecklist({
     alignItems: 'baseline',
     fontFamily: 'var(--font-ui)',
     fontSize: 14,
-    padding: '3px 0',
+    padding: '4px 0',
   };
 
   return (
@@ -1673,9 +1669,9 @@ function VerificationChecklist({
                 {car.make} {car.model}
                 {car.registration_number ? ` (${car.registration_number})` : ''}:{' '}
                 <span style={{ color: 'var(--gray-500)' }}>
-                  {t('vendor.checklist.registration')} {approved('carte_grise', car.id) ? '✓' : '☐'} ·{' '}
-                  {t('vendor.checklist.insurance')} {approved('insurance', car.id) ? '✓' : '☐'} ·{' '}
-                  {t('vendor.checklist.roadworthiness')} {approved('roadworthiness', car.id) ? '✓' : '☐'} ·{' '}
+                  {t('vendor.checklist.registration')} <DocMark done={approved('carte_grise', car.id)} /> ·{' '}
+                  {t('vendor.checklist.insurance')} <DocMark done={approved('insurance', car.id)} /> ·{' '}
+                  {t('vendor.checklist.roadworthiness')} <DocMark done={approved('roadworthiness', car.id)} /> ·{' '}
                   {t('vendor.checklist.photos')} {6 - photosMissing}/6
                 </span>
               </span>
@@ -1714,53 +1710,35 @@ function DocRow({
   const { t } = useTranslation();
   const [expiresAt, setExpiresAt] = useState('');
 
-  const statusColor =
-    doc?.status === 'approved' ? 'var(--success)'
-    : doc?.status === 'rejected' ? 'var(--danger, #c0392b)'
-    : doc ? 'var(--gold-600)'
-    : 'var(--gray-400)';
+  const statusVariant =
+    doc?.status === 'approved' ? 'success'
+    : doc?.status === 'rejected' ? 'danger'
+    : doc ? 'warning'
+    : 'neutral';
 
   return (
-    <div style={{ padding: '10px 0', borderTop: first ? 'none' : '1px solid var(--divider)', marginTop: first ? 0 : 4 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <span style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 14 }}>{label}</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 13, fontWeight: 700, color: statusColor }}>
+    <div className={first ? 'py-3' : 'mt-1 border-t border-slate-200 py-3'}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="text-sm font-semibold text-slate-900">{label}</span>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Badge variant={statusVariant}>
             {doc ? t(`vendor.docs.status.${doc.status}`) : t('vendor.docs.status.notUploaded')}
-            {doc?.expires_at && (
-              <span style={{ fontWeight: 500, color: 'var(--gray-500)' }}>
-                {' '}· {t('vendor.docs.until', { date: prettyDate(doc.expires_at) })}
-              </span>
-            )}
-          </span>
+          </Badge>
+          {doc?.expires_at && (
+            <span className="text-xs text-slate-500">{t('vendor.docs.until', { date: prettyDate(doc.expires_at) })}</span>
+          )}
           {onUpload && withExpiry && (
             <input
               type="date"
               aria-label={t('vendor.docs.expiryAria', { label })}
               value={expiresAt}
               onChange={(e) => setExpiresAt(e.target.value)}
-              style={{
-                fontFamily: 'var(--font-ui)',
-                fontSize: 13,
-                padding: '6px 8px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--divider)',
-              }}
+              className="min-h-10 rounded-md border border-slate-300 bg-surface px-2.5 text-sm text-slate-900 focus-visible:border-brand-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
             />
           )}
           {onUpload && (
-            <label
-              style={{
-                cursor: 'pointer',
-                fontFamily: 'var(--font-ui)',
-                fontWeight: 600,
-                fontSize: 13,
-                padding: '8px 14px',
-                borderRadius: 'var(--radius-md)',
-                background: 'var(--yellow)',
-                color: 'var(--ink)',
-              }}
-            >
+            <label className="inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full border border-slate-300 bg-surface px-4 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-50 focus-within:ring-2 focus-within:ring-brand-text">
+              <Upload className="h-4 w-4" aria-hidden="true" />
               {pending
                 ? t('vendor.docs.uploading')
                 : doc?.status === 'rejected'
@@ -1771,7 +1749,7 @@ function DocRow({
               <input
                 type="file"
                 accept="image/*,.pdf"
-                style={{ display: 'none' }}
+                className="sr-only"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (f) onUpload(f, expiresAt || undefined);
@@ -1783,10 +1761,26 @@ function DocRow({
         </div>
       </div>
       {doc?.status === 'rejected' && (
-        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--danger, #c0392b)', marginTop: 6, marginBottom: 0 }}>
+        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--color-danger)', marginTop: 4, marginBottom: 0 }}>
           {doc.notes ? t('vendor.docs.reviewerNote', { note: doc.notes }) : t('vendor.docs.rejectedFallback')}
         </p>
       )}
     </div>
+  );
+}
+
+/** A per-car document status inside a sentence: a tick or an empty circle,
+ *  with the word for screen readers since the icon alone says nothing. */
+function DocMark({ done }: { done: boolean }) {
+  const { t } = useTranslation();
+  return (
+    <>
+      {done ? (
+        <CircleCheck aria-hidden="true" className="karu-inline-icon" style={{ color: 'var(--success)' }} />
+      ) : (
+        <Circle aria-hidden="true" className="karu-inline-icon" style={{ color: 'var(--gray-400)' }} />
+      )}
+      <span className="sr-only">{done ? t('common.done') : t('common.missing')}</span>
+    </>
   );
 }

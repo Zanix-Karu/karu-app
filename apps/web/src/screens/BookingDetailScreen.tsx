@@ -1,3 +1,4 @@
+import { ArrowLeft, SearchX } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -14,7 +15,7 @@ import { api } from '../lib/api';
 import { useAuth, useView } from '../lib/auth';
 import { CATEGORY_LABEL, CITY_LABEL, prettyDate, rentalDays, xaf } from '../lib/format';
 import { Badge, Button, Card } from '../ds';
-import { ErrorNote, StatusBadge } from '../ui';
+import { EmptyState, ErrorNote, StatusBadge, SuccessNote } from '../ui';
 import { Skeleton, SkeletonCard } from '../components/Skeleton';
 import { useCurrency } from '../lib/currency';
 import { ReviewForm } from '../components/ReviewForm';
@@ -174,9 +175,9 @@ export function BookingDetailScreen() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-3xl">
+      <div className="max-w-4xl">
         <Skeleton width={140} height={13} />
-        <Skeleton width="55%" height={34} style={{ marginTop: 14 }} />
+        <Skeleton width="55%" height={34} style={{ marginTop: 16 }} />
         <div style={{ display: 'grid', gap: 16, marginTop: 24 }}>
           <SkeletonCard lines={4} />
           <SkeletonCard lines={3} />
@@ -185,7 +186,22 @@ export function BookingDetailScreen() {
     );
   }
   if (error || !data) {
-    return <ErrorNote>{(error as Error | undefined)?.message ?? t('booking.notFound')}</ErrorNote>;
+    return (
+      <EmptyState
+        Icon={SearchX}
+        title={t('booking.notFound')}
+        hint={(error as Error | undefined)?.message}
+        action={
+        <Link
+          to={"/bookings"}
+          className="inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-300 bg-surface px-5 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-50"
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          {t('nav.myBookings')}
+        </Link>
+      }
+      />
+    );
   }
 
   const b = data;
@@ -196,27 +212,28 @@ export function BookingDetailScreen() {
     b.status === 'confirmed' && until >= 0 && until <= 7;
 
   const row = (label: string, value: React.ReactNode) => (
-    <div className="flex justify-between gap-4 border-b border-karu-ink/10 py-2 text-sm last:border-0">
-      <span className="text-karu-mute">{label}</span>
+    <div className="flex justify-between gap-4 border-b border-slate-200 py-2 text-sm last:border-0">
+      <span className="text-slate-500">{label}</span>
       <span className="text-right font-semibold">{value}</span>
     </div>
   );
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="max-w-4xl">
       <button
         onClick={() => navigate(-1)}
-        className="text-sm font-semibold text-karu-brown underline"
+        className="inline-flex items-center gap-1 text-sm font-semibold text-slate-800 hover:underline"
       >
-        ← {t('common.back')}
+        <ArrowLeft aria-hidden="true" className="h-4 w-4" />
+        {t('common.back')}
       </button>
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="font-mono text-xs text-karu-mute">{b.reference ?? b.id}</p>
-          <h1 className="font-display text-3xl font-bold">
+          <p className="font-mono text-xs text-slate-500">{b.reference ?? b.id}</p>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
             {b.vehicle ? `${b.vehicle.make} ${b.vehicle.model}` : t('booking.fallbackTitle')}
-            {b.vehicle?.year ? <span className="text-karu-mute"> {b.vehicle.year}</span> : null}
+            {b.vehicle?.year ? <span className="text-slate-500"> {b.vehicle.year}</span> : null}
           </h1>
         </div>
         <StatusBadge status={b.status} />
@@ -225,12 +242,12 @@ export function BookingDetailScreen() {
       <TripProgress status={b.status} />
 
       {showCountdown && (
-        <div className="mt-4 rounded-xl bg-karu-yellow/20 px-4 py-3 text-sm font-semibold text-karu-brown">
+        <div className="mt-4 rounded-xl bg-brand-tint px-4 py-3 text-sm font-semibold text-slate-800">
           {until === 0 ? t('booking.pickupToday') : t('booking.pickupInDays', { count: until })}
         </div>
       )}
       {b.status === 'in_progress' && (
-        <div className="mt-4 rounded-xl bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-800">
+        <div className="mt-4 rounded-xl bg-blue-50 px-4 py-3 text-sm font-semibold text-slate-900">
           {t('booking.tripInProgress', { date: prettyDate(b.end_date) })}
         </div>
       )}
@@ -253,7 +270,7 @@ export function BookingDetailScreen() {
         !b.with_driver &&
         profile &&
         profile.verification_status !== 'verified' && (
-          <div className="mt-4 rounded-xl bg-karu-yellow/20 px-4 py-3 text-sm text-karu-brown">
+          <div className="mt-4 rounded-xl bg-brand-tint px-4 py-3 text-sm text-slate-800">
             <p className="font-semibold">
               {profile.verification_status === 'pending' ? t('verify.banner.pendingTitle') : t('verify.banner.title')}
             </p>
@@ -269,17 +286,17 @@ export function BookingDetailScreen() {
         )}
 
       {b.code_locked_at && (b.status === 'confirmed' || b.status === 'in_progress') && (
-        <div className="mt-4 rounded-xl bg-karu-terracotta/10 px-4 py-3 text-sm font-semibold text-karu-terracotta">
+        <div className="mt-4 rounded-xl bg-danger/10 px-4 py-3 text-sm font-semibold text-danger">
           {t('booking.codeLocked')}
         </div>
       )}
 
       {b.status === 'cancelled' && b.cancelled_by && (
-        <div className="mt-4 rounded-xl bg-karu-ink/5 px-4 py-3 text-sm">
+        <div className="mt-4 rounded-xl bg-slate-100 px-4 py-3 text-sm">
           <p className="font-semibold">{t(`booking.cancelledBy.${b.cancelled_by}`)}</p>
           {b.cancellation_reason && <p className="mt-1">&ldquo;{b.cancellation_reason}&rdquo;</p>}
           {b.deposit_refund_due !== null && (
-            <p className="mt-1 text-karu-mute">
+            <p className="mt-1 text-slate-500">
               {b.deposit_refund_due ? t('booking.refundDue') : t('booking.refundNotDue')}
             </p>
           )}
@@ -328,7 +345,7 @@ export function BookingDetailScreen() {
               <>
                 {xaf(b.total_xaf)}
                 {secondary(b.total_xaf) && (
-                  <span className="ml-1 font-normal text-karu-mute">({secondary(b.total_xaf)})</span>
+                  <span className="ml-1 font-normal text-slate-500">({secondary(b.total_xaf)})</span>
                 )}
               </>,
             )}
@@ -353,7 +370,7 @@ export function BookingDetailScreen() {
               {b.vendor.contact_email ? row(t('auth.email'), b.vendor.contact_email) : null}
             </div>
             {b.vendor.contact_locked && (
-              <p className="mt-3 text-xs text-karu-mute">{t('booking.phoneLocked')}</p>
+              <p className="mt-3 text-xs text-slate-500">{t('booking.phoneLocked')}</p>
             )}
           </Card>
         )}
@@ -371,7 +388,7 @@ export function BookingDetailScreen() {
               <HandoverIdentity identity={b.customer.identity} />
             )}
             {view === 'vendor' && (
-              <p className="mt-3 text-xs text-karu-mute">{t('booking.contactPrivate')}</p>
+              <p className="mt-3 text-xs text-slate-500">{t('booking.contactPrivate')}</p>
             )}
           </Card>
         )}
@@ -387,7 +404,7 @@ export function BookingDetailScreen() {
             </div>
             <Link
               to={`/cars/${b.vehicle.id}`}
-              className="mt-3 inline-block text-sm font-semibold text-karu-brown underline"
+              className="mt-3 inline-block text-sm font-semibold text-slate-800 underline"
             >
               {t('booking.viewListing')}
             </Link>
@@ -409,10 +426,10 @@ export function BookingDetailScreen() {
             </div>
             {b.delivery_landmark && <p className="mt-2 text-sm">&ldquo;{b.delivery_landmark}&rdquo;</p>}
             {b.delivery_distance_km != null && (
-              <p className="mt-1 text-xs text-karu-mute">{t('location.kmFromBase', { km: b.delivery_distance_km })}</p>
+              <p className="mt-1 text-xs text-slate-500">{t('location.kmFromBase', { km: b.delivery_distance_km })}</p>
             )}
             <a
-              className="mt-2 inline-block text-sm font-semibold text-karu-brown underline"
+              className="mt-2 inline-block text-sm font-semibold text-slate-800 underline"
               href={`https://www.google.com/maps/dir/?api=1&destination=${b.delivery_lat},${b.delivery_lng}`}
               target="_blank"
               rel="noreferrer"
@@ -435,7 +452,7 @@ export function BookingDetailScreen() {
             </div>
             {b.vendor.location.address && <p className="mt-2 text-sm">{b.vendor.location.address}</p>}
             <a
-              className="mt-2 inline-block text-sm font-semibold text-karu-brown underline"
+              className="mt-2 inline-block text-sm font-semibold text-slate-800 underline"
               href={`https://www.google.com/maps/dir/?api=1&destination=${b.vendor.location.lat},${b.vendor.location.lng}`}
               target="_blank"
               rel="noreferrer"
@@ -491,7 +508,7 @@ export function BookingDetailScreen() {
             >
               <p className="text-sm">{cancelPolicyLine(b, view, t)}</p>
               <label className="mt-3 block text-sm">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-karu-mute">
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                   {reasonRequired(b, view) ? t('booking.cancelReasonRequired') : t('booking.cancelReasonOptional')}
                 </span>
                 <textarea
@@ -499,7 +516,7 @@ export function BookingDetailScreen() {
                   onChange={(e) => setCancelReason(e.target.value.slice(0, 500))}
                   rows={2}
                   autoFocus
-                  className="w-full rounded-lg border border-karu-ink/15 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 />
               </label>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -590,7 +607,7 @@ export function BookingDetailScreen() {
         <ReceivedReview review={receivedReview.data[0]} />
       )}
 
-      <div className="mt-6 flex items-center gap-2 text-xs text-karu-mute">
+      <div className="mt-6 flex items-center gap-2 text-xs text-slate-500">
         <Badge variant="neutral">{t('booking.requestedOn', { date: prettyDate(b.requested_at.slice(0, 10)) })}</Badge>
         {b.confirmed_at && (
           <Badge variant="success">{t('booking.confirmedOn', { date: prettyDate(b.confirmed_at.slice(0, 10)) })}</Badge>
@@ -612,10 +629,10 @@ function HandoverIdentity({
 }) {
   const { t } = useTranslation();
   if (!identity.verified) {
-    return <p className="mt-3 text-sm font-semibold text-karu-terracotta">{t('verify.vendor.notVerified')}</p>;
+    return <p className="mt-3 text-sm font-semibold text-danger">{t('verify.vendor.notVerified')}</p>;
   }
   return (
-    <div className="mt-3 flex items-center gap-3 rounded-xl bg-green-50 p-3 karu-fade-in">
+    <div className="mt-3 flex items-center gap-3 rounded-xl bg-success-tint p-3 karu-fade-in">
       {identity.selfie_url ? (
         <img
           src={identity.selfie_url}
@@ -624,9 +641,9 @@ function HandoverIdentity({
         />
       ) : null}
       <div className="text-sm">
-        <p className="font-semibold text-green-800">{t('verify.vendor.verified')}</p>
+        <p className="font-semibold text-success">{t('verify.vendor.verified')}</p>
         <p className="font-semibold">{identity.full_name}</p>
-        <p className="text-xs text-karu-mute">{t('verify.vendor.checkHint')}</p>
+        <p className="text-xs text-slate-500">{t('verify.vendor.checkHint')}</p>
       </div>
     </div>
   );
@@ -676,25 +693,25 @@ function DepositBlock({ bookingId, view }: { bookingId: string; view: string }) 
   const copy = status ? PAYMENT_COPY[status] : null;
 
   return (
-    <div className="mt-3 border-t border-karu-ink/10 pt-3">
+    <div className="mt-3 border-t border-slate-200 pt-3">
       {copy ? (
         <p
           className={`text-xs font-semibold ${
             copy.tone === 'success'
-              ? 'text-green-700'
+              ? 'text-success'
               : copy.tone === 'danger'
-                ? 'text-karu-terracotta'
-                : 'text-karu-mute'
+                ? 'text-danger'
+                : 'text-slate-500'
           }`}
         >
           {t(copy.label)}
         </p>
       ) : (
-        <p className="text-xs text-karu-mute">{t('booking.noDeposit')}</p>
+        <p className="text-xs text-slate-500">{t('booking.noDeposit')}</p>
       )}
 
       {!data?.chargingEnabled && (
-        <p className="mt-1 text-xs text-karu-mute">{t('booking.chargingOff')}</p>
+        <p className="mt-1 text-xs text-slate-500">{t('booking.chargingOff')}</p>
       )}
 
       {view === 'customer' && status !== 'held' && status !== 'released' && (
@@ -732,7 +749,7 @@ function DepositBlock({ bookingId, view }: { bookingId: string; view: string }) 
             </Button>
           )}
           {start.isSuccess && (
-            <p className="mt-2 text-xs text-karu-brown">{start.data?.instructions}</p>
+            <p className="mt-2 text-xs text-slate-800">{start.data?.instructions}</p>
           )}
           {start.isError && (
             <div className="mt-2">
@@ -771,7 +788,7 @@ function RecordDeposit({ bookingId }: { bookingId: string }) {
   return (
     <Card style={{ marginTop: 16 }}>
       <h2 className="font-display text-lg font-bold">{t('booking.recordDeposit.title')}</h2>
-      <p className="mt-1 text-sm text-karu-mute">{t('booking.recordDeposit.sub')}</p>
+      <p className="mt-1 text-sm text-slate-500">{t('booking.recordDeposit.sub')}</p>
       <form
         className="mt-3 flex flex-wrap items-end gap-3"
         onSubmit={(e) => {
@@ -780,13 +797,13 @@ function RecordDeposit({ bookingId }: { bookingId: string }) {
         }}
       >
         <label className="text-sm">
-          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-karu-mute">
+          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
             {t('booking.recordDeposit.status')}
           </span>
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as typeof status)}
-            className="rounded-lg border border-karu-ink/15 px-3 py-2 text-sm"
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
           >
             <option value="held">{t('booking.recordDeposit.statusHeld')}</option>
             <option value="released">{t('booking.recordDeposit.statusReleased')}</option>
@@ -795,14 +812,14 @@ function RecordDeposit({ bookingId }: { bookingId: string }) {
           </select>
         </label>
         <label className="text-sm">
-          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-karu-mute">
+          <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
             {t('booking.recordDeposit.reference')}
           </span>
           <input
             value={reference}
             onChange={(e) => setReference(e.target.value)}
             placeholder={t('booking.recordDeposit.referencePlaceholder')}
-            className="rounded-lg border border-karu-ink/15 px-3 py-2 text-sm"
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
           />
         </label>
         <Button type="submit" loading={record.isPending}>
@@ -810,7 +827,7 @@ function RecordDeposit({ bookingId }: { bookingId: string }) {
         </Button>
       </form>
       {record.isSuccess && (
-        <p className="mt-2 text-sm font-semibold text-green-700">{t('booking.recordDeposit.recorded')}</p>
+        <p className="mt-2"><SuccessNote>{t('booking.recordDeposit.recorded')}</SuccessNote></p>
       )}
       {record.isError && (
         <div className="mt-2">
