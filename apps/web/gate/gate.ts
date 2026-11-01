@@ -1,4 +1,4 @@
-import { renderComingSoon, type Locale } from './page';
+import { renderComingSoon, type Locale } from './page.js';
 
 /**
  * Pre-launch gate: until launch, the public gets a coming-soon page and
