@@ -46,14 +46,14 @@ export function VendorSeasonSettings({ vendor }: { vendor: Vendor }) {
 
   return (
     <>
-      <h2 style={{ margin: '32px 0 14px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
+      <h2 style={{ margin: '32px 0 16px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
         {t('seasons.title')}
       </h2>
       <Card>
-        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', margin: '0 0 14px' }}>
+        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', margin: '0 0 16px' }}>
           {t('seasons.sub')}
         </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {rows.map((r, i) => (
             <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
               <Field label={t('seasons.name')}>
@@ -92,7 +92,7 @@ export function VendorSeasonSettings({ vendor }: { vendor: Vendor }) {
             </div>
           )}
         </div>
-        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-500)', margin: '10px 0 0' }}>
+        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-500)', margin: '12px 0 0' }}>
           {t('seasons.hint')}
         </p>
         {rows.length > 0 && !ok && (
@@ -103,7 +103,7 @@ export function VendorSeasonSettings({ vendor }: { vendor: Vendor }) {
         </Button>
         {save.isSuccess && <SuccessNote className="ml-3">{t('vendor.saved')}</SuccessNote>}
         {save.isError && (
-          <div style={{ marginTop: 10 }}>
+          <div style={{ marginTop: 12 }}>
             <ErrorNote>{(save.error as Error).message}</ErrorNote>
           </div>
         )}

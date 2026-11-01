@@ -177,7 +177,7 @@ export function BookingDetailScreen() {
     return (
       <div className="max-w-4xl">
         <Skeleton width={140} height={13} />
-        <Skeleton width="55%" height={34} style={{ marginTop: 14 }} />
+        <Skeleton width="55%" height={34} style={{ marginTop: 16 }} />
         <div style={{ display: 'grid', gap: 16, marginTop: 24 }}>
           <SkeletonCard lines={4} />
           <SkeletonCard lines={3} />

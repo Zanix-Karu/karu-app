@@ -62,11 +62,11 @@ export function VendorLocationSettings({ vendor }: { vendor: Vendor }) {
 
   return (
     <>
-      <h2 style={{ margin: '32px 0 14px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
+      <h2 style={{ margin: '32px 0 16px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
         {t('location.vendorTitle')}
       </h2>
       <Card>
-        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', margin: '0 0 14px' }}>
+        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', margin: '0 0 16px' }}>
           {t('location.vendorSub')}
         </p>
 
@@ -78,7 +78,7 @@ export function VendorLocationSettings({ vendor }: { vendor: Vendor }) {
           rings={pin && zonesOk ? parsed.map((z) => ({ ...pin, radiusKm: z.max_km, label: `${z.max_km} km · ${xaf(z.fee_xaf)}` })) : []}
           ariaLabel={t('location.vendorMapAria')}
         />
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 10 }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginTop: 12 }}>
           <Button size="sm" variant="outline" loading={locating} onClick={useMyLocation}>
             {t('location.useMine')}
           </Button>
@@ -88,10 +88,10 @@ export function VendorLocationSettings({ vendor }: { vendor: Vendor }) {
         </div>
         {locateError && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{locateError}</p>}
 
-        <h3 style={{ margin: '22px 0 6px', fontFamily: 'var(--font-ui)', fontWeight: 700, fontSize: 16 }}>
+        <h3 style={{ margin: '24px 0 4px', fontFamily: 'var(--font-ui)', fontWeight: 700, fontSize: 16 }}>
           {t('location.zonesTitle')}
         </h3>
-        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-500)', margin: '0 0 10px' }}>
+        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-500)', margin: '0 0 12px' }}>
           {t('location.zonesSub')}
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -140,7 +140,7 @@ export function VendorLocationSettings({ vendor }: { vendor: Vendor }) {
           <p style={{ color: 'var(--danger)', fontSize: 13, marginTop: 8 }}>{t('location.zonesInvalid')}</p>
         )}
 
-        <div style={{ marginTop: 18, maxWidth: 260 }}>
+        <div style={{ marginTop: 16, maxWidth: 260 }}>
           <Field label={t('location.freeFrom')}>
             <Input
               type="number"
@@ -151,7 +151,7 @@ export function VendorLocationSettings({ vendor }: { vendor: Vendor }) {
             />
           </Field>
         </div>
-        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-500)', margin: '6px 0 0' }}>
+        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--gray-500)', margin: '4px 0 0' }}>
           {t('location.freeFromHint')}
         </p>
 
@@ -168,7 +168,7 @@ export function VendorLocationSettings({ vendor }: { vendor: Vendor }) {
           <SuccessNote className="ml-3">{t('vendor.saved')}</SuccessNote>
         )}
         {save.isError && (
-          <div style={{ marginTop: 10 }}>
+          <div style={{ marginTop: 12 }}>
             <ErrorNote>{(save.error as Error).message}</ErrorNote>
           </div>
         )}

@@ -194,7 +194,7 @@ export function FeedbackScreen() {
         </form>
       </Card>
 
-      <h2 className="mt-10 font-display text-xl font-bold">{t('feedback.yourReports')}</h2>
+      <h2 className="mb-4 mt-10 font-display text-xl font-bold tracking-tight text-slate-900">{t('feedback.yourReports')}</h2>
       {mine.isLoading ? (
         <Spinner label={t('common.loading')} />
       ) : !mine.data || mine.data.length === 0 ? (

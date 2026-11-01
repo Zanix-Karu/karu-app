@@ -6,14 +6,14 @@
 .karu-sidebar-layout {
   display: grid;
   grid-template-columns: 280px 1fr;
-  gap: 28px;
+  gap: 24px;
   align-items: start;
 }
 
 .karu-vendor-layout {
   display: grid;
   grid-template-columns: 240px 1fr;
-  gap: 28px;
+  gap: 24px;
   align-items: start;
 }
 
@@ -21,7 +21,7 @@
 .karu-car-card {
   display: grid;
   grid-template-columns: 230px 1fr auto;
-  gap: 28px;
+  gap: 24px;
   align-items: center;
 }
 
@@ -29,7 +29,7 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 10px;
+  gap: 12px;
   min-width: 150px;
 }
 
@@ -52,6 +52,8 @@
 
   .karu-car-card-actions {
     align-items: flex-start;
+    width: 100%;
+    min-width: 0;
   }
 }
 
@@ -59,7 +61,7 @@
 .karu-form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: 16px;
 }
 
 @media (max-width: 600px) {

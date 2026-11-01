@@ -118,7 +118,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
                     <motion.span
                       layoutId="portal-tab-underline"
                       transition={{ duration: 0.25, ease: EASE_SMOOTH_OUT }}
-                      className="absolute inset-x-0 -bottom-0.5 h-0.5 rounded-full bg-brand"
+                      className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-brand"
                       aria-hidden="true"
                     />
                   )}

@@ -38,7 +38,7 @@ export function PhotoSlots({
 
   return (
     <div style={{ marginTop: 12 }}>
-      <div style={{ fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700, color: missing ? 'var(--gold-600)' : 'var(--success)', marginBottom: 6 }}>
+      <div style={{ fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 700, color: missing ? 'var(--gold-600)' : 'var(--success)', marginBottom: 4 }}>
         {missing ? t('vendor.slots.progress', { count: 6 - missing }) : t('vendor.slots.done')}
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -71,7 +71,7 @@ export function PhotoSlots({
                   <span style={{ fontFamily: 'var(--font-ui)', fontSize: 18, color: 'var(--color-slate-400)' }}>+</span>
                 )}
               </span>
-              <span style={{ display: 'block', fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 600, marginTop: 3, color: url ? 'inherit' : 'var(--color-slate-500)' }}>
+              <span style={{ display: 'block', fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 600, marginTop: 4, color: url ? 'inherit' : 'var(--color-slate-500)' }}>
                 {busy ? t('vendor.slots.uploading') : t(`angle.${angle}`)}
               </span>
               <input
@@ -90,7 +90,7 @@ export function PhotoSlots({
         })}
       </div>
       {upload.isError && (
-        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 12, color: 'var(--color-danger)', marginTop: 6, marginBottom: 0 }}>
+        <p style={{ fontFamily: 'var(--font-ui)', fontSize: 12, color: 'var(--color-danger)', marginTop: 4, marginBottom: 0 }}>
           {(upload.error as Error).message}
         </p>
       )}

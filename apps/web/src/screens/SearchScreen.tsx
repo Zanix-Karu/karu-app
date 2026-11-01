@@ -221,7 +221,7 @@ export function SearchScreen() {
       </section>
 
       {/* Sidebar + results — the mockup's 280px/1fr split */}
-      <div className="karu-sidebar-layout" style={{ marginTop: 28 }}>
+      <div className="karu-sidebar-layout" style={{ marginTop: 32 }}>
         <Card pad={24}>
           {/*
             A fieldset/legend so the group announces as "Car type" rather than
@@ -237,11 +237,11 @@ export function SearchScreen() {
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 10,
+                  gap: 12,
                   // >=24px tall: WCAG 2.2 target size. The radio itself is
                   // 13px, so the row carries the hit area.
                   minHeight: 24,
-                  padding: '7px 0',
+                  padding: '8px 0',
                   fontFamily: 'var(--font-ui)',
                   fontWeight: draft.category === value ? 700 : 500,
                   fontSize: 15,
@@ -294,11 +294,11 @@ export function SearchScreen() {
         </Card>
 
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <span style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 15, color: 'var(--gray-500)' }}>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <span className="whitespace-nowrap text-sm font-semibold text-slate-500">
               {data ? t('search.available', { count: total }) : ' '}
             </span>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
               <Button variant="outline" size="sm" loading={locating} onClick={findNearMe}>
                 {near ? t('location.nearMeOn') : t('location.nearMe')}
               </Button>
@@ -306,7 +306,7 @@ export function SearchScreen() {
                 aria-label={t('search.sortBy')}
                 value={near ? applied.sort : applied.sort === 'distance' ? 'price_asc' : applied.sort}
                 onChange={(e) => commit({ ...applied, sort: e.target.value })}
-                style={{ width: 220, padding: '10px 14px' }}
+                className="w-auto min-w-48"
               >
                 <option value="price_asc">{t('search.sortPriceAsc')}</option>
                 <option value="price_desc">{t('search.sortPriceDesc')}</option>
@@ -322,7 +322,7 @@ export function SearchScreen() {
             </p>
           )}
           {isLoading && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <SkeletonCarCard />
               <SkeletonCarCard />
               <SkeletonCarCard />

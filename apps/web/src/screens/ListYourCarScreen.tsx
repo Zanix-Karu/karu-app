@@ -75,9 +75,9 @@ export function ListYourCarScreen() {
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {steps.map((step, i) => (
             <Card key={step.title}>
-              <span className="font-display text-3xl font-bold tracking-tight text-accent">{String(i + 1).padStart(2, '0')}</span>
-              <h3 className="mt-3 font-display text-lg font-bold tracking-tight text-slate-900">{step.title}</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{step.body}</p>
+              <span className="block font-display text-3xl font-bold leading-none tracking-tight text-accent">{String(i + 1).padStart(2, '0')}</span>
+              <h3 className="mt-4 font-display text-lg font-bold tracking-tight text-slate-900">{step.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">{step.body}</p>
             </Card>
           ))}
         </div>
@@ -146,11 +146,11 @@ function ConvertToVendor() {
 
   return (
     <div id="convert">
-    <Card style={{ marginTop: 28 }}>
+    <Card style={{ marginTop: 32 }}>
       <h2 style={{ margin: 0, fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22 }}>
         {t('listYourCar.registerBusiness')}
       </h2>
-      <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 6 }}>
+      <p style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--gray-500)', marginTop: 4 }}>
         {t('listYourCar.convertSub')}
       </p>
       <form
@@ -223,7 +223,7 @@ function ConvertToVendor() {
         </label>
         <div style={{ gridColumn: '1 / -1' }}>
           {register.isError && (
-            <div style={{ marginBottom: 10 }}>
+            <div style={{ marginBottom: 12 }}>
               <ErrorNote>{(register.error as Error).message}</ErrorNote>
             </div>
           )}

@@ -297,7 +297,7 @@ export function Field({
 }) {
   return (
     <label className={cn('block', className)} style={style}>
-      <span className="mb-1.5 block text-sm font-semibold text-slate-900">{label}</span>
+      <span className="mb-2 block text-sm font-semibold text-slate-900">{label}</span>
       {children}
     </label>
   );
@@ -340,7 +340,7 @@ export function Tabs({
 }) {
   const id = useId();
   return (
-    <div role="tablist" className={cn('-mb-px flex gap-1 overflow-x-auto border-b border-slate-200', className)} style={style}>
+    <div role="tablist" className={cn('karu-nav-strip flex gap-1 overflow-x-auto border-b border-slate-200', className)} style={style}>
       {items.map((t) => {
         const is = t.key === active;
         return (
@@ -361,7 +361,7 @@ export function Tabs({
               <motion.span
                 layoutId={`tabs-underline-${id}`}
                 transition={{ duration: 0.25, ease: EASE_SMOOTH_OUT }}
-                className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-brand"
+                className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-brand"
                 aria-hidden="true"
               />
             )}
@@ -494,8 +494,8 @@ export function StatCard({
           </span>
         )}
       </div>
-      <div className={cn('value-pop mt-2 whitespace-nowrap font-display text-xl font-bold leading-tight tracking-tight tabular-nums lg:text-[1.375rem]', accent ? 'text-brand-text' : 'text-slate-900')}>
-        {value}
+      <div className={cn('mt-2 whitespace-nowrap font-display text-xl font-bold leading-tight tracking-tight tabular-nums lg:text-[1.375rem]', accent ? 'text-brand-text' : 'text-slate-900')}>
+        <span className="value-pop align-top">{value}</span>
       </div>
       {hint && <div className="mt-1 text-sm text-slate-500">{hint}</div>}
     </Card>
@@ -591,13 +591,14 @@ export function CarCard({
       <div className="karu-car-card-actions">
         {provider && <span className="text-sm font-semibold text-slate-900">{provider}</span>}
         {rating != null && <Rating value={rating} count={reviews} size={16} />}
-        <div className="mt-1 text-right">
+        <div className="mt-1 text-left min-[901px]:text-right">
           <span className="font-display text-2xl font-bold tracking-tight text-slate-900">
             {currency} {price.toLocaleString('en-US')}
           </span>
           {secondaryPrice && <div className="text-sm font-semibold text-brand-text">{secondaryPrice}</div>}
-          {subPrice && <div className="text-xs font-semibold text-slate-500">{subPrice}</div>}
-          <div className="mt-0.5 text-xs font-semibold text-slate-500">{perDayLabel}</div>
+          <div className="mt-0.5 text-xs font-semibold text-slate-500">
+            {subPrice ? `${subPrice} · ${perDayLabel}` : perDayLabel}
+          </div>
         </div>
         <Button variant="primary" size="sm" onClick={onView} className="mt-1">
           {viewLabel}

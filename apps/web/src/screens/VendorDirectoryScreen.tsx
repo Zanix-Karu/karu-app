@@ -75,7 +75,7 @@ export function VendorDirectoryScreen() {
         <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
           Verified providers
         </h1>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 18, marginTop: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16, marginTop: 24 }}>
           <SkeletonCard lines={3} />
           <SkeletonCard lines={3} />
         </div>
@@ -89,7 +89,7 @@ export function VendorDirectoryScreen() {
       <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
         {t('providers.title')}
       </h1>
-      <p style={{ fontFamily: 'var(--font-ui)', fontSize: 15, color: 'var(--gray-500)', marginTop: 6 }}>
+      <p style={{ fontFamily: 'var(--font-ui)', fontSize: 15, color: 'var(--gray-500)', marginTop: 4 }}>
         {t('providers.sub')}
       </p>
 
@@ -101,7 +101,7 @@ export function VendorDirectoryScreen() {
           height={300}
           ariaLabel={t('location.directoryMapAria')}
         />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
           <Button size="sm" variant="outline" loading={locating} onClick={findNearMe}>
             {near ? t('location.nearMeOn') : t('location.nearMe')}
           </Button>
@@ -112,11 +112,11 @@ export function VendorDirectoryScreen() {
       </div>
 
       {data?.length === 0 && <EmptyState Icon={Store} title={t('providers.none')} />}
-      <div className="karu-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 18, marginTop: 24 }}>
+      <div className="karu-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16, marginTop: 24 }}>
         {data?.map((v) => (
           <Link key={v.id} to={`/vendors/${v.id}`} className="karu-card-link" style={{ borderRadius: 'var(--radius-md)' }}>
             <Card>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 12 }}>
                 <div>
                   <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 20, color: 'var(--ink)' }}>
                     {v.business_name}
@@ -229,7 +229,7 @@ export function VendorProfileScreen() {
 
       <VendorReviews vendorId={id} />
 
-      <h2 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22, margin: '28px 0 14px' }}>
+      <h2 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22, margin: '32px 0 16px' }}>
         {t('providers.availableCars')}
       </h2>
       {isLoading && <Spinner />}
@@ -254,10 +254,10 @@ function VendorReviews({ vendorId }: { vendorId: string }) {
 
   return (
     <>
-      <h2 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22, margin: '28px 0 14px' }}>
+      <h2 style={{ fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 22, margin: '32px 0 16px' }}>
         {t('providers.whatCustomersSaid')}
       </h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
         {data.map((r) => (
           <Card key={r.id}>
             <Rating value={r.rating} />

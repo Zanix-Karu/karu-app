@@ -80,7 +80,7 @@ export function HandoverTicket({
     const qr = qrcode(0, 'M');
     qr.addData(handoverQrPayload(reference, code));
     qr.make();
-    return qr.createSvgTag({ cellSize: 6, margin: 2, scalable: true });
+    return qr.createSvgTag({ cellSize: 6, margin: 4, scalable: true });
   }, [reference, code]);
 
   return (

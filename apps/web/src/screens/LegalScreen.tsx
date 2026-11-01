@@ -42,7 +42,7 @@ export function LegalScreen({ doc }: { doc: 'privacy' | 'terms' }) {
 
       <h1
         style={{
-          margin: '18px 0 4px',
+          margin: '16px 0 4px',
           fontFamily: 'var(--font-display)',
           fontWeight: 700,
           fontSize: 40,
@@ -57,7 +57,7 @@ export function LegalScreen({ doc }: { doc: 'privacy' | 'terms' }) {
 
       {Array.isArray(sections) &&
         sections.map((s) => (
-          <section key={s.title} style={{ marginTop: 28 }}>
+          <section key={s.title} style={{ marginTop: 32 }}>
             <h2
               style={{
                 margin: 0,
